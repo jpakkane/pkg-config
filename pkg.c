@@ -525,35 +525,44 @@ packages_sort_by_path_position (GList *list)
   return g_list_sort (list, pathposcmp);
 }
 
+/* Construct a topological sort of all required packages.
+ *
+ * This is a depth first search starting from the right.  The output 'listp' is
+ * in reverse order, with the first node reached in the depth first search at
+ * the end of the list.  Previously visited nodes are skipped.  The result is
+ * a list of packages such that each packages is listed once and comes before
+ * any package that it depends on.
+ */
 static void
-recursive_fill_list (Package *pkg, gboolean include_private, GList **listp)
+recursive_fill_list (Package *pkg, gboolean include_private,
+                     GHashTable *visited, GList **listp)
 {
   GList *tmp;
 
   /*
-   * If the package is one of the parents, we can skip it. This allows
-   * circular requires loops to be broken.
+   * If the package has already been visited, then it is already in 'listp' and
+   * we can skip it. Additionally, this allows circular requires loops to be
+   * broken.
    */
-  if (pkg->in_requires_chain)
+  if (g_hash_table_lookup_extended (visited, pkg->key, NULL, NULL))
     {
       debug_spew ("Package %s already in requires chain, skipping\n",
                   pkg->key);
       return;
     }
-
   /* record this package in the dependency chain */
-  pkg->in_requires_chain = TRUE;
+  else
+    {
+      g_hash_table_replace (visited, pkg->key, pkg->key);
+    }
 
   /* Start from the end of the required package list to maintain order since
    * the recursive list is built by prepending. */
   tmp = include_private ? pkg->requires_private : pkg->requires;
   for (tmp = g_list_last (tmp); tmp != NULL; tmp = g_list_previous (tmp))
-    recursive_fill_list (tmp->data, include_private, listp);
+    recursive_fill_list (tmp->data, include_private, visited, listp);
 
   *listp = g_list_prepend (*listp, pkg);
-
-  /* remove this package from the dependency chain now that we've unwound */
-  pkg->in_requires_chain = FALSE;
 }
 
 /* merge the flags from the individual packages */
@@ -634,18 +643,15 @@ fill_list (GList *packages, FlagType type,
   GList *tmp;
   GList *expanded = NULL;
   GList *flags;
+  GHashTable *visited;
 
   /* Start from the end of the requested package list to maintain order since
    * the recursive list is built by prepending. */
+  visited = g_hash_table_new (g_str_hash, g_str_equal);
   for (tmp = g_list_last (packages); tmp != NULL; tmp = g_list_previous (tmp))
-    recursive_fill_list (tmp->data, include_private, &expanded);
-
-  /* Remove duplicate packages from the recursive list. This should provide a
-   * serialized package list where all interdependencies are resolved
-   * consistently. */
-  spew_package_list (" pre-remove", expanded);
-  expanded = package_list_strip_duplicates (expanded);
-  spew_package_list ("post-remove", expanded);
+    recursive_fill_list (tmp->data, include_private, visited, &expanded);
+  g_hash_table_destroy (visited);
+  spew_package_list ("post-recurse", expanded);
 
   if (in_path_order)
     {
@@ -686,6 +692,7 @@ verify_package (Package *pkg)
   GList *requires_iter;
   GList *conflicts_iter;
   GList *system_dir_iter = NULL;
+  GHashTable *visited;
   int count;
   const gchar *search_path;
 
@@ -756,7 +763,9 @@ verify_package (Package *pkg)
   /* Make sure we didn't drag in any conflicts via Requires
    * (inefficient algorithm, who cares)
    */
-  recursive_fill_list (pkg, TRUE, &requires);
+  visited = g_hash_table_new (g_str_hash, g_str_equal);
+  recursive_fill_list (pkg, TRUE, visited, &requires);
+  g_hash_table_destroy (visited);
   conflicts = pkg->conflicts;
 
   requires_iter = requires;

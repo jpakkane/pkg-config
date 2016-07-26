@@ -84,7 +84,6 @@ struct Package_
   int path_position; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
   int libs_num; /* Number of times the "Libs" header has been seen */
   int libs_private_num;  /* Number of times the "Libs.private" header has been seen */
-  gboolean in_requires_chain; /* package is in current Requires chain */
   char *orig_prefix; /* original prefix value before redefinition */
 };
 
