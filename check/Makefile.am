@@ -99,6 +99,7 @@ EXTRA_DIST = \
 	gtk/xproto.pc \
 	gtk/xrender.pc \
 	tilde.pc \
+	pkgconfig/empty-prefix.pc \
 	pkgconfig/prefixdef.pc \
 	pkgconfig/prefixdef-expanded.pc \
 	pcfiledir.pc \

@@ -1046,6 +1046,7 @@ parse_line (Package *pkg, const char *untrimmed, const char *path,
 	}
       else if (define_prefix &&
 	       pkg->orig_prefix != NULL &&
+	       *(pkg->orig_prefix) != '\0' &&
 	       strncmp (p, pkg->orig_prefix, strlen (pkg->orig_prefix)) == 0 &&
 	       G_IS_DIR_SEPARATOR (p[strlen (pkg->orig_prefix)]))
 	{
