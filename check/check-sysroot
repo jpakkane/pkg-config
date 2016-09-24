@@ -30,3 +30,9 @@ run_test --cflags public-dep
 
 RESULT="-L$root/sysroot/public-dep/lib -lpublic-dep"
 run_test --libs public-dep
+
+RESULT="-g -isystem /system1 -idirafter /after1 -ffoo -idirafter /after2 -isystem /system2 -I$root/sysroot/foo -I$root/sysroot/bar"
+run_test --cflags special-flags
+
+RESULT="-L$root/sysroot/foo -L$root/sysroot/bar -framework Foo -lsimple -framework Bar -Wl,-framework -Wl,Baz"
+run_test --libs special-flags
