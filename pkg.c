@@ -434,10 +434,21 @@ flag_list_to_string (GList *list)
     char *tmpstr = flag->arg;
 
     if (pcsysrootdir != NULL && flag->type & (CFLAGS_I | LIBS_L)) {
-      g_string_append_c (str, '-');
-      g_string_append_c (str, tmpstr[1]);
-      g_string_append (str, pcsysrootdir);
-      g_string_append (str, tmpstr+2);
+      /* Handle non-I Cflags like -isystem */
+      if (flag->type & CFLAGS_I && strncmp (tmpstr, "-I", 2) != 0) {
+        char *space = strchr (tmpstr, ' ');
+
+        /* Ensure this has a separate arg */
+        g_assert (space != NULL && space[1] != '\0');
+        g_string_append_len (str, tmpstr, space - tmpstr + 1);
+        g_string_append (str, pcsysrootdir);
+        g_string_append (str, space + 1);
+      } else {
+        g_string_append_c (str, '-');
+        g_string_append_c (str, tmpstr[1]);
+        g_string_append (str, pcsysrootdir);
+        g_string_append (str, tmpstr+2);
+      }
     } else {
       g_string_append (str, tmpstr);
     }
@@ -772,8 +783,12 @@ verify_package (Package *pkg)
       if (!(flag->type & CFLAGS_I))
         continue;
 
-      /* we put things in canonical -I/usr/include (vs. -I /usr/include) format,
-       * but if someone changes it later we may as well be robust
+      /* Handle the system cflags. We put things in canonical
+       * -I/usr/include (vs. -I /usr/include) format, but if someone
+       * changes it later we may as well be robust.
+       *
+       * Note that the -i* flags are left out of this handling since
+       * they're intended to adjust the system cflags behavior.
        */
       if (((strncmp (flag->arg, "-I", 2) == 0) && (offset = 2))||
           ((strncmp (flag->arg, "-I ", 3) == 0) && (offset = 3)))

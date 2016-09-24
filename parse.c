@@ -861,7 +861,9 @@ parse_cflags (Package *pkg, const char *str, const char *path)
 
           tmp = trim_string (argv[i+1]);
           option = strdup_escape_shell (tmp);
-          flag->type = CFLAGS_OTHER;
+
+          /* These are -I flags since they control the search path */
+          flag->type = CFLAGS_I;
           flag->arg = g_strconcat (arg, " ", option, NULL);
           pkg->cflags = g_list_prepend (pkg->cflags, flag);
           i++;
