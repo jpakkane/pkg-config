@@ -43,11 +43,8 @@
 static void verify_package (Package *pkg);
 
 static GHashTable *packages = NULL;
-static GHashTable *locations = NULL;
-static GHashTable *path_positions = NULL;
 static GHashTable *globals = NULL;
 static GList *search_dirs = NULL;
-static int scanned_dir_count = 0;
 
 gboolean disable_uninstalled = FALSE;
 gboolean ignore_requires = FALSE;
@@ -121,6 +118,8 @@ name_ends_in_uninstalled (const char *str)
     return FALSE;
 }
 
+static Package *
+internal_get_package (const char *name, gboolean warn);
 
 /* Look for .pc files in the given directory and add them into
  * locations, ignoring duplicates
@@ -129,7 +128,7 @@ static void
 scan_dir (char *dirname)
 {
   GDir *dir;
-  const gchar *d_name;
+  const gchar *filename;
 
   int dirnamelen = strlen (dirname);
   /* Use a copy of dirname cause Win32 opendir doesn't like
@@ -161,59 +160,20 @@ scan_dir (char *dirname)
   dir = g_dir_open (dirname_copy, 0 , NULL);
   g_free (dirname_copy);
 
-  scanned_dir_count += 1;
-
   if (!dir)
     {
-      debug_spew ("Cannot open directory #%i '%s' in package search path: %s\n",
-                  scanned_dir_count, dirname, g_strerror (errno));
+      debug_spew ("Cannot open directory '%s' in package search path: %s\n",
+                  dirname, g_strerror (errno));
       return;
     }
 
-  debug_spew ("Scanning directory #%i '%s'\n", scanned_dir_count, dirname);
-  
-  while ((d_name = g_dir_read_name(dir)))
+  debug_spew ("Scanning directory '%s'\n", dirname);
+
+  while ((filename = g_dir_read_name(dir)))
     {
-      int len = strlen (d_name);
-
-      if (ends_in_dotpc (d_name))
-        {
-          char *pkgname = g_malloc (len - EXT_LEN + 1);
-
-          debug_spew ("File '%s' appears to be a .pc file\n", d_name);
-          
-          strncpy (pkgname, d_name, len - EXT_LEN);
-          pkgname[len-EXT_LEN] = '\0';
-
-          if (g_hash_table_lookup (locations, pkgname))
-            {
-              debug_spew ("File '%s' ignored, we already know about package '%s'\n", d_name, pkgname);
-              g_free (pkgname);
-            }
-          else
-            {
-              char *filename = g_malloc (dirnamelen + 1 + len + 1);
-              strncpy (filename, dirname, dirnamelen);
-              filename[dirnamelen] = G_DIR_SEPARATOR;
-              strcpy (filename + dirnamelen + 1, d_name);
-              
-	      if (g_file_test(filename, G_FILE_TEST_IS_REGULAR) == TRUE) {
-		  g_hash_table_insert (locations, pkgname, filename);
-		  g_hash_table_insert (path_positions, pkgname,
-				       GINT_TO_POINTER (scanned_dir_count));
-		  debug_spew ("Will find package '%s' in file '%s'\n",
-			      pkgname, filename);
-	      } else {
-		  debug_spew ("Ignoring '%s' while looking for '%s'; not a "
-			      "regular file.\n", pkgname, filename);
-	      }
-	    }
-        }
-      else
-        {
-          debug_spew ("Ignoring file '%s' in search directory; not a .pc file\n",
-                      d_name);
-        }
+      char *path = g_build_filename (dirname, filename, NULL);
+      internal_get_package (path, FALSE);
+      g_free (path);
     }
   g_dir_close (dir);
 }
@@ -243,31 +203,31 @@ add_virtual_pkgconfig_package (void)
 }
 
 void
-package_init ()
+package_init (gboolean want_list)
 {
-  static gboolean initted = FALSE;
-
-  if (!initted)
-    {
-      initted = TRUE;
+  if (packages)
+    return;
       
-      packages = g_hash_table_new (g_str_hash, g_str_equal);
-      locations = g_hash_table_new (g_str_hash, g_str_equal);
-      path_positions = g_hash_table_new (g_str_hash, g_str_equal);
-      
-      add_virtual_pkgconfig_package ();
+  packages = g_hash_table_new (g_str_hash, g_str_equal);
 
-      g_list_foreach (search_dirs, (GFunc)scan_dir, NULL);
-    }
+  if (want_list)
+    g_list_foreach (search_dirs, (GFunc)scan_dir, NULL);
+  else
+    /* Should not add virtual pkgconfig package when listing to be
+     * compatible with old code that only listed packages from real
+     * files */
+    add_virtual_pkgconfig_package ();
 }
 
 static Package *
 internal_get_package (const char *name, gboolean warn)
 {
   Package *pkg = NULL;
-  char *key;
-  const char *location;
+  char *key = NULL;
+  char *location = NULL;
+  unsigned int path_position = 0;
   GList *iter;
+  GList *dir_iter;
   
   pkg = g_hash_table_lookup (packages, name);
 
@@ -280,7 +240,8 @@ internal_get_package (const char *name, gboolean warn)
   if ( ends_in_dotpc (name) )
     {
       debug_spew ("Considering '%s' to be a filename rather than a package name\n", name);
-      location = name;
+      location = g_strdup (name);
+      key = g_strdup (name);
     }
   else
     {
@@ -303,7 +264,18 @@ internal_get_package (const char *name, gboolean warn)
             }
         }
       
-      location = g_hash_table_lookup (locations, name);
+      for (dir_iter = search_dirs; dir_iter != NULL;
+           dir_iter = g_list_next (dir_iter))
+        {
+          path_position++;
+          location = g_strdup_printf ("%s%c%s.pc", (char*)dir_iter->data,
+                                      G_DIR_SEPARATOR, name);
+          if (g_file_test (location, G_FILE_TEST_IS_REGULAR))
+            break;
+          g_free (location);
+          location = NULL;
+        }
+
     }
   
   if (location == NULL)
@@ -317,21 +289,13 @@ internal_get_package (const char *name, gboolean warn)
       return NULL;
     }
 
-  if (location != name)
+  if (key == NULL)
     key = g_strdup (name);
   else
     {
       /* need to strip package name out of the filename */
-      int len = strlen (name);
-      const char *end = name + (len - EXT_LEN);
-      const char *start = end;
-
-      while (start != name && *start != G_DIR_SEPARATOR)
-        --start;
-
-      g_assert (end >= start);
-
-      key = g_strndup (start, end - start);
+      key = g_path_get_basename (name);
+      key[strlen (key) - EXT_LEN] = '\0';
     }
 
   debug_spew ("Reading '%s' from file '%s'\n", name, location);
@@ -339,17 +303,18 @@ internal_get_package (const char *name, gboolean warn)
                             ignore_private_libs, ignore_requires_private);
   g_free (key);
 
+  if (pkg != NULL && strstr (location, "uninstalled.pc"))
+    pkg->uninstalled = TRUE;
+
+  g_free (location);
+
   if (pkg == NULL)
     {
       debug_spew ("Failed to parse '%s'\n", location);
       return NULL;
     }
 
-  if (strstr (location, "uninstalled.pc"))
-    pkg->uninstalled = TRUE;
-
-  pkg->path_position =
-    GPOINTER_TO_INT (g_hash_table_lookup (path_positions, pkg->key));
+  pkg->path_position = path_position;
 
   debug_spew ("Path position of '%s' is %d\n",
               pkg->key, pkg->path_position);
@@ -1170,19 +1135,15 @@ max_len_foreach (gpointer key, gpointer value, gpointer data)
 static void
 packages_foreach (gpointer key, gpointer value, gpointer data)
 {
-  Package *pkg = get_package (key);
+  Package *pkg = value;
+  char *pad;
 
-  if (pkg != NULL)
-    {
-      char *pad;
-
-      pad = g_strnfill (GPOINTER_TO_INT (data) - strlen (pkg->key), ' ');
+  pad = g_strnfill (GPOINTER_TO_INT (data) - strlen (pkg->key), ' ');
       
-      printf ("%s%s%s - %s\n",
-              pkg->key, pad, pkg->name, pkg->description);
+  printf ("%s%s%s - %s\n",
+          pkg->key, pad, pkg->name, pkg->description);
 
-      g_free (pad);
-    }
+  g_free (pad);
 }
 
 void
@@ -1193,8 +1154,8 @@ print_package_list (void)
   ignore_requires = TRUE;
   ignore_requires_private = TRUE;
 
-  g_hash_table_foreach (locations, max_len_foreach, &mlen);
-  g_hash_table_foreach (locations, packages_foreach, GINT_TO_POINTER (mlen + 1));
+  g_hash_table_foreach (packages, max_len_foreach, &mlen);
+  g_hash_table_foreach (packages, packages_foreach, GINT_TO_POINTER (mlen + 1));
 }
 
 void

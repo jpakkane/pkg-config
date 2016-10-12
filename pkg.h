@@ -98,7 +98,7 @@ char *   packages_get_var          (GList      *pkgs,
 
 void add_search_dir (const char *path);
 void add_search_dirs (const char *path, const char *separator);
-void package_init (void);
+void package_init (gboolean want_list);
 int compare_versions (const char * a, const char *b);
 gboolean version_test (ComparisonType comparison,
                        const char *a,
