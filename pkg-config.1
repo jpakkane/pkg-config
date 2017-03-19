@@ -32,7 +32,7 @@ scenario in a Makefile:
 .PP
 .nf
 program: program.c
-	cc program.c $(pkg-config --cflags --libs gnomeui)
+	cc program.c `pkg-config --cflags --libs gnomeui`
 .fi
 .PP
 .I pkg-config
