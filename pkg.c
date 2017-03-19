@@ -745,6 +745,12 @@ verify_package (Package *pkg)
 
   system_directories = add_env_variable_to_list (system_directories, search_path);
 
+  search_path = g_getenv ("CPATH");
+  if (search_path != NULL)
+    {
+      system_directories = add_env_variable_to_list (system_directories, search_path);
+    }
+
   search_path = g_getenv ("C_INCLUDE_PATH");
   if (search_path != NULL)
     {
