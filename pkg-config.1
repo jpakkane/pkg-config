@@ -319,11 +319,39 @@ Normally if you request the package "foo" and the package
 uninstalled packages.  If this environment variable is set, it
 disables said behavior.
 .TP
+.I "PKG_CONFIG_SYSTEM_INCLUDE_PATH"
+A path variable containing system directories searched by the compiler.
+This is normally
+.IR /usr/include .
+.TP
+.I "CPATH"
+.TQ
+.I "C_INCLUDE_PATH"
+.TQ
+.I "CPLUS_INCLUDE_PATH"
+Additional paths to append to
+.IR "PKG_CONFIG_SYSTEM_INCLUDE_PATH" .
+These correspond to environment variables used by many compilers to
+affect the header search path.
+.TP
 .I "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS"
-Don't strip -I/usr/include out of cflags.
+Don't strip system paths out of Cflags. See
+.I "PKG_CONFIG_SYSTEM_INCLUDE_PATH"
+for the definition of system paths.
+.TP
+.I "PKG_CONFIG_SYSTEM_LIBRARY_PATH"
+A path variable containing system directories searched by the linker.
+This is normally
+.I /usr/lib:/lib
+but is dependent on the
+.I pkg-config
+build and can contain other directories such as
+.IR /usr/lib64 .
 .TP
 .I "PKG_CONFIG_ALLOW_SYSTEM_LIBS"
-Don't strip -L/usr/lib or -L/lib out of libs.
+Don't strip system paths out of Libs. See
+.I "PKG_CONFIG_SYSTEM_LIBRARY_PATH"
+for the definition of system paths.
 .TP
 .I "PKG_CONFIG_SYSROOT_DIR"
 Modify -I and -L to use the directories located in target sysroot.
