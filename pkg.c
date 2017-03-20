@@ -621,6 +621,25 @@ add_env_variable_to_list (GList *list, const gchar *env)
   return list;
 }
 
+/* Well known compiler include path environment variables. These are
+ * used to find additional system include paths to remove. See
+ * https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html. */
+static const gchar *gcc_include_envvars[] = {
+  "CPATH",
+  "C_INCLUDE_PATH",
+  "CPP_INCLUDE_PATH",
+  NULL
+};
+
+#ifdef G_OS_WIN32
+/* MSVC include path environment variables. See
+ * https://msdn.microsoft.com/en-us/library/73f9s62w.aspx. */
+static const gchar *msvc_include_envvars[] = {
+  "INCLUDE",
+  NULL
+};
+#endif
+
 static void
 verify_package (Package *pkg)
 {
@@ -634,6 +653,8 @@ verify_package (Package *pkg)
   GHashTable *visited;
   int count;
   const gchar *search_path;
+  const gchar **include_envvars;
+  const gchar **var;
 
   /* Be sure we have the required fields */
 
@@ -743,8 +764,8 @@ verify_package (Package *pkg)
   
   g_list_free (requires);
 
-  /* We make a list of system directories that gcc expects so we can remove
-   * them.
+  /* We make a list of system directories that compilers expect so we
+   * can remove them.
    */
 
   search_path = g_getenv ("PKG_CONFIG_SYSTEM_INCLUDE_PATH");
@@ -756,22 +777,16 @@ verify_package (Package *pkg)
 
   system_directories = add_env_variable_to_list (system_directories, search_path);
 
-  search_path = g_getenv ("CPATH");
-  if (search_path != NULL)
+#ifdef G_OS_WIN32
+  include_envvars = msvc_syntax ? msvc_include_envvars : gcc_include_envvars;
+#else
+  include_envvars = gcc_include_envvars;
+#endif
+  for (var = include_envvars; *var != NULL; var++)
     {
-      system_directories = add_env_variable_to_list (system_directories, search_path);
-    }
-
-  search_path = g_getenv ("C_INCLUDE_PATH");
-  if (search_path != NULL)
-    {
-      system_directories = add_env_variable_to_list (system_directories, search_path);
-    }
-
-  search_path = g_getenv ("CPLUS_INCLUDE_PATH");
-  if (search_path != NULL)
-    {
-      system_directories = add_env_variable_to_list (system_directories, search_path);
+      search_path = g_getenv (*var);
+      if (search_path != NULL)
+        system_directories = add_env_variable_to_list (system_directories, search_path);
     }
 
   count = 0;

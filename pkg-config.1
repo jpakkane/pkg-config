@@ -332,7 +332,15 @@ This is normally
 Additional paths to append to
 .IR "PKG_CONFIG_SYSTEM_INCLUDE_PATH" .
 These correspond to environment variables used by many compilers to
-affect the header search path.
+affect the header search path. These are ignored on Windows builds when
+\-\-msvc-syntax is in use.
+.TP
+.I "INCLUDE"
+Additional paths to append to
+.IR "PKG_CONFIG_SYSTEM_INCLUDE_PATH"
+on Windows builds when \-\-msvc-syntax is in use. This corresponds to
+the environment variable used by MSVC to add directories to the include
+file search path.
 .TP
 .I "PKG_CONFIG_ALLOW_SYSTEM_CFLAGS"
 Don't strip system paths out of Cflags. See
