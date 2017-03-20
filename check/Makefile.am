@@ -30,6 +30,7 @@ TESTS = \
 	check-variable-override \
 	check-variables \
 	check-dependencies \
+	check-system-flags \
 	$(NULL)
 
 EXTRA_DIST = \
@@ -116,4 +117,5 @@ EXTRA_DIST = \
 	dependencies/i_dep_k_j.pc \
 	dependencies/j_dep_k.pc \
 	dependencies/k_dep.pc \
+	system.pc \
 	$(NULL)
