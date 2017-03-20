@@ -17,6 +17,7 @@ Makefile.in
 aclocal.m4
 autom4te.cache/
 check/config.sh
+compile
 *config.cache
 config.guess
 config.h
