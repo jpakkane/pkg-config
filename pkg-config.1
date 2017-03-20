@@ -468,7 +468,15 @@ macro will be available.
 
 Defines the PKG_CONFIG variable to the best pkg-config available,
 useful if you need pkg-config but don't want to use PKG_CHECK_MODULES.
-.\"
+
+If the first call to PKG_PROG_PKG_CONFIG is conditional, then it will
+not work correctly in all cases. Since many of the other macros such as
+PKG_CHECK_MODULES require PKG_PROG_PKG_CONFIG to know which pkg-config
+program to run, PKG_PROG_PKG_CONFIG may be run for the first time from a
+conditional from one of these macros. Therefore, if any of the
+pkg-config macros will be used under a conditional, it's best to run
+PKG_PROG_PKG_CONFIG before any of the other macros are used.
+
 .TP
 .I "PKG_CHECK_MODULES_STATIC(VARIABLE-PREFIX, MODULES [,ACTION-IF-FOUND [,ACTION-IF-NOT-FOUND]])"
 Enables static linking through --static prior to calling
