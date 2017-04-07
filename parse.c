@@ -962,9 +962,11 @@ parse_line (Package *pkg, const char *untrimmed, const char *path,
           else
 	    goto cleanup;
         }
-      else if ((strcmp (tag, "Libs.private") == 0) && 
-               ignore_private_libs == FALSE)
-        parse_libs_private (pkg, p, path);
+      else if (strcmp (tag, "Libs.private") == 0)
+        {
+          if (!ignore_private_libs)
+            parse_libs_private (pkg, p, path);
+        }
       else if (strcmp (tag, "Libs") == 0)
         parse_libs (pkg, p, path);
       else if (strcmp (tag, "Cflags") == 0 ||
