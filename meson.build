@@ -33,7 +33,8 @@ pkgconfig = executable('pkg-config',
   'rpmvercmp.c',
   'main.c',
   c_args : '-DHAVE_CONFIG_H=1',
-  dependencies : glib_dep)
+  dependencies : glib_dep,
+  install : true)
 
 subdir('check')
 
