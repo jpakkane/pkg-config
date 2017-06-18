@@ -19,6 +19,7 @@ tests = ['check-cflags.py',
   'check-requires-private.py',
   'check-requires-version.py',
   'check-sort-order.py',
+  'check-special-flags.py',
   ]
 
 foreach t: tests
