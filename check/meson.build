@@ -6,6 +6,7 @@ tests = ['check-cflags.py',
   'check-define-variable.py',
   'check-dependencies.py',
   'check-duplicate-flags.py',
+  'check-gtk.py',
   ]
 
 foreach t: tests
