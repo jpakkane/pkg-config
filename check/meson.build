@@ -21,6 +21,7 @@ tests = ['check-cflags.py',
   'check-sort-order.py',
   'check-special-flags.py',
   'check-sysroot.py',
+  'check-system-flags.py',
   ]
 
 foreach t: tests
