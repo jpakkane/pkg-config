@@ -21,6 +21,8 @@ cdata.set('PACKAGE_VERSION', meson.project_version())
 
 cdata.set('srcdir', join_paths(meson.current_source_dir(), 'check'))
 cdata.set('use_indirect_deps', cdata.get('ENABLE_INDIRECT_DEPS'))
+cdata.set('abs_srcdir', join_paths(meson.current_source_dir(), 'check'))
+cdata.set('abs_top_srcdir', meson.current_source_dir())
 
 configure_file(output : 'config.h',
   configuration : cdata)

@@ -35,7 +35,7 @@ class PkgChecker:
             for k, v in envvars.items():
                 env[k] = self.varsubst(v)
             is_problem = False
-            full_cmd = [self.pkgconfig_bin] + arguments
+            full_cmd = [self.pkgconfig_bin] + [self.varsubst(x) for x in arguments]
             pc = subprocess.Popen(full_cmd,
                                   universal_newlines=True,
                                   stdout=subprocess.PIPE,
