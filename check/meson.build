@@ -3,6 +3,7 @@ tests = ['check-cflags.py',
   'check-cmd-options.py',
   'check-conflicts.py',
   'check-debug.py',
+  'check-define-variable.py',
   ]
 
 foreach t: tests
