@@ -16,6 +16,7 @@ tests = ['check-cflags.py',
   'check-path.py',
   'check-print-options.py',
   'check-relocatable.py',
+  'check-requires-private.py',
   ]
 
 foreach t: tests
