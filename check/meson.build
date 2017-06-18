@@ -9,6 +9,8 @@ tests = ['check-cflags.py',
   'check-gtk.py',
   'check-includedir.py',
   'check-libs.py',
+  'check-libs-private.py',
+  'check-missing.py',
   ]
 
 foreach t: tests
