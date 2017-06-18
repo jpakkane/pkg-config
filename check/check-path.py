@@ -39,4 +39,4 @@ from pkgchecker import PkgChecker
 if __name__ == '__main__':
    print('This test requires manual work.')
    sys.exit(77)
-   
+

@@ -13,6 +13,7 @@ tests = ['check-cflags.py',
   'check-missing.py',
   'check-mixed-flags.py',
   'check-non-l-flags.py',
+  'check-path.py',
   ]
 
 foreach t: tests

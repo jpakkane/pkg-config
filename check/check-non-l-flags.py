@@ -1,4 +1,5 @@
 #/usr/bin/env python
+
 import sys
 from pkgchecker import PkgChecker
 
