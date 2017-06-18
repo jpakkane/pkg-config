@@ -12,6 +12,7 @@ tests = ['check-cflags.py',
   'check-libs-private.py',
   'check-missing.py',
   'check-mixed-flags.py',
+  'check-non-l-flags.py',
   ]
 
 foreach t: tests
