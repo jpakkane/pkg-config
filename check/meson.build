@@ -1,4 +1,4 @@
-tests = ['check-cflags.py', 'check-debug.py']
+tests = ['check-cflags.py', 'check-circular-requires.py', 'check-debug.py']
 
 foreach t: tests
   test(t, py3_exe, args: files(t) + [pkgconfig])
