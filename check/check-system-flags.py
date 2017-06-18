@@ -60,6 +60,7 @@ tests = [(0, '', '', pgenv, ['--cflags', 'system']),
 #     fi
 # done
 ]
+
 if __name__ == '__main__':
     checker = PkgChecker(__file__, sys.argv)
     sys.exit(checker.check(tests))

@@ -22,6 +22,8 @@ tests = ['check-cflags.py',
   'check-special-flags.py',
   'check-sysroot.py',
   'check-system-flags.py',
+  'check-tilde.py',
+  'check-uninstalled.py',
   ]
 
 foreach t: tests
