@@ -8,6 +8,7 @@ tests = ['check-cflags.py',
   'check-duplicate-flags.py',
   'check-gtk.py',
   'check-includedir.py',
+  'check-libs.py',
   ]
 
 foreach t: tests
