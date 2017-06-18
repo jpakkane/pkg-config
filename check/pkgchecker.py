@@ -26,7 +26,10 @@ class PkgChecker:
 
     def check(self, tests):
         total_errors = 0
+        test_number = 0
         for expected_rc, expected_stdout, expected_stderr, envvars, arguments in tests:
+            test_number += 1
+            print('Test', test_number)
             env = os.environ.copy()
             if 'PKG_CONFIG_PATH' in env:
                 del env['PKG_CONFIG_PATH']
@@ -47,7 +50,7 @@ class PkgChecker:
             expected_stdout = self.varsubst(expected_stdout.strip())
             expected_stderr = self.varsubst(expected_stderr.strip())
             if pc.returncode != expected_rc:
-                print('Error running command')
+                print('Error running command', ' '.join(full_cmd))
                 print(stdo)
                 print(stde)
                 is_problem = True

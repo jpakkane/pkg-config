@@ -26,6 +26,7 @@ tests = ['check-cflags.py',
   'check-uninstalled.py',
   'check-variable-override.py',
   'check-variables.py',
+  'check-version.py',
   ]
 
 foreach t: tests
