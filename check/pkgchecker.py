@@ -16,8 +16,13 @@ class PkgChecker:
                 continue
             k, v = line.split('=', 1)
             self.replacements[k.strip()] = v.strip()
-#        print(self.replacements)
-#        self.replacements = {'PACKAGE_VERSION': '0.29.2'}
+
+
+    def varsubst(self, text):
+        for k, v in self.replacements.items():
+            text = text.replace('$' + k, v)
+            text = text.replace('${%s}' % k, v)
+        return text
 
     def check(self, tests):
         total_errors = 0
@@ -27,7 +32,8 @@ class PkgChecker:
                 del env['PKG_CONFIG_PATH']
             env['PKG_CONFIG_LIBDIR'] = self.data_dir
             env['LC_ALL'] = 'C'
-            env.update(envvars)
+            for k, v in envvars.items():
+                env[k] = self.varsubst(v)
             is_problem = False
             full_cmd = [self.pkgconfig_bin] + arguments
             pc = subprocess.Popen(full_cmd,
@@ -38,11 +44,8 @@ class PkgChecker:
             stdo, stde = pc.communicate()
             stdo = stdo.strip()
             stde = stde.strip()
-            expected_stdout = expected_stdout.strip()
-            expected_stderr = expected_stderr.strip()
-            for k, v in self.replacements.items():
-                expected_stdout = expected_stdout.replace('$' + k, v)
-                expected_stderr = expected_stderr.replace('$' + k, v)
+            expected_stdout = self.varsubst(expected_stdout.strip())
+            expected_stderr = self.varsubst(expected_stderr.strip())
             if pc.returncode != expected_rc:
                 print('Error running command')
                 print(stdo)
