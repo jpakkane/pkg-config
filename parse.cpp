@@ -377,7 +377,7 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
 
         p = static_cast<char*>(iter->data);
 
-        ver = g_new0(RequiredVersion, 1);
+        ver = new RequiredVersion();
         ver->comparison = ALWAYS_MATCH;
         ver->owner = pkg;
         retval = g_list_prepend(retval, ver);
@@ -403,7 +403,7 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
                 continue;
         }
 
-        ver->name = g_strdup(start);
+        ver->name = start;
 
         start = p;
 
@@ -430,7 +430,7 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
                 ver->comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after "
-                        "package name '%s' in file '%s'\n", start, ver->name, path);
+                        "package name '%s' in file '%s'\n", start, ver->name.c_str(), path);
                 if(parse_strict)
                     exit(1);
                 else
@@ -450,20 +450,20 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
 
         if(ver->comparison != ALWAYS_MATCH && *start == '\0') {
             verbose_error("Comparison operator but no version after package "
-                    "name '%s' in file '%s'\n", ver->name, path);
+                    "name '%s' in file '%s'\n", ver->name.c_str(), path);
             if(parse_strict)
                 exit(1);
             else {
-                ver->version = g_strdup("0");
+                ver->version = "0";
                 continue;
             }
         }
 
         if(*start != '\0') {
-            ver->version = g_strdup(start);
+            ver->version = start;
         }
 
-        g_assert(ver->name);
+        g_assert(!ver->name.empty());
     }
 
     g_list_foreach(split, (GFunc) g_free, NULL);

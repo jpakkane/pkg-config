@@ -20,6 +20,7 @@
 #ifndef PKG_CONFIG_PKG_H
 #define PKG_CONFIG_PKG_H
 
+#include<string>
 #include <glib.h>
 
 typedef guint8 FlagType; /* bit mask for flag types */
@@ -40,18 +41,17 @@ typedef enum {
 
 typedef struct Flag_ Flag;
 typedef struct Package_ Package;
-typedef struct RequiredVersion_ RequiredVersion;
 
 struct Flag_ {
     FlagType type;
     char *arg;
 };
 
-struct RequiredVersion_ {
-    char *name;
-    ComparisonType comparison;
-    char *version;
-    Package *owner;
+struct RequiredVersion {
+    std::string name;
+    ComparisonType comparison = LESS_THAN;
+    std::string version;
+    Package *owner = nullptr;
 };
 
 struct Package_ {

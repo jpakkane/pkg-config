@@ -299,42 +299,39 @@ static gboolean process_package_args(const char *cmdline, GList **packages, FILE
 
         /* override requested versions with cmdline options */
         if(required_exact_version) {
-            g_free(ver->version);
             ver->comparison = EQUAL;
-            ver->version = g_strdup(required_exact_version);
+            ver->version = required_exact_version;
         } else if(required_atleast_version) {
-            g_free(ver->version);
             ver->comparison = GREATER_THAN_EQUAL;
-            ver->version = g_strdup(required_atleast_version);
+            ver->version = required_atleast_version;
         } else if(required_max_version) {
-            g_free(ver->version);
             ver->comparison = LESS_THAN_EQUAL;
-            ver->version = g_strdup(required_max_version);
+            ver->version = required_max_version;
         }
 
         if(want_short_errors)
-            req = get_package_quiet(ver->name);
+            req = get_package_quiet(ver->name.c_str());
         else
-            req = get_package(ver->name);
+            req = get_package(ver->name.c_str());
 
         if(log != NULL) {
             if(req == NULL)
-                fprintf(log, "%s NOT-FOUND\n", ver->name);
+                fprintf(log, "%s NOT-FOUND\n", ver->name.c_str());
             else
-                fprintf(log, "%s %s %s\n", ver->name, comparison_to_str(ver->comparison),
-                        (ver->version == NULL) ? "(null)" : ver->version);
+                fprintf(log, "%s %s %s\n", ver->name.c_str(), comparison_to_str(ver->comparison),
+                        (ver->version.empty()) ? "(null)" : ver->version.c_str());
         }
 
         if(req == NULL) {
             success = FALSE;
-            verbose_error("No package '%s' found\n", ver->name);
+            verbose_error("No package '%s' found\n", ver->name.c_str());
             continue;
         }
 
-        if(!version_test(ver->comparison, req->version, ver->version)) {
+        if(!version_test(ver->comparison, req->version, ver->version.c_str())) {
             success = FALSE;
-            verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver->name,
-                    comparison_to_str(ver->comparison), ver->version, req->name, req->version);
+            verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver->name.c_str(),
+                    comparison_to_str(ver->comparison), ver->version.c_str(), req->name, req->version);
             if(req->url)
                 verbose_error("You may find new versions of %s at %s\n", req->name, req->url);
             continue;
@@ -667,7 +664,7 @@ int main(int argc, char **argv) {
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key);
                 else
-                    printf("%s %s %s\n", deppkg->key, comparison_to_str(req->comparison), req->version);
+                    printf("%s %s %s\n", deppkg->key, comparison_to_str(req->comparison), req->version.c_str());
             }
         }
     }
@@ -689,7 +686,7 @@ int main(int argc, char **argv) {
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key);
                 else
-                    printf("%s %s %s\n", deppkg->key, comparison_to_str(req->comparison), req->version);
+                    printf("%s %s %s\n", deppkg->key, comparison_to_str(req->comparison), req->version.c_str());
             }
         }
     }

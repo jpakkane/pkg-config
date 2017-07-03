@@ -291,17 +291,17 @@ internal_get_package(const char *name, gboolean warn) {
         Package *req;
         RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
-        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key, ver->name);
-        req = internal_get_package(ver->name, warn);
+        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key, ver->name.c_str());
+        req = internal_get_package(ver->name.c_str(), warn);
         if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver->name, pkg->key);
+            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key);
             exit(1);
         }
 
         if(pkg->required_versions == NULL)
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
-        g_hash_table_insert(pkg->required_versions, ver->name, ver);
+        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver->name.c_str()), ver);
         pkg->requires = g_list_prepend(pkg->requires, req);
     }
 
@@ -310,17 +310,17 @@ internal_get_package(const char *name, gboolean warn) {
         Package *req;
         RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
-        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key, ver->name);
-        req = internal_get_package(ver->name, warn);
+        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key, ver->name.c_str());
+        req = internal_get_package(ver->name.c_str(), warn);
         if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver->name, pkg->key);
+            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key);
             exit(1);
         }
 
         if(pkg->required_versions == NULL)
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
-        g_hash_table_insert(pkg->required_versions, ver->name, ver);
+        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver->name.c_str()), ver);
         pkg->requires_private = g_list_prepend(pkg->requires_private, req);
     }
 
@@ -607,9 +607,9 @@ static void verify_package(Package *pkg) {
             ver = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, req->key));
 
         if(ver) {
-            if(!version_test(ver->comparison, req->version, ver->version)) {
+            if(!version_test(ver->comparison, req->version, ver->version.c_str())) {
                 verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key, req->key,
-                        comparison_to_str(ver->comparison), ver->version, req->key, req->version);
+                        comparison_to_str(ver->comparison), ver->version.c_str(), req->key, req->version);
                 if(req->url)
                     verbose_error("You may find new versions of %s at %s\n", req->name, req->url);
 
@@ -637,10 +637,10 @@ static void verify_package(Package *pkg) {
         while(conflicts_iter != NULL) {
             RequiredVersion *ver = static_cast<RequiredVersion*>(conflicts_iter->data);
 
-            if(strcmp(ver->name, req->key) == 0 && version_test(ver->comparison, req->version, ver->version)) {
+            if(strcmp(ver->name.c_str(), req->key) == 0 && version_test(ver->comparison, req->version, ver->version.c_str())) {
                 verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req->version, req->key, ver->name,
-                        comparison_to_str(ver->comparison), ver->version ? ver->version : "(any)", ver->owner->key,
+                        "(%s %s %s conflicts with %s %s)\n", req->version, req->key, ver->name.c_str(),
+                        comparison_to_str(ver->comparison), ver->version.empty() ? ver->version.c_str() : "(any)", ver->owner->key,
                         ver->owner->version);
 
                 exit(1);
