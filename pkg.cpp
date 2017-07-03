@@ -356,12 +356,12 @@ flag_list_strip_duplicates(GList *list) {
         Flag *cur = static_cast<Flag*>(tmp->data);
         Flag *prev = static_cast<Flag*>(tmp->prev->data);
 
-        if(cur->type == prev->type && g_strcmp0(cur->arg, prev->arg) == 0) {
+        if(cur->type == prev->type && g_strcmp0(cur->arg.c_str(), prev->arg.c_str()) == 0) {
             /* Remove the duplicate flag from the list and move to the last
              * element to prepare for the next iteration. */
             GList *dup = tmp;
 
-            debug_spew(" removing duplicate \"%s\"\n", cur->arg);
+            debug_spew(" removing duplicate \"%s\"\n", cur->arg.c_str());
             tmp = g_list_previous(tmp);
             list = g_list_remove_link(list, dup);
         }
@@ -379,12 +379,12 @@ flag_list_to_string(GList *list) {
     tmp = list;
     while(tmp != NULL) {
         Flag *flag = static_cast<Flag*>(tmp->data);
-        char *tmpstr = flag->arg;
+        const char *tmpstr = flag->arg.c_str();
 
         if(pcsysrootdir != NULL && flag->type & (CFLAGS_I | LIBS_L)) {
             /* Handle non-I Cflags like -isystem */
             if(flag->type & CFLAGS_I && strncmp(tmpstr, "-I", 2) != 0) {
-                char *space = strchr(tmpstr, ' ');
+                const char *space = strchr(tmpstr, ' ');
 
                 /* Ensure this has a separate arg */
                 g_assert(space != NULL && space[1] != '\0');
@@ -692,8 +692,8 @@ static void verify_package(Package *pkg) {
          * Note that the -i* flags are left out of this handling since
          * they're intended to adjust the system cflags behavior.
          */
-        if(((strncmp(flag->arg, "-I", 2) == 0) && (offset = 2))
-                || ((strncmp(flag->arg, "-I ", 3) == 0) && (offset = 3))) {
+        if(((strncmp(flag->arg.c_str(), "-I", 2) == 0) && (offset = 2))
+                || ((strncmp(flag->arg.c_str(), "-I ", 3) == 0) && (offset = 3))) {
             if(offset == 0) {
                 iter = iter->next;
                 continue;
@@ -701,10 +701,10 @@ static void verify_package(Package *pkg) {
 
             system_dir_iter = system_directories;
             while(system_dir_iter != NULL) {
-                if(strcmp(static_cast<char*>(system_dir_iter->data), ((char*) flag->arg) + offset) == 0) {
-                    debug_spew("Package %s has %s in Cflags\n", pkg->key, (gchar *) flag->arg);
+                if(strcmp(static_cast<char*>(system_dir_iter->data), &flag->arg[offset]) == 0) {
+                    debug_spew("Package %s has %s in Cflags\n", pkg->key, (gchar *) flag->arg.c_str());
                     if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == NULL) {
-                        debug_spew("Removing %s from cflags for %s\n", flag->arg, pkg->key);
+                        debug_spew("Removing %s from cflags for %s\n", flag->arg.c_str(), pkg->key);
                         ++count;
                         iter->data = NULL;
 
@@ -744,7 +744,7 @@ static void verify_package(Package *pkg) {
 
         while(system_dir_iter != NULL) {
             gboolean is_system = FALSE;
-            const char *linker_arg = flag->arg;
+            const char *linker_arg = flag->arg.c_str();
             const char *system_libpath = static_cast<char*>(system_dir_iter->data);
 
             if(strncmp(linker_arg, "-L ", 3) == 0 && strcmp(linker_arg + 3, system_libpath) == 0)

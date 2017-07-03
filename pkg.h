@@ -39,12 +39,11 @@ typedef enum {
     LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL, GREATER_THAN_EQUAL, EQUAL, NOT_EQUAL, ALWAYS_MATCH
 } ComparisonType;
 
-typedef struct Flag_ Flag;
 typedef struct Package_ Package;
 
-struct Flag_ {
+struct Flag {
     FlagType type;
-    char *arg;
+    std::string arg;
 };
 
 struct RequiredVersion {

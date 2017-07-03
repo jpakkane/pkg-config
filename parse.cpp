@@ -558,7 +558,7 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
 
     i = 0;
     while(i < argc) {
-        Flag *flag = g_new(Flag, 1);
+        Flag *flag = new Flag();
         char *tmp = trim_string(argv[i]);
         char *arg = strdup_escape_shell(tmp);
         char *p;
@@ -601,11 +601,11 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
             g_free(tmp);
         } else if(*arg != '\0') {
             flag->type = LIBS_OTHER;
-            flag->arg = g_strdup(arg);
+            flag->arg = arg;
             pkg->libs = g_list_prepend(pkg->libs, flag);
         } else
             /* flag wasn't used */
-            g_free(flag);
+            delete flag;
 
         g_free(arg);
 
@@ -727,7 +727,7 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
 
     i = 0;
     while(i < argc) {
-        Flag *flag = g_new(Flag, 1);
+        Flag *flag = new Flag();
         char *tmp = trim_string(argv[i]);
         char *arg = strdup_escape_shell(tmp);
         char *p = arg;
@@ -756,11 +756,11 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             g_free(tmp);
         } else if(*arg != '\0') {
             flag->type = CFLAGS_OTHER;
-            flag->arg = g_strdup(arg);
+            flag->arg = arg;
             pkg->cflags = g_list_prepend(pkg->cflags, flag);
         } else
             /* flag wasn't used */
-            g_free(flag);
+            delete flag;
 
         g_free(arg);
 
