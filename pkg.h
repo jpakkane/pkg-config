@@ -65,8 +65,8 @@ struct Package {
     GList *requires = nullptr;
     GList *requires_private_entries = nullptr;
     GList *requires_private = nullptr;
-    GList *libs = nullptr;
-    GList *cflags = nullptr;
+    std::vector<Flag> libs_;
+    std::vector<Flag> cflags_;
     GHashTable *vars = nullptr;
     GHashTable *required_versions = nullptr; /* hash from name to RequiredVersion */
     std::vector<RequiredVersion> conflicts; /* list of RequiredVersion */
@@ -79,7 +79,7 @@ struct Package {
 
 Package *get_package(const char *name);
 Package *get_package_quiet(const char *name);
-char * packages_get_flags(GList *pkgs, FlagType flags);
+std::string packages_get_flags(GList *pkgs, FlagType flags);
 char * package_get_var(Package *pkg, const char *var);
 char * packages_get_var(GList *pkgs, const char *var);
 

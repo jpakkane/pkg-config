@@ -345,68 +345,61 @@ get_package_quiet(const char *name) {
 }
 
 /* Strip consecutive duplicate arguments in the flag list. */
-static GList *
-flag_list_strip_duplicates(GList *list) {
-    GList *tmp;
+static std::vector<Flag>
+flag_list_strip_duplicates(const std::vector<Flag> &list) {
+    std::vector<Flag> result;
 
+    if(list.empty()) {
+        return result;
+    }
+    result.push_back(list.front());
     /* Start at the 2nd element of the list so we don't have to check for an
      * existing previous element. */
-    for(tmp = g_list_next(list); tmp != NULL; tmp = g_list_next(tmp)) {
-        Flag *cur = static_cast<Flag*>(tmp->data);
-        Flag *prev = static_cast<Flag*>(tmp->prev->data);
+    for(size_t i=1; i<list.size(); ++i) {
+        const Flag &cur = list[i];
+        const Flag &prev = list[i-1];
 
-        if(cur->type == prev->type && g_strcmp0(cur->arg.c_str(), prev->arg.c_str()) == 0) {
+        if(cur.type == prev.type && cur.arg == prev.arg) {
             /* Remove the duplicate flag from the list and move to the last
              * element to prepare for the next iteration. */
-            GList *dup = tmp;
-
-            debug_spew(" removing duplicate \"%s\"\n", cur->arg.c_str());
-            tmp = g_list_previous(tmp);
-            list = g_list_remove_link(list, dup);
+        } else {
+            result.push_back(cur);
         }
     }
 
-    return list;
+    return result;
 }
 
-static char *
-flag_list_to_string(GList *list) {
-    GList *tmp;
-    GString *str = g_string_new("");
-    char *retval;
+static std::string
+flag_list_to_string(const std::vector<Flag> &flags) {
+    std::string str;
 
-    tmp = list;
-    while(tmp != NULL) {
-        Flag *flag = static_cast<Flag*>(tmp->data);
-        const char *tmpstr = flag->arg.c_str();
+    for(const auto &flag : flags) {
+        const std::string &tmpstr = flag.arg;
 
-        if(pcsysrootdir != NULL && flag->type & (CFLAGS_I | LIBS_L)) {
+        if(pcsysrootdir != NULL && (flag.type & (CFLAGS_I | LIBS_L))) {
             /* Handle non-I Cflags like -isystem */
-            if(flag->type & CFLAGS_I && strncmp(tmpstr, "-I", 2) != 0) {
-                const char *space = strchr(tmpstr, ' ');
+            if((flag.type & CFLAGS_I) && strncmp(tmpstr.c_str(), "-I", 2) != 0) {
+                auto space_loc = tmpstr.find(' ');
 
                 /* Ensure this has a separate arg */
-                g_assert(space != NULL && space[1] != '\0');
-                g_string_append_len(str, tmpstr, space - tmpstr + 1);
-                g_string_append(str, pcsysrootdir);
-                g_string_append(str, space + 1);
+                g_assert(space_loc != std::string::npos && space_loc < tmpstr.length()-1);
+                str += tmpstr.substr(0, space_loc + 1);
+                str += pcsysrootdir;
+                str += tmpstr.substr(space_loc + 1);
             } else {
-                g_string_append_c(str, '-');
-                g_string_append_c(str, tmpstr[1]);
-                g_string_append(str, pcsysrootdir);
-                g_string_append(str, tmpstr + 2);
+                str += '-';
+                str += tmpstr[1];
+                str += pcsysrootdir;
+                str += tmpstr.substr(2);
             }
         } else {
-            g_string_append(str, tmpstr);
+            str += tmpstr;
         }
-        g_string_append_c(str, ' ');
-        tmp = g_list_next(tmp);
+        str += ' ';
     }
 
-    retval = str->str;
-    g_string_free(str, FALSE);
-
-    return retval;
+    return str;
 }
 
 static int pathposcmp(gconstpointer a, gconstpointer b) {
@@ -475,26 +468,16 @@ static void recursive_fill_list(Package *pkg, gboolean include_private, GHashTab
 }
 
 /* merge the flags from the individual packages */
-static GList *
+static std::vector<Flag>
 merge_flag_lists(GList *packages, FlagType type) {
-    GList *last = NULL;
-    GList *merged = NULL;
-
+    std::vector<Flag> merged;
     /* keep track of the last element to avoid traversing the whole list */
     for(; packages != NULL; packages = g_list_next(packages)) {
         Package *pkg = static_cast<Package*>(packages->data);
-        GList *flags = (type & LIBS_ANY) ? pkg->libs : pkg->cflags;
-
-        /* manually copy the elements so we can keep track of the end */
-        for(; flags != NULL; flags = g_list_next(flags)) {
-            Flag *flag = static_cast<Flag*>(flags->data);
-
-            if(flag->type & type) {
-                if(last == NULL) {
-                    merged = g_list_prepend(NULL, flags->data);
-                    last = merged;
-                } else
-                    last = g_list_next(g_list_append(last, flags->data));
+        std::vector<Flag> &flags = (type & LIBS_ANY) ? pkg->libs_ : pkg->cflags_;
+        for(const auto &f : flags) {
+            if(f.type & type) {
+                merged.push_back(f);
             }
         }
     }
@@ -502,11 +485,11 @@ merge_flag_lists(GList *packages, FlagType type) {
     return merged;
 }
 
-static GList *
+static std::vector<Flag>
 fill_list(GList *packages, FlagType type, gboolean in_path_order, gboolean include_private) {
     GList *tmp;
     GList *expanded = NULL;
-    GList *flags;
+    std::vector<Flag> flags;
     GHashTable *visited;
 
     /* Start from the end of the requested package list to maintain order since
@@ -566,7 +549,6 @@ static void verify_package(Package *pkg) {
     GList *requires_iter;
     GList *system_dir_iter = NULL;
     GHashTable *visited;
-    int count;
     const gchar *search_path;
     const gchar **include_envvars;
     const gchar **var;
@@ -670,14 +652,14 @@ static void verify_package(Package *pkg) {
             system_directories = add_env_variable_to_list(system_directories, search_path);
     }
 
-    count = 0;
-    for(iter = pkg->cflags; iter != NULL; iter = g_list_next(iter)) {
+    std::vector<Flag> filtered;
+    for(const auto &flag : pkg->cflags_) {
         gint offset = 0;
-        Flag *flag = static_cast<Flag*>(iter->data);
 
-        if(!(flag->type & CFLAGS_I))
+        if(!(flag.type & CFLAGS_I)) {
+            filtered.push_back(flag);
             continue;
-
+        }
         /* Handle the system cflags. We put things in canonical
          * -I/usr/include (vs. -I /usr/include) format, but if someone
          * changes it later we may as well be robust.
@@ -685,8 +667,9 @@ static void verify_package(Package *pkg) {
          * Note that the -i* flags are left out of this handling since
          * they're intended to adjust the system cflags behavior.
          */
-        if(((strncmp(flag->arg.c_str(), "-I", 2) == 0) && (offset = 2))
-                || ((strncmp(flag->arg.c_str(), "-I ", 3) == 0) && (offset = 3))) {
+        bool discard_this = false;
+        if(((strncmp(flag.arg.c_str(), "-I", 2) == 0) && (offset = 2))
+                || ((strncmp(flag.arg.c_str(), "-I ", 3) == 0) && (offset = 3))) {
             if(offset == 0) {
                 iter = iter->next;
                 continue;
@@ -694,25 +677,23 @@ static void verify_package(Package *pkg) {
 
             system_dir_iter = system_directories;
             while(system_dir_iter != NULL) {
-                if(strcmp(static_cast<char*>(system_dir_iter->data), &flag->arg[offset]) == 0) {
-                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (gchar *) flag->arg.c_str());
+                if(strcmp(static_cast<char*>(system_dir_iter->data), &flag.arg[offset]) == 0) {
+                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (gchar *) flag.arg.c_str());
                     if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == NULL) {
-                        debug_spew("Removing %s from cflags for %s\n", flag->arg.c_str(), pkg->key.c_str());
-                        ++count;
-                        iter->data = NULL;
-
+                        debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg->key.c_str());
+                        discard_this = true;
                         break;
                     }
                 }
                 system_dir_iter = system_dir_iter->next;
             }
         }
+        if(!discard_this) {
+            filtered.push_back(flag);
+        }
     }
+    pkg->cflags_.swap(filtered);
 
-    while(count) {
-        pkg->cflags = g_list_remove(pkg->cflags, NULL);
-        --count;
-    }
 
     g_list_foreach(system_directories, (GFunc) g_free, NULL);
     g_list_free(system_directories);
@@ -727,17 +708,19 @@ static void verify_package(Package *pkg) {
 
     system_directories = add_env_variable_to_list(system_directories, search_path);
 
-    count = 0;
-    for(iter = pkg->libs; iter != NULL; iter = g_list_next(iter)) {
+    filtered.clear();
+    for(const auto &flag : pkg->libs_) {
         GList *system_dir_iter = system_directories;
-        Flag *flag = static_cast<Flag*>(iter->data);
 
-        if(!(flag->type & LIBS_L))
+        if(!(flag.type & LIBS_L)) {
+            filtered.push_back(flag);
             continue;
+        }
 
+        bool discard_this = false;
         while(system_dir_iter != NULL) {
             gboolean is_system = FALSE;
-            const char *linker_arg = flag->arg.c_str();
+            const char *linker_arg = flag.arg.c_str();
             const char *system_libpath = static_cast<char*>(system_dir_iter->data);
 
             if(strncmp(linker_arg, "-L ", 3) == 0 && strcmp(linker_arg + 3, system_libpath) == 0)
@@ -747,21 +730,20 @@ static void verify_package(Package *pkg) {
             if(is_system) {
                 debug_spew("Package %s has -L %s in Libs\n", pkg->key.c_str(), system_libpath);
                 if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
-                    iter->data = NULL;
-                    ++count;
+                    discard_this = true;
                     debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg->key.c_str());
                     break;
                 }
             }
             system_dir_iter = system_dir_iter->next;
         }
+        if(!discard_this) {
+            filtered.push_back(flag);
+        }
     }
     g_list_free(system_directories);
 
-    while(count) {
-        pkg->libs = g_list_remove(pkg->libs, NULL);
-        --count;
-    }
+    pkg->libs_.swap(filtered);
 }
 
 /* Create a merged list of required packages and retrieve the flags from them.
@@ -771,58 +753,50 @@ static void verify_package(Package *pkg) {
  * most dependent to least dependent and stripping from the end of the list.
  * The former is done for -I/-L flags, and the latter for all others.
  */
-static char *
+static std::string
 get_multi_merged(GList *pkgs, FlagType type, gboolean in_path_order, gboolean include_private) {
-    GList *list;
-    char *retval;
+    std::vector<Flag> list;
+    std::string retval;
 
     list = fill_list(pkgs, type, in_path_order, include_private);
     list = flag_list_strip_duplicates(list);
     retval = flag_list_to_string(list);
-    g_list_free(list);
 
     return retval;
 }
 
-char *
+std::string
 packages_get_flags(GList *pkgs, FlagType flags) {
-    GString *str;
-    char *cur;
-
-    str = g_string_new(NULL);
+    std::string str, cur;
 
     /* sort packages in path order for -L/-I, dependency order otherwise */
     if(flags & CFLAGS_OTHER) {
         cur = get_multi_merged(pkgs, CFLAGS_OTHER, FALSE, TRUE);
-        debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur);
-        g_string_append(str, cur);
-        g_free(cur);
+        debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur.c_str());
+        str += cur;
     }
     if(flags & CFLAGS_I) {
         cur = get_multi_merged(pkgs, CFLAGS_I, TRUE, TRUE);
-        debug_spew("adding CFLAGS_I string \"%s\"\n", cur);
-        g_string_append(str, cur);
-        g_free(cur);
+        debug_spew("adding CFLAGS_I string \"%s\"\n", cur.c_str());
+        str += cur;
     }
     if(flags & LIBS_L) {
         cur = get_multi_merged(pkgs, LIBS_L, TRUE, !ignore_private_libs);
-        debug_spew("adding LIBS_L string \"%s\"\n", cur);
-        g_string_append(str, cur);
-        g_free(cur);
+        debug_spew("adding LIBS_L string \"%s\"\n", cur.c_str());
+        str += cur;
     }
     if(flags & (LIBS_OTHER | LIBS_l)) {
         cur = get_multi_merged(pkgs, flags & (LIBS_OTHER | LIBS_l), FALSE, !ignore_private_libs);
-        debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur);
-        g_string_append(str, cur);
-        g_free(cur);
+        debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur.c_str());
+        str += cur;
     }
 
     /* Strip trailing space. */
-    if(str->len > 0 && str->str[str->len - 1] == ' ')
-        g_string_truncate(str, str->len - 1);
+    if(!str.empty() && str.back() == ' ')
+        str.pop_back();
 
-    debug_spew("returning flags string \"%s\"\n", str->str);
-    return g_string_free(str, FALSE);
+    debug_spew("returning flags string \"%s\"\n", str.c_str());
+    return str;
 }
 
 void define_global_variable(const char *varname, const char *varval) {

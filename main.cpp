@@ -702,9 +702,8 @@ int main(int argc, char **argv) {
     }
 
     if(pkg_flags != 0) {
-        char *str = packages_get_flags(packages, pkg_flags);
-        printf("%s", str);
-        g_free(str);
+        std::string str = packages_get_flags(packages, pkg_flags);
+        printf("%s", str.c_str());
         need_newline = TRUE;
     }
 
