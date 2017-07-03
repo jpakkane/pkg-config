@@ -865,7 +865,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
             gchar *base;
             gboolean is_pkgconfigdir;
 
-            base = g_path_get_basename(pkg->pcfiledir);
+            base = g_path_get_basename(pkg->pcfiledir.c_str());
             is_pkgconfigdir = g_ascii_strcasecmp(base, "pkgconfig") == 0;
             g_free(base);
             if(is_pkgconfigdir) {
@@ -877,7 +877,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
                 pkg->orig_prefix = g_strdup(p);
 
                 /* Get grandparent directory for new prefix. */
-                q = g_path_get_dirname(pkg->pcfiledir);
+                q = g_path_get_dirname(pkg->pcfiledir.c_str());
                 prefix = g_path_get_dirname(q);
                 g_free(q);
 
@@ -959,14 +959,14 @@ parse_package_file(const char *key, const char *path, gboolean ignore_requires, 
         pkg->pcfiledir = g_dirname(path);
     } else {
         debug_spew("No pcfiledir determined for package\n");
-        pkg->pcfiledir = g_strdup("???????");
+        pkg->pcfiledir = "???????";
     }
 
     if(pkg->vars == NULL)
         pkg->vars = g_hash_table_new(g_str_hash, g_str_equal);
 
     /* Variable storing directory of pc file */
-    g_hash_table_insert(pkg->vars, const_cast<char*>("pcfiledir"), pkg->pcfiledir);
+    g_hash_table_insert(pkg->vars, const_cast<char*>("pcfiledir"), const_cast<char*>(pkg->pcfiledir.c_str()));
 
     str = g_string_new("");
 

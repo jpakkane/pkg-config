@@ -59,7 +59,7 @@ struct Package {
     std::string version;
     std::string description;
     std::string url;
-    char *pcfiledir = nullptr; /* directory it was loaded from */
+    std::string pcfiledir; /* directory it was loaded from */
     GList *requires_entries = nullptr;
     GList *requires = nullptr;
     GList *requires_private_entries = nullptr;
