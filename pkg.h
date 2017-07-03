@@ -39,7 +39,7 @@ typedef enum {
     LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL, GREATER_THAN_EQUAL, EQUAL, NOT_EQUAL, ALWAYS_MATCH
 } ComparisonType;
 
-typedef struct Package_ Package;
+struct Package;
 
 struct Flag {
     FlagType type;
@@ -53,27 +53,27 @@ struct RequiredVersion {
     Package *owner = nullptr;
 };
 
-struct Package_ {
-    char *key; /* filename name */
-    char *name; /* human-readable name */
-    char *version;
-    char *description;
-    char *url;
-    char *pcfiledir; /* directory it was loaded from */
-    GList *requires_entries;
-    GList *requires;
-    GList *requires_private_entries;
-    GList *requires_private;
-    GList *libs;
-    GList *cflags;
-    GHashTable *vars;
-    GHashTable *required_versions; /* hash from name to RequiredVersion */
-    GList *conflicts; /* list of RequiredVersion */
-    gboolean uninstalled; /* used the -uninstalled file */
-    int path_position; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
-    int libs_num; /* Number of times the "Libs" header has been seen */
-    int libs_private_num; /* Number of times the "Libs.private" header has been seen */
-    char *orig_prefix; /* original prefix value before redefinition */
+struct Package {
+    std::string key; /* filename name */
+    char *name = nullptr; /* human-readable name */
+    char *version = nullptr;
+    char *description = nullptr;
+    char *url = nullptr;
+    char *pcfiledir = nullptr; /* directory it was loaded from */
+    GList *requires_entries = nullptr;
+    GList *requires = nullptr;
+    GList *requires_private_entries = nullptr;
+    GList *requires_private = nullptr;
+    GList *libs = nullptr;
+    GList *cflags = nullptr;
+    GHashTable *vars = nullptr;
+    GHashTable *required_versions = nullptr; /* hash from name to RequiredVersion */
+    GList *conflicts = nullptr; /* list of RequiredVersion */
+    gboolean uninstalled = FALSE; /* used the -uninstalled file */
+    int path_position = 0; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
+    int libs_num = 0; /* Number of times the "Libs" header has been seen */
+    int libs_private_num = 0; /* Number of times the "Libs.private" header has been seen */
+    char *orig_prefix = nullptr; /* original prefix value before redefinition */
 };
 
 Package *get_package(const char *name);

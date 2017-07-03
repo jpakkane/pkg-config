@@ -640,8 +640,8 @@ int main(int argc, char **argv) {
         tmp = packages;
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
-            char *key;
-            key = pkg->key;
+            const char *key;
+            key = pkg->key.c_str();
             while(*key == '/')
                 key++;
             if(strlen(key) > 0)
@@ -660,11 +660,11 @@ int main(int argc, char **argv) {
             for(reqtmp = pkg->requires; reqtmp != NULL; reqtmp = g_list_next(reqtmp)) {
                 Package *deppkg = static_cast<Package*>(reqtmp->data);
                 RequiredVersion *req;
-                req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key));
+                req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
-                    printf("%s\n", deppkg->key);
+                    printf("%s\n", deppkg->key.c_str());
                 else
-                    printf("%s %s %s\n", deppkg->key, comparison_to_str(req->comparison), req->version.c_str());
+                    printf("%s %s %s\n", deppkg->key.c_str(), comparison_to_str(req->comparison), req->version.c_str());
             }
         }
     }
@@ -682,11 +682,11 @@ int main(int argc, char **argv) {
                 if(g_list_find(pkg->requires, reqtmp->data))
                     continue;
 
-                req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key));
+                req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
-                    printf("%s\n", deppkg->key);
+                    printf("%s\n", deppkg->key.c_str());
                 else
-                    printf("%s %s %s\n", deppkg->key, comparison_to_str(req->comparison), req->version.c_str());
+                    printf("%s %s %s\n", deppkg->key.c_str(), comparison_to_str(req->comparison), req->version.c_str());
             }
         }
     }

@@ -952,8 +952,8 @@ parse_package_file(const char *key, const char *path, gboolean ignore_requires, 
 
     debug_spew("Parsing package file '%s'\n", path);
 
-    pkg = g_new0(Package, 1);
-    pkg->key = g_strdup(key);
+    pkg = new Package();
+    pkg->key = key;
 
     if(path) {
         pkg->pcfiledir = g_dirname(path);

@@ -166,7 +166,7 @@ add_virtual_pkgconfig_package(void) {
 
     pkg = g_new0(Package, 1);
 
-    pkg->key = g_strdup("pkg-config");
+    pkg->key = "pkg-config";
     pkg->version = g_strdup(VERSION);
     pkg->name = g_strdup("pkg-config");
     pkg->description = g_strdup("pkg-config is a system for managing "
@@ -178,7 +178,7 @@ add_virtual_pkgconfig_package(void) {
     g_hash_table_insert(pkg->vars, const_cast<char*>("pc_path"), const_cast<char*>(pkg_config_pc_path));
 
     debug_spew("Adding virtual 'pkg-config' package to list of known packages\n");
-    g_hash_table_insert(packages, pkg->key, pkg);
+    g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
 
     return pkg;
 }
@@ -281,20 +281,20 @@ internal_get_package(const char *name, gboolean warn) {
 
     pkg->path_position = path_position;
 
-    debug_spew("Path position of '%s' is %d\n", pkg->key, pkg->path_position);
+    debug_spew("Path position of '%s' is %d\n", pkg->key.c_str(), pkg->path_position);
 
-    debug_spew("Adding '%s' to list of known packages\n", pkg->key);
-    g_hash_table_insert(packages, pkg->key, pkg);
+    debug_spew("Adding '%s' to list of known packages\n", pkg->key.c_str());
+    g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
 
     /* pull in Requires packages */
     for(iter = pkg->requires_entries; iter != NULL; iter = g_list_next(iter)) {
         Package *req;
         RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
-        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key, ver->name.c_str());
+        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key.c_str(), ver->name.c_str());
         req = internal_get_package(ver->name.c_str(), warn);
         if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key);
+            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key.c_str());
             exit(1);
         }
 
@@ -310,10 +310,10 @@ internal_get_package(const char *name, gboolean warn) {
         Package *req;
         RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
-        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key, ver->name.c_str());
+        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key.c_str(), ver->name.c_str());
         req = internal_get_package(ver->name.c_str(), warn);
         if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key);
+            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key.c_str());
             exit(1);
         }
 
@@ -430,7 +430,7 @@ static void spew_package_list(const char *name, GList *list) {
     tmp = list;
     while(tmp != NULL) {
         Package *pkg = static_cast<Package*>(tmp->data);
-        debug_spew(" %s", pkg->key);
+        debug_spew(" %s", pkg->key.c_str());
         tmp = tmp->next;
     }
     debug_spew("\n");
@@ -457,13 +457,13 @@ static void recursive_fill_list(Package *pkg, gboolean include_private, GHashTab
      * we can skip it. Additionally, this allows circular requires loops to be
      * broken.
      */
-    if(g_hash_table_lookup_extended(visited, pkg->key, NULL, NULL)) {
-        debug_spew("Package %s already in requires chain, skipping\n", pkg->key);
+    if(g_hash_table_lookup_extended(visited, pkg->key.c_str(), NULL, NULL)) {
+        debug_spew("Package %s already in requires chain, skipping\n", pkg->key.c_str());
         return;
     }
     /* record this package in the dependency chain */
     else {
-        g_hash_table_replace(visited, pkg->key, pkg->key);
+        g_hash_table_replace(visited, const_cast<char*>(pkg->key.c_str()), const_cast<char*>(pkg->key.c_str()));
     }
 
     /* Start from the end of the required package list to maintain order since
@@ -575,23 +575,23 @@ static void verify_package(Package *pkg) {
 
     /* Be sure we have the required fields */
 
-    if(pkg->key == NULL) {
+    if(pkg->key.empty()) {
         fprintf(stderr, "Internal pkg-config error, package with no key, please file a bug report\n");
         exit(1);
     }
 
     if(pkg->name == NULL) {
-        verbose_error("Package '%s' has no Name: field\n", pkg->key);
+        verbose_error("Package '%s' has no Name: field\n", pkg->key.c_str());
         exit(1);
     }
 
     if(pkg->version == NULL) {
-        verbose_error("Package '%s' has no Version: field\n", pkg->key);
+        verbose_error("Package '%s' has no Version: field\n", pkg->key.c_str());
         exit(1);
     }
 
     if(pkg->description == NULL) {
-        verbose_error("Package '%s' has no Description: field\n", pkg->key);
+        verbose_error("Package '%s' has no Description: field\n", pkg->key.c_str());
         exit(1);
     }
 
@@ -604,12 +604,12 @@ static void verify_package(Package *pkg) {
         RequiredVersion *ver = NULL;
 
         if(pkg->required_versions)
-            ver = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, req->key));
+            ver = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, req->key.c_str()));
 
         if(ver) {
             if(!version_test(ver->comparison, req->version, ver->version.c_str())) {
-                verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key, req->key,
-                        comparison_to_str(ver->comparison), ver->version.c_str(), req->key, req->version);
+                verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req->key.c_str(),
+                        comparison_to_str(ver->comparison), ver->version.c_str(), req->key.c_str(), req->version);
                 if(req->url)
                     verbose_error("You may find new versions of %s at %s\n", req->name, req->url);
 
@@ -637,10 +637,10 @@ static void verify_package(Package *pkg) {
         while(conflicts_iter != NULL) {
             RequiredVersion *ver = static_cast<RequiredVersion*>(conflicts_iter->data);
 
-            if(strcmp(ver->name.c_str(), req->key) == 0 && version_test(ver->comparison, req->version, ver->version.c_str())) {
+            if(strcmp(ver->name.c_str(), req->key.c_str()) == 0 && version_test(ver->comparison, req->version, ver->version.c_str())) {
                 verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req->version, req->key, ver->name.c_str(),
-                        comparison_to_str(ver->comparison), ver->version.empty() ? ver->version.c_str() : "(any)", ver->owner->key,
+                        "(%s %s %s conflicts with %s %s)\n", req->version, req->key.c_str(), ver->name.c_str(),
+                        comparison_to_str(ver->comparison), ver->version.empty() ? ver->version.c_str() : "(any)", ver->owner->key.c_str(),
                         ver->owner->version);
 
                 exit(1);
@@ -702,9 +702,9 @@ static void verify_package(Package *pkg) {
             system_dir_iter = system_directories;
             while(system_dir_iter != NULL) {
                 if(strcmp(static_cast<char*>(system_dir_iter->data), &flag->arg[offset]) == 0) {
-                    debug_spew("Package %s has %s in Cflags\n", pkg->key, (gchar *) flag->arg.c_str());
+                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (gchar *) flag->arg.c_str());
                     if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == NULL) {
-                        debug_spew("Removing %s from cflags for %s\n", flag->arg.c_str(), pkg->key);
+                        debug_spew("Removing %s from cflags for %s\n", flag->arg.c_str(), pkg->key.c_str());
                         ++count;
                         iter->data = NULL;
 
@@ -752,11 +752,11 @@ static void verify_package(Package *pkg) {
             else if(strncmp(linker_arg, "-L", 2) == 0 && strcmp(linker_arg + 2, system_libpath) == 0)
                 is_system = TRUE;
             if(is_system) {
-                debug_spew("Package %s has -L %s in Libs\n", pkg->key, system_libpath);
+                debug_spew("Package %s has -L %s in Libs\n", pkg->key.c_str(), system_libpath);
                 if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
                     iter->data = NULL;
                     ++count;
-                    debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg->key);
+                    debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg->key.c_str());
                     break;
                 }
             }
@@ -872,8 +872,8 @@ package_get_var(Package *pkg, const char *var) {
     /* Allow overriding specific variables using an environment variable of the
      * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
      */
-    if(pkg->key) {
-        char *env_var = var_to_env_var(pkg->key, var);
+    if(pkg->key.c_str()) {
+        char *env_var = var_to_env_var(pkg->key.c_str(), var);
         const char *env_var_content = g_getenv(env_var);
         g_free(env_var);
         if(env_var_content) {
@@ -1007,9 +1007,9 @@ static void packages_foreach(gpointer key, gpointer value, gpointer data) {
     Package *pkg = static_cast<Package*>(value);
     char *pad;
 
-    pad = g_strnfill(GPOINTER_TO_INT (data) - strlen(pkg->key), ' ');
+    pad = g_strnfill(GPOINTER_TO_INT (data) - strlen(pkg->key.c_str()), ' ');
 
-    printf("%s%s%s - %s\n", pkg->key, pad, pkg->name, pkg->description);
+    printf("%s%s%s - %s\n", pkg->key.c_str(), pad, pkg->name, pkg->description);
 
     g_free(pad);
 }
