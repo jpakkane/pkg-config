@@ -474,6 +474,221 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
     return retval;
 }
 
+static std::vector<std::string>
+split_module_list2(const char *str, const char *path) {
+    std::vector<std::string> retval;
+    const char *p;
+    const char *start;
+    ModuleSplitState state = OUTSIDE_MODULE;
+    ModuleSplitState last_state = OUTSIDE_MODULE;
+
+    /*   fprintf (stderr, "Parsing: '%s'\n", str); */
+
+    start = str;
+    p = str;
+
+    while(*p) {
+#if PARSE_SPEW
+        fprintf (stderr, "p: %c state: %d last_state: %d\n", *p, state, last_state);
+#endif
+
+        switch (state){
+        case OUTSIDE_MODULE:
+            if(!MODULE_SEPARATOR(*p))
+                state = IN_MODULE_NAME;
+            break;
+
+        case IN_MODULE_NAME:
+            if(isspace((guchar) *p)) {
+                /* Need to look ahead to determine next state */
+                const char *s = p;
+                while(*s && isspace((guchar) *s))
+                    ++s;
+
+                if(*s == '\0')
+                    state = OUTSIDE_MODULE;
+                else if(MODULE_SEPARATOR(*s))
+                    state = OUTSIDE_MODULE;
+                else if(OPERATOR_CHAR(*s))
+                    state = BEFORE_OPERATOR;
+                else
+                    state = OUTSIDE_MODULE;
+            } else if(MODULE_SEPARATOR(*p))
+                state = OUTSIDE_MODULE; /* comma precludes any operators */
+            break;
+
+        case BEFORE_OPERATOR:
+            /* We know an operator is coming up here due to lookahead from
+             * IN_MODULE_NAME
+             */
+            if(isspace((guchar) *p))
+                ; /* no change */
+            else if(OPERATOR_CHAR(*p))
+                state = IN_OPERATOR;
+            else
+                g_assert_not_reached ()
+                ;
+            break;
+
+        case IN_OPERATOR:
+            if(!OPERATOR_CHAR(*p))
+                state = AFTER_OPERATOR;
+            break;
+
+        case AFTER_OPERATOR:
+            if(!isspace((guchar) *p))
+                state = IN_MODULE_VERSION;
+            break;
+
+        case IN_MODULE_VERSION:
+            if(MODULE_SEPARATOR(*p))
+                state = OUTSIDE_MODULE;
+            break;
+
+        default:
+            g_assert_not_reached ()
+            ;
+        }
+
+        if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
+            /* We left a module */
+            char *module = g_strndup(start, p - start);
+            retval.push_back(module);
+            g_free(module);
+
+#if PARSE_SPEW
+            fprintf (stderr, "found module: '%s'\n", module);
+#endif
+
+            /* reset start */
+            start = p;
+        }
+
+        last_state = state;
+        ++p;
+    }
+
+    if(p != start) {
+        /* get the last module */
+        char *module = g_strndup(start, p - start);
+        retval.push_back(module);
+        g_free(module);
+
+#if PARSE_SPEW
+        fprintf (stderr, "found module: '%s'\n", module);
+#endif
+
+    }
+
+    return retval;
+}
+
+std::vector<RequiredVersion>
+parse_module_list2(Package *pkg, const char *str, const char *path) {
+    std::vector<std::string> split;
+    std::vector<RequiredVersion> retval;
+
+    split = split_module_list2(str, path);
+
+    for(const auto &iter : split) {
+        RequiredVersion ver;
+        char *p;
+        char *start;
+        std::string tmpstr{iter};
+
+        p = &tmpstr[0];
+
+        ver.comparison = ALWAYS_MATCH;
+        ver.owner = pkg;
+
+        while(*p && MODULE_SEPARATOR(*p))
+            ++p;
+
+        start = p;
+
+        while(*p && !isspace((guchar) *p))
+            ++p;
+
+        while(*p && MODULE_SEPARATOR(*p)) {
+            *p = '\0';
+            ++p;
+        }
+
+        if(*start == '\0') {
+            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
+            if(parse_strict)
+                exit(1);
+            else
+                continue;
+        }
+
+        ver.name = start;
+
+        start = p;
+
+        while(*p && !isspace((guchar) *p))
+            ++p;
+
+        while(*p && isspace((guchar) *p)) {
+            *p = '\0';
+            ++p;
+        }
+
+        if(*start != '\0') {
+            if(strcmp(start, "=") == 0)
+                ver.comparison = EQUAL;
+            else if(strcmp(start, ">=") == 0)
+                ver.comparison = GREATER_THAN_EQUAL;
+            else if(strcmp(start, "<=") == 0)
+                ver.comparison = LESS_THAN_EQUAL;
+            else if(strcmp(start, ">") == 0)
+                ver.comparison = GREATER_THAN;
+            else if(strcmp(start, "<") == 0)
+                ver.comparison = LESS_THAN;
+            else if(strcmp(start, "!=") == 0)
+                ver.comparison = NOT_EQUAL;
+            else {
+                verbose_error("Unknown version comparison operator '%s' after "
+                        "package name '%s' in file '%s'\n", start, ver.name.c_str(), path);
+                if(parse_strict)
+                    exit(1);
+                else
+                    continue;
+            }
+        }
+
+        start = p;
+
+        while(*p && !MODULE_SEPARATOR(*p))
+            ++p;
+
+        while(*p && MODULE_SEPARATOR(*p)) {
+            *p = '\0';
+            ++p;
+        }
+
+        if(ver.comparison != ALWAYS_MATCH && *start == '\0') {
+            verbose_error("Comparison operator but no version after package "
+                    "name '%s' in file '%s'\n", ver.name.c_str(), path);
+            if(parse_strict)
+                exit(1);
+            else {
+                ver.version = "0";
+                continue;
+            }
+        }
+
+        if(*start != '\0') {
+            ver.version = start;
+        }
+
+        g_assert(!ver.name.empty());
+        retval.push_back(ver);
+    }
+
+    return retval;
+}
+
 static void parse_requires(Package *pkg, const char *str, const char *path) {
     char *trimmed;
 
@@ -509,7 +724,7 @@ static void parse_requires_private(Package *pkg, const char *str, const char *pa
 static void parse_conflicts(Package *pkg, const char *str, const char *path) {
     char *trimmed;
 
-    if(pkg->conflicts) {
+    if(!pkg->conflicts.empty()) {
         verbose_error("Conflicts field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -518,7 +733,7 @@ static void parse_conflicts(Package *pkg, const char *str, const char *path) {
     }
 
     trimmed = trim_and_sub(pkg, str, path);
-    pkg->conflicts = parse_module_list(pkg, trimmed, path);
+    pkg->conflicts = parse_module_list2(pkg, trimmed, path);
     g_free(trimmed);
 }
 

@@ -560,11 +560,10 @@ static const gchar *msvc_include_envvars[] = {
 
 static void verify_package(Package *pkg) {
     GList *requires = NULL;
-    GList *conflicts = NULL;
+    std::vector<RequiredVersion>conflicts;
     GList *system_directories = NULL;
     GList *iter;
     GList *requires_iter;
-    GList *conflicts_iter;
     GList *system_dir_iter = NULL;
     GHashTable *visited;
     int count;
@@ -631,21 +630,16 @@ static void verify_package(Package *pkg) {
     while(requires_iter != NULL) {
         Package *req = static_cast<Package*>(requires_iter->data);
 
-        conflicts_iter = conflicts;
+        for(const auto & ver : req->conflicts) {
 
-        while(conflicts_iter != NULL) {
-            RequiredVersion *ver = static_cast<RequiredVersion*>(conflicts_iter->data);
-
-            if(strcmp(ver->name.c_str(), req->key.c_str()) == 0 && version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
+            if(strcmp(ver.name.c_str(), req->key.c_str()) == 0 && version_test(ver.comparison, req->version.c_str(), ver.version.c_str())) {
                 verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req->version.c_str(), req->key.c_str(), ver->name.c_str(),
-                        comparison_to_str(ver->comparison), ver->version.empty() ? ver->version.c_str() : "(any)", ver->owner->key.c_str(),
-                        ver->owner->version.c_str());
+                        "(%s %s %s conflicts with %s %s)\n", req->version.c_str(), req->key.c_str(), ver.name.c_str(),
+                        comparison_to_str(ver.comparison), ver.version.empty() ? ver.version.c_str() : "(any)", ver.owner->key.c_str(),
+                        ver.owner->version.c_str());
 
                 exit(1);
             }
-
-            conflicts_iter = g_list_next(conflicts_iter);
         }
 
         requires_iter = g_list_next(requires_iter);

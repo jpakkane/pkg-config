@@ -21,6 +21,7 @@
 #define PKG_CONFIG_PKG_H
 
 #include<string>
+#include<vector>
 #include <glib.h>
 
 typedef guint8 FlagType; /* bit mask for flag types */
@@ -68,7 +69,7 @@ struct Package {
     GList *cflags = nullptr;
     GHashTable *vars = nullptr;
     GHashTable *required_versions = nullptr; /* hash from name to RequiredVersion */
-    GList *conflicts = nullptr; /* list of RequiredVersion */
+    std::vector<RequiredVersion> conflicts; /* list of RequiredVersion */
     gboolean uninstalled = FALSE; /* used the -uninstalled file */
     int path_position = 0; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
     int libs_num = 0; /* Number of times the "Libs" header has been seen */
