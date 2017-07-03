@@ -55,7 +55,7 @@ struct RequiredVersion {
 
 struct Package {
     std::string key; /* filename name */
-    char *name = nullptr; /* human-readable name */
+    std::string name; /* human-readable name */
     char *version = nullptr;
     char *description = nullptr;
     char *url = nullptr;

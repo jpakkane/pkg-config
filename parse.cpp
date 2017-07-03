@@ -197,7 +197,7 @@ trim_and_sub(Package *pkg, const char *str, const char *path) {
 }
 
 static void parse_name(Package *pkg, const char *str, const char *path) {
-    if(pkg->name) {
+    if(!pkg->name.empty()) {
         verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
