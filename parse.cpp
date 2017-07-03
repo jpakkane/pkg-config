@@ -874,7 +874,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
                 gchar *prefix;
 
                 /* Keep track of the original prefix value. */
-                pkg->orig_prefix = g_strdup(p);
+                pkg->orig_prefix = p;
 
                 /* Get grandparent directory for new prefix. */
                 q = g_path_get_dirname(pkg->pcfiledir.c_str());
@@ -904,13 +904,13 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
                 g_hash_table_insert(pkg->vars, varname, prefix);
                 goto cleanup;
             }
-        } else if(define_prefix && pkg->orig_prefix != NULL && *(pkg->orig_prefix) != '\0'&&
-        strncmp (p, pkg->orig_prefix, strlen (pkg->orig_prefix)) == 0 &&
-        G_IS_DIR_SEPARATOR (p[strlen (pkg->orig_prefix)])) {
+        } else if(define_prefix && !pkg->orig_prefix.empty() &&
+        strncmp (p, pkg->orig_prefix.c_str(), pkg->orig_prefix.length()) == 0 &&
+        G_IS_DIR_SEPARATOR (p[pkg->orig_prefix.length()])) {
             char *oldstr = str;
 
             p = str = g_strconcat(static_cast<char*>(g_hash_table_lookup(pkg->vars, prefix_variable)),
-                    p + strlen(pkg->orig_prefix), NULL);
+                    p + strlen(pkg->orig_prefix.c_str()), NULL);
             g_free(oldstr);
         }
 

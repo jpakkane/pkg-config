@@ -73,7 +73,7 @@ struct Package {
     int path_position = 0; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
     int libs_num = 0; /* Number of times the "Libs" header has been seen */
     int libs_private_num = 0; /* Number of times the "Libs.private" header has been seen */
-    char *orig_prefix = nullptr; /* original prefix value before redefinition */
+    std::string orig_prefix; /* original prefix value before redefinition */
 };
 
 Package *get_package(const char *name);
