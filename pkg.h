@@ -34,87 +34,71 @@ typedef guint8 FlagType; /* bit mask for flag types */
 #define CFLAGS_ANY   (CFLAGS_I | CFLAGS_OTHER)
 #define FLAGS_ANY    (LIBS_ANY | CFLAGS_ANY)
 
-typedef enum
-{
-  LESS_THAN,
-  GREATER_THAN,
-  LESS_THAN_EQUAL,
-  GREATER_THAN_EQUAL,
-  EQUAL,
-  NOT_EQUAL,
-  ALWAYS_MATCH
+typedef enum {
+    LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL, GREATER_THAN_EQUAL, EQUAL, NOT_EQUAL, ALWAYS_MATCH
 } ComparisonType;
 
 typedef struct Flag_ Flag;
 typedef struct Package_ Package;
 typedef struct RequiredVersion_ RequiredVersion;
 
-struct Flag_
-{
-  FlagType type;
-  char *arg;
+struct Flag_ {
+    FlagType type;
+    char *arg;
 };
 
-struct RequiredVersion_
-{
-  char *name;
-  ComparisonType comparison;
-  char *version;
-  Package *owner;
+struct RequiredVersion_ {
+    char *name;
+    ComparisonType comparison;
+    char *version;
+    Package *owner;
 };
 
-struct Package_
-{
-  char *key;  /* filename name */
-  char *name; /* human-readable name */
-  char *version;
-  char *description;
-  char *url;
-  char *pcfiledir; /* directory it was loaded from */
-  GList *requires_entries;
-  GList *requires;
-  GList *requires_private_entries;
-  GList *requires_private;
-  GList *libs;
-  GList *cflags;
-  GHashTable *vars;
-  GHashTable *required_versions; /* hash from name to RequiredVersion */
-  GList *conflicts; /* list of RequiredVersion */
-  gboolean uninstalled; /* used the -uninstalled file */
-  int path_position; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
-  int libs_num; /* Number of times the "Libs" header has been seen */
-  int libs_private_num;  /* Number of times the "Libs.private" header has been seen */
-  char *orig_prefix; /* original prefix value before redefinition */
+struct Package_ {
+    char *key; /* filename name */
+    char *name; /* human-readable name */
+    char *version;
+    char *description;
+    char *url;
+    char *pcfiledir; /* directory it was loaded from */
+    GList *requires_entries;
+    GList *requires;
+    GList *requires_private_entries;
+    GList *requires_private;
+    GList *libs;
+    GList *cflags;
+    GHashTable *vars;
+    GHashTable *required_versions; /* hash from name to RequiredVersion */
+    GList *conflicts; /* list of RequiredVersion */
+    gboolean uninstalled; /* used the -uninstalled file */
+    int path_position; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
+    int libs_num; /* Number of times the "Libs" header has been seen */
+    int libs_private_num; /* Number of times the "Libs.private" header has been seen */
+    char *orig_prefix; /* original prefix value before redefinition */
 };
 
-Package *get_package               (const char *name);
-Package *get_package_quiet         (const char *name);
-char *   packages_get_flags        (GList      *pkgs,
-                                    FlagType   flags);
-char *   package_get_var           (Package    *pkg,
-                                    const char *var);
-char *   packages_get_var          (GList      *pkgs,
-                                    const char *var);
+Package *get_package(const char *name);
+Package *get_package_quiet(const char *name);
+char * packages_get_flags(GList *pkgs, FlagType flags);
+char * package_get_var(Package *pkg, const char *var);
+char * packages_get_var(GList *pkgs, const char *var);
 
-void add_search_dir (const char *path);
-void add_search_dirs (const char *path, const char *separator);
-void package_init (gboolean want_list);
-int compare_versions (const char * a, const char *b);
-gboolean version_test (ComparisonType comparison,
-                       const char *a,
-                       const char *b);
+void add_search_dir(const char *path);
+void add_search_dirs(const char *path, const char *separator);
+void package_init(gboolean want_list);
+int compare_versions(const char * a, const char *b);
+gboolean version_test(ComparisonType comparison, const char *a, const char *b);
 
-const char *comparison_to_str (ComparisonType comparison);
+const char *comparison_to_str(ComparisonType comparison);
 
-void print_package_list (void);
+void print_package_list(void);
 
-void define_global_variable (const char *varname,
-                             const char *varval);
+void define_global_variable(const char *varname, const char *varval);
 
-void debug_spew (const char *format, ...);
-void verbose_error (const char *format, ...);
+void debug_spew(const char *format, ...);
+void verbose_error(const char *format, ...);
 
-gboolean name_ends_in_uninstalled (const char *str);
+gboolean name_ends_in_uninstalled(const char *str);
 
 void enable_private_libs(void);
 void disable_private_libs(void);

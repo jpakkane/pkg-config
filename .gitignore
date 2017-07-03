@@ -14,3 +14,7 @@ INSTALL
 /build
 __pycache__
 
+/.project
+/.cproject
+/.settings
+

@@ -1,4 +1,5 @@
 project('pkg-config', 'cpp',
+  default_options: 'cpp_std=c++14',
   version: '0.29.2',
   license: 'GPLv2+')
 
