@@ -332,8 +332,8 @@ static gboolean process_package_args(const char *cmdline, GList **packages, FILE
             success = FALSE;
             verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver->name.c_str(),
                     comparison_to_str(ver->comparison), ver->version.c_str(), req->name.c_str(), req->version.c_str());
-            if(req->url)
-                verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url);
+            if(!req->url.empty())
+                verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url.c_str());
             continue;
         }
 

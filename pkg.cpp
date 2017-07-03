@@ -164,13 +164,13 @@ static Package *
 add_virtual_pkgconfig_package(void) {
     Package *pkg = NULL;
 
-    pkg = g_new0(Package, 1);
+    pkg = new Package();
 
     pkg->key = "pkg-config";
     pkg->version = VERSION;
     pkg->name = "pkg-config";
     pkg->description = "pkg-config is a system for managing compile/link flags for libraries";
-    pkg->url = g_strdup("http://pkg-config.freedesktop.org/");
+    pkg->url = "http://pkg-config.freedesktop.org/";
 
     if(pkg->vars == NULL)
         pkg->vars = g_hash_table_new(g_str_hash, g_str_equal);
@@ -609,8 +609,8 @@ static void verify_package(Package *pkg) {
             if(!version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
                 verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req->key.c_str(),
                         comparison_to_str(ver->comparison), ver->version.c_str(), req->key.c_str(), req->version.c_str());
-                if(req->url)
-                    verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url);
+                if(!req->url.empty())
+                    verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url.c_str());
 
                 exit(1);
             }

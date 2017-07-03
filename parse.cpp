@@ -772,7 +772,7 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
 }
 
 static void parse_url(Package *pkg, const char *str, const char *path) {
-    if(pkg->url != NULL) {
+    if(!pkg->url.empty()) {
         verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);

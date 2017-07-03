@@ -58,7 +58,7 @@ struct Package {
     std::string name; /* human-readable name */
     std::string version;
     std::string description;
-    char *url = nullptr;
+    std::string url;
     char *pcfiledir = nullptr; /* directory it was loaded from */
     GList *requires_entries = nullptr;
     GList *requires = nullptr;
