@@ -221,7 +221,7 @@ static void parse_version(Package *pkg, const char *str, const char *path) {
 }
 
 static void parse_description(Package *pkg, const char *str, const char *path) {
-    if(pkg->description) {
+    if(!pkg->description.empty()) {
         verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);

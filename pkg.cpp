@@ -169,8 +169,7 @@ add_virtual_pkgconfig_package(void) {
     pkg->key = "pkg-config";
     pkg->version = VERSION;
     pkg->name = "pkg-config";
-    pkg->description = g_strdup("pkg-config is a system for managing "
-            "compile/link flags for libraries");
+    pkg->description = "pkg-config is a system for managing compile/link flags for libraries";
     pkg->url = g_strdup("http://pkg-config.freedesktop.org/");
 
     if(pkg->vars == NULL)
@@ -590,7 +589,7 @@ static void verify_package(Package *pkg) {
         exit(1);
     }
 
-    if(pkg->description == NULL) {
+    if(pkg->description.empty()) {
         verbose_error("Package '%s' has no Description: field\n", pkg->key.c_str());
         exit(1);
     }
@@ -1009,7 +1008,7 @@ static void packages_foreach(gpointer key, gpointer value, gpointer data) {
 
     pad = g_strnfill(GPOINTER_TO_INT (data) - strlen(pkg->key.c_str()), ' ');
 
-    printf("%s%s%s - %s\n", pkg->key.c_str(), pad, pkg->name.c_str(), pkg->description);
+    printf("%s%s%s - %s\n", pkg->key.c_str(), pad, pkg->name.c_str(), pkg->description.c_str());
 
     g_free(pad);
 }
