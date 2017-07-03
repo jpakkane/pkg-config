@@ -1,4 +1,4 @@
-project('pkg-config', 'c',
+project('pkg-config', 'cpp',
   version: '0.29.2',
   license: 'GPLv2+')
 
@@ -28,11 +28,11 @@ configure_file(output : 'config.h',
   configuration : cdata)
 
 pkgconfig = executable('pkg-config',
-  'pkg.c',
-  'parse.c',
-  'rpmvercmp.c',
-  'main.c',
-  c_args : '-DHAVE_CONFIG_H=1',
+  'pkg.cpp',
+  'parse.cpp',
+  'rpmvercmp.cpp',
+  'main.cpp',
+  cpp_args : '-DHAVE_CONFIG_H=1',
   dependencies : glib_dep,
   install : true)
 

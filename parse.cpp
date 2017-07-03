@@ -36,7 +36,7 @@
 
 gboolean parse_strict = TRUE;
 gboolean define_prefix = ENABLE_DEFINE_PREFIX;
-char *prefix_variable = "prefix";
+const char *prefix_variable = "prefix";
 
 #ifdef G_OS_WIN32
 gboolean msvc_syntax = FALSE;
@@ -422,7 +422,7 @@ parse_module_list (Package *pkg, const char *str, const char *path)
       char *p;
       char *start;
       
-      p = iter->data;
+      p = static_cast<char*>(iter->data);
 
       ver = g_new0 (RequiredVersion, 1);
       ver->comparison = ALWAYS_MATCH;
@@ -591,7 +591,7 @@ parse_conflicts (Package *pkg, const char *str, const char *path)
 static char *strdup_escape_shell(const char *s)
 {
 	size_t r_s = strlen(s)+10, c = 0;
-	char *r = g_malloc(r_s);
+	char *r = static_cast<char*>(g_malloc(r_s));
 	while (s[0]) {
 		if ((s[0] < '$') ||
 		    (s[0] > '$' && s[0] < '(') ||
@@ -609,7 +609,7 @@ static char *strdup_escape_shell(const char *s)
 		c++;
 		if (c+2 >= r_s) {
 			r_s *= 2;
-			r = g_realloc(r, r_s);
+			r = static_cast<char*>(g_realloc(r, r_s));
 		}
 		s++;
 	}
@@ -621,13 +621,13 @@ static void _do_parse_libs (Package *pkg, int argc, char **argv)
 {
   int i;
 #ifdef G_OS_WIN32
-  char *L_flag = (msvc_syntax ? "/libpath:" : "-L");
-  char *l_flag = (msvc_syntax ? "" : "-l");
-  char *lib_suffix = (msvc_syntax ? ".lib" : "");
+  const char *L_flag = (msvc_syntax ? "/libpath:" : "-L");
+  const char *l_flag = (msvc_syntax ? "" : "-l");
+  const char *lib_suffix = (msvc_syntax ? ".lib" : "");
 #else
-  char *L_flag = "-L";
-  char *l_flag = "-l";
-  char *lib_suffix = "";
+  const char *L_flag = "-L";
+  const char *l_flag = "-l";
+  const char *lib_suffix = "";
 #endif
 
   i = 0;
@@ -1056,7 +1056,7 @@ parse_line (Package *pkg, const char *untrimmed, const char *path,
 	{
 	  char *oldstr = str;
 
-	  p = str = g_strconcat (g_hash_table_lookup (pkg->vars, prefix_variable),
+	  p = str = g_strconcat (static_cast<char*>(g_hash_table_lookup (pkg->vars, prefix_variable)),
 				 p + strlen (pkg->orig_prefix), NULL);
 	  g_free (oldstr);
 	}
@@ -1125,7 +1125,7 @@ parse_package_file (const char *key, const char *path,
     pkg->vars = g_hash_table_new (g_str_hash, g_str_equal);
 
   /* Variable storing directory of pc file */
-  g_hash_table_insert (pkg->vars, "pcfiledir", pkg->pcfiledir);
+  g_hash_table_insert (pkg->vars, const_cast<char*>("pcfiledir"), pkg->pcfiledir);
 
   str = g_string_new ("");
 

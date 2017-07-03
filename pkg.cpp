@@ -194,7 +194,7 @@ add_virtual_pkgconfig_package (void)
 
   if (pkg->vars == NULL)
     pkg->vars = g_hash_table_new (g_str_hash, g_str_equal);
-  g_hash_table_insert (pkg->vars, "pc_path", pkg_config_pc_path);
+  g_hash_table_insert (pkg->vars, const_cast<char*>("pc_path"), const_cast<char*>(pkg_config_pc_path));
 
   debug_spew ("Adding virtual 'pkg-config' package to list of known packages\n");
   g_hash_table_insert (packages, pkg->key, pkg);
@@ -229,7 +229,7 @@ internal_get_package (const char *name, gboolean warn)
   GList *iter;
   GList *dir_iter;
   
-  pkg = g_hash_table_lookup (packages, name);
+  pkg = static_cast<Package*>(g_hash_table_lookup (packages, name));
 
   if (pkg)
     return pkg;
@@ -326,7 +326,7 @@ internal_get_package (const char *name, gboolean warn)
   for (iter = pkg->requires_entries; iter != NULL; iter = g_list_next (iter))
     {
       Package *req;
-      RequiredVersion *ver = iter->data;
+      RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
       debug_spew ("Searching for '%s' requirement '%s'\n",
                   pkg->key, ver->name);
@@ -350,7 +350,7 @@ internal_get_package (const char *name, gboolean warn)
        iter = g_list_next (iter))
     {
       Package *req;
-      RequiredVersion *ver = iter->data;
+      RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
       debug_spew ("Searching for '%s' private requirement '%s'\n",
                   pkg->key, ver->name);
@@ -403,8 +403,8 @@ flag_list_strip_duplicates (GList *list)
    * existing previous element. */
   for (tmp = g_list_next (list); tmp != NULL; tmp = g_list_next (tmp))
     {
-      Flag *cur = tmp->data;
-      Flag *prev = tmp->prev->data;
+      Flag *cur = static_cast<Flag*>(tmp->data);
+      Flag *prev = static_cast<Flag*>(tmp->prev->data);
 
       if (cur->type == prev->type && g_strcmp0 (cur->arg, prev->arg) == 0)
         {
@@ -430,7 +430,7 @@ flag_list_to_string (GList *list)
   
   tmp = list;
   while (tmp != NULL) {
-    Flag *flag = tmp->data;
+    Flag *flag = static_cast<Flag*>(tmp->data);
     char *tmpstr = flag->arg;
 
     if (pcsysrootdir != NULL && flag->type & (CFLAGS_I | LIBS_L)) {
@@ -465,8 +465,8 @@ flag_list_to_string (GList *list)
 static int
 pathposcmp (gconstpointer a, gconstpointer b)
 {
-  const Package *pa = a;
-  const Package *pb = b;
+  const Package *pa = static_cast<const Package*>(a);
+  const Package *pb = static_cast<const Package*>(b);
   
   if (pa->path_position < pb->path_position)
     return -1;
@@ -487,7 +487,7 @@ spew_package_list (const char *name,
   tmp = list;
   while (tmp != NULL)
     {
-      Package *pkg = tmp->data;
+      Package *pkg = static_cast<Package*>(tmp->data);
       debug_spew (" %s", pkg->key);
       tmp = tmp->next;
     }
@@ -536,7 +536,7 @@ recursive_fill_list (Package *pkg, gboolean include_private,
    * the recursive list is built by prepending. */
   tmp = include_private ? pkg->requires_private : pkg->requires;
   for (tmp = g_list_last (tmp); tmp != NULL; tmp = g_list_previous (tmp))
-    recursive_fill_list (tmp->data, include_private, visited, listp);
+    recursive_fill_list (static_cast<Package*>(tmp->data), include_private, visited, listp);
 
   *listp = g_list_prepend (*listp, pkg);
 }
@@ -551,13 +551,13 @@ merge_flag_lists (GList *packages, FlagType type)
   /* keep track of the last element to avoid traversing the whole list */
   for (; packages != NULL; packages = g_list_next (packages))
     {
-      Package *pkg = packages->data;
+      Package *pkg = static_cast<Package*>(packages->data);
       GList *flags = (type & LIBS_ANY) ? pkg->libs : pkg->cflags;
 
       /* manually copy the elements so we can keep track of the end */
       for (; flags != NULL; flags = g_list_next (flags))
         {
-          Flag *flag = flags->data;
+          Flag *flag = static_cast<Flag*>(flags->data);
 
           if (flag->type & type)
             {
@@ -588,7 +588,7 @@ fill_list (GList *packages, FlagType type,
    * the recursive list is built by prepending. */
   visited = g_hash_table_new (g_str_hash, g_str_equal);
   for (tmp = g_list_last (packages); tmp != NULL; tmp = g_list_previous (tmp))
-    recursive_fill_list (tmp->data, include_private, visited, &expanded);
+    recursive_fill_list (static_cast<Package*>(tmp->data), include_private, visited, &expanded);
   g_hash_table_destroy (visited);
   spew_package_list ("post-recurse", expanded);
 
@@ -692,12 +692,12 @@ verify_package (Package *pkg)
 
   while (iter != NULL)
     {
-      Package *req = iter->data;
+      Package *req = static_cast<Package*>(iter->data);
       RequiredVersion *ver = NULL;
 
       if (pkg->required_versions)
-        ver = g_hash_table_lookup (pkg->required_versions,
-                                   req->key);
+        ver = static_cast<RequiredVersion*>(g_hash_table_lookup (pkg->required_versions,
+                                                                 req->key));
 
       if (ver)
         {
@@ -731,13 +731,13 @@ verify_package (Package *pkg)
   requires_iter = requires;
   while (requires_iter != NULL)
     {
-      Package *req = requires_iter->data;
+      Package *req = static_cast<Package*>(requires_iter->data);
       
       conflicts_iter = conflicts;
 
       while (conflicts_iter != NULL)
         {
-          RequiredVersion *ver = conflicts_iter->data;
+          RequiredVersion *ver = static_cast<RequiredVersion*>(conflicts_iter->data);
 
 	  if (strcmp (ver->name, req->key) == 0 &&
 	      version_test (ver->comparison,
@@ -793,7 +793,7 @@ verify_package (Package *pkg)
   for (iter = pkg->cflags; iter != NULL; iter = g_list_next (iter))
     {
       gint offset = 0;
-      Flag *flag = iter->data;
+      Flag *flag = static_cast<Flag*>(iter->data);
 
       if (!(flag->type & CFLAGS_I))
         continue;
@@ -817,7 +817,7 @@ verify_package (Package *pkg)
 	  system_dir_iter = system_directories;
 	  while (system_dir_iter != NULL)
 	    {
-	      if (strcmp (system_dir_iter->data,
+	      if (strcmp (static_cast<char*>(system_dir_iter->data),
                           ((char*)flag->arg) + offset) == 0)
 		{
                   debug_spew ("Package %s has %s in Cflags\n",
@@ -861,7 +861,7 @@ verify_package (Package *pkg)
   for (iter = pkg->libs; iter != NULL; iter = g_list_next (iter))
     {
       GList *system_dir_iter = system_directories;
-      Flag *flag = iter->data;
+      Flag *flag = static_cast<Flag*>(iter->data);
 
       if (!(flag->type & LIBS_L))
         continue;
@@ -870,7 +870,7 @@ verify_package (Package *pkg)
         {
           gboolean is_system = FALSE;
           const char *linker_arg = flag->arg;
-          const char *system_libpath = system_dir_iter->data;
+          const char *system_libpath = static_cast<char*>(system_dir_iter->data);
 
           if (strncmp (linker_arg, "-L ", 3) == 0 &&
               strcmp (linker_arg + 3, system_libpath) == 0)
@@ -994,9 +994,9 @@ define_global_variable (const char *varname,
 char *
 var_to_env_var (const char *pkg, const char *var)
 {
-  char *new = g_strconcat ("PKG_CONFIG_", pkg, "_", var, NULL);
+  char *new_ = g_strconcat ("PKG_CONFIG_", pkg, "_", var, NULL);
   char *p;
-  for (p = new; *p != 0; p++)
+  for (p = new_; *p != 0; p++)
     {
       char c = g_ascii_toupper (*p);
 
@@ -1006,7 +1006,7 @@ var_to_env_var (const char *pkg, const char *var)
       *p = c;
     }
 
-  return new;
+  return new_;
 }
 
 char *
@@ -1016,7 +1016,7 @@ package_get_var (Package *pkg,
   char *varval = NULL;
 
   if (globals)
-    varval = g_strdup (g_hash_table_lookup (globals, var));
+    varval = g_strdup (static_cast<char*>(g_hash_table_lookup (globals, var)));
 
   /* Allow overriding specific variables using an environment variable of the
    * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
@@ -1035,7 +1035,7 @@ package_get_var (Package *pkg,
 
 
   if (varval == NULL && pkg->vars)
-    varval = g_strdup (g_hash_table_lookup (pkg->vars, var));
+    varval = g_strdup (static_cast<char*>(g_hash_table_lookup (pkg->vars, var)));
 
   return varval;
 }
@@ -1052,7 +1052,7 @@ packages_get_var (GList      *pkgs,
   tmp = pkgs;
   while (tmp != NULL)
     {
-      Package *pkg = tmp->data;
+      Package *pkg = static_cast<Package*>(tmp->data);
       char *var;
 
       var = parse_package_variable (pkg, varname);
@@ -1163,15 +1163,15 @@ comparison_to_str (ComparisonType comparison)
 static void
 max_len_foreach (gpointer key, gpointer value, gpointer data)
 {
-  int *mlen = data;
+  int *mlen = static_cast<int*>(data);
 
-  *mlen = MAX (*mlen, strlen (key));
+  *mlen = MAX (*mlen, (int)strlen(static_cast<char*>(key)));
 }
 
 static void
 packages_foreach (gpointer key, gpointer value, gpointer data)
 {
-  Package *pkg = value;
+  Package *pkg = static_cast<Package*>(value);
   char *pad;
 
   pad = g_strnfill (GPOINTER_TO_INT (data) - strlen (pkg->key), ' ');

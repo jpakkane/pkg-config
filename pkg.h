@@ -131,7 +131,7 @@ extern char *pcsysrootdir;
 /* pkg-config default search path. On Windows the current pkg-config install
  * directory is used. Otherwise, the build-time defined PKG_CONFIG_PC_PATH.
  */
-extern char *pkg_config_pc_path;
+extern const char *pkg_config_pc_path;
 
 /* Exit on parse errors if TRUE. */
 extern gboolean parse_strict;
@@ -140,7 +140,7 @@ extern gboolean parse_strict;
 extern gboolean define_prefix;
 
 /* The name of the variable that acts as prefix, unless it is "prefix" */
-extern char *prefix_variable;
+extern const char *prefix_variable;
 
 #ifdef G_OS_WIN32
 /* If TRUE, output flags in MSVC syntax. */

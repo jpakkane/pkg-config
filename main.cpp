@@ -36,7 +36,7 @@
 #endif
 
 char *pcsysrootdir = NULL;
-char *pkg_config_pc_path = NULL;
+const char *pkg_config_pc_path = NULL;
 
 static gboolean want_my_version = FALSE;
 static gboolean want_version = FALSE;
@@ -269,7 +269,7 @@ pkg_uninstalled (Package *pkg)
   tmp = pkg->requires;
   while (tmp != NULL)
     {
-      Package *pkg = tmp->data;
+      Package *pkg = static_cast<Package*>(tmp->data);
 
       if (pkg_uninstalled (pkg))
         return TRUE;
@@ -332,7 +332,7 @@ process_package_args (const char *cmdline, GList **packages, FILE *log)
   for (; reqs != NULL; reqs = g_list_next (reqs))
     {
       Package *req;
-      RequiredVersion *ver = reqs->data;
+      RequiredVersion *ver = static_cast<RequiredVersion*>(reqs->data);
 
       /* override requested versions with cmdline options */
       if (required_exact_version)
@@ -401,50 +401,50 @@ process_package_args (const char *cmdline, GList **packages, FILE *log)
 
 static const GOptionEntry options_table[] = {
   { "version", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output version of pkg-config", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "output version of pkg-config", NULL },
   { "modversion", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output version for package", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "output version for package", NULL },
   { "atleast-pkgconfig-version", 0, 0, G_OPTION_ARG_STRING,
     &required_pkgconfig_version,
     "require given version of pkg-config", "VERSION" },
-  { "libs", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+  { "libs", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "output all linker flags", NULL },
   { "static", 0, 0, G_OPTION_ARG_NONE, &want_static_lib_list,
     "output linker flags for static linking", NULL },
   { "short-errors", 0, 0, G_OPTION_ARG_NONE, &want_short_errors,
     "print short errors", NULL },
   { "libs-only-l", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output -l flags", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "output -l flags", NULL },
   { "libs-only-other", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output other libs (e.g. -pthread)", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "output other libs (e.g. -pthread)", NULL },
   { "libs-only-L", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output -L flags", NULL },
-  { "cflags", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+    reinterpret_cast<void*>(&output_opt_cb), "output -L flags", NULL },
+  { "cflags", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "output all pre-processor and compiler flags", NULL },
   { "cflags-only-I", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output -I flags", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "output -I flags", NULL },
   { "cflags-only-other", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output cflags not covered by the cflags-only-I option",
+    reinterpret_cast<void*>(&output_opt_cb), "output cflags not covered by the cflags-only-I option",
     NULL },
-  { "variable", 0, 0, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+  { "variable", 0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "get the value of variable named NAME", "NAME" },
-  { "define-variable", 0, 0, G_OPTION_ARG_CALLBACK, &define_variable_cb,
+  { "define-variable", 0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&define_variable_cb),
     "set variable NAME to VALUE", "NAME=VALUE" },
-  { "exists", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+  { "exists", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "return 0 if the module(s) exist", NULL },
   { "print-variables", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "output list of variables defined by the module", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "output list of variables defined by the module", NULL },
   { "uninstalled", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "return 0 if the uninstalled version of one or more "
+    reinterpret_cast<void*>(&output_opt_cb), "return 0 if the uninstalled version of one or more "
     "module(s) or their dependencies will be used", NULL },
-  { "atleast-version", 0, 0, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+  { "atleast-version", 0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "return 0 if the module is at least version VERSION", "VERSION" },
-  { "exact-version", 0, 0, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+  { "exact-version", 0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "return 0 if the module is at exactly version VERSION", "VERSION" },
-  { "max-version", 0, 0, G_OPTION_ARG_CALLBACK, &output_opt_cb,
+  { "max-version", 0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
     "return 0 if the module is at no newer than version VERSION", "VERSION" },
   { "list-all", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "list all known packages", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "list all known packages", NULL },
   { "debug", 0, 0, G_OPTION_ARG_NONE, &want_debug_spew,
     "show verbose debug information", NULL },
   { "print-errors", 0, 0, G_OPTION_ARG_NONE, &want_verbose_errors,
@@ -457,14 +457,14 @@ static const GOptionEntry options_table[] = {
   { "errors-to-stdout", 0, 0, G_OPTION_ARG_NONE, &want_stdout_errors,
     "print errors from --print-errors to stdout not stderr", NULL },
   { "print-provides", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "print which packages the package provides", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "print which packages the package provides", NULL },
   { "print-requires", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "print which packages the package requires", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "print which packages the package requires", NULL },
   { "print-requires-private", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "print which packages the package requires for static "
+    reinterpret_cast<void*>(&output_opt_cb), "print which packages the package requires for static "
     "linking", NULL },
   { "validate", 0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-    &output_opt_cb, "validate a package's .pc file", NULL },
+    reinterpret_cast<void*>(&output_opt_cb), "validate a package's .pc file", NULL },
   { "define-prefix", 0, 0, G_OPTION_ARG_NONE, &define_prefix,
     "try to override the value of prefix for each .pc file found with a "
     "guesstimated value based on the location of the .pc file", NULL },
@@ -479,7 +479,7 @@ static const GOptionEntry options_table[] = {
   { "msvc-syntax", 0, 0, G_OPTION_ARG_NONE, &msvc_syntax,
     "output -l and -L flags for the Microsoft compiler (cl)", NULL },
 #endif
-  { NULL, 0, 0, 0, NULL, NULL, NULL }
+  { NULL, 0, 0, G_OPTION_ARG_NONE, NULL, NULL, NULL }
 };
 
 int
@@ -697,7 +697,7 @@ main (int argc, char **argv)
       tmp = packages;
       while (tmp != NULL)
         {
-          Package *pkg = tmp->data;
+          Package *pkg = static_cast<Package*>(tmp->data);
           if (pkg->vars != NULL)
             {
               /* Sort variables for consistent output */
@@ -719,7 +719,7 @@ main (int argc, char **argv)
       tmp = packages;
       while (tmp != NULL)
         {
-          Package *pkg = tmp->data;
+          Package *pkg = static_cast<Package*>(tmp->data);
 
           if (pkg_uninstalled (pkg))
             return 0;
@@ -736,7 +736,7 @@ main (int argc, char **argv)
       tmp = packages;
       while (tmp != NULL)
         {
-          Package *pkg = tmp->data;
+          Package *pkg = static_cast<Package*>(tmp->data);
 
           printf ("%s\n", pkg->version);
 
@@ -750,7 +750,7 @@ main (int argc, char **argv)
      tmp = packages;
      while (tmp != NULL)
        {
-         Package *pkg = tmp->data;
+         Package *pkg = static_cast<Package*>(tmp->data);
          char *key;
          key = pkg->key;
          while (*key == '/')
@@ -766,15 +766,15 @@ main (int argc, char **argv)
       GList *pkgtmp;
       for (pkgtmp = packages; pkgtmp != NULL; pkgtmp = g_list_next (pkgtmp))
         {
-          Package *pkg = pkgtmp->data;
+          Package *pkg = static_cast<Package*>(pkgtmp->data);
           GList *reqtmp;
 
           /* process Requires: */
           for (reqtmp = pkg->requires; reqtmp != NULL; reqtmp = g_list_next (reqtmp))
             {
-              Package *deppkg = reqtmp->data;
+              Package *deppkg = static_cast<Package*>(reqtmp->data);
               RequiredVersion *req;
-              req = g_hash_table_lookup(pkg->required_versions, deppkg->key);
+              req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key));
               if ((req == NULL) || (req->comparison == ALWAYS_MATCH))
                 printf ("%s\n", deppkg->key);
               else
@@ -789,19 +789,19 @@ main (int argc, char **argv)
       GList *pkgtmp;
       for (pkgtmp = packages; pkgtmp != NULL; pkgtmp = g_list_next (pkgtmp))
         {
-          Package *pkg = pkgtmp->data;
+          Package *pkg = static_cast<Package*>(pkgtmp->data);
           GList *reqtmp;
           /* process Requires.private: */
           for (reqtmp = pkg->requires_private; reqtmp != NULL; reqtmp = g_list_next (reqtmp))
             {
 
-              Package *deppkg = reqtmp->data;
+              Package *deppkg = static_cast<Package*>(reqtmp->data);
               RequiredVersion *req;
 
               if (g_list_find (pkg->requires, reqtmp->data))
                 continue;
 
-              req = g_hash_table_lookup(pkg->required_versions, deppkg->key);
+              req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key));
               if ((req == NULL) || (req->comparison == ALWAYS_MATCH))
                 printf ("%s\n", deppkg->key);
               else

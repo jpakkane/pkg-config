@@ -43,8 +43,8 @@ int rpmvercmp(const char * a, const char * b)
     /* easy comparison to see if versions are identical */
     if (rstreq(a, b)) return 0;
 
-    str1 = g_alloca(strlen(a) + 1);
-    str2 = g_alloca(strlen(b) + 1);
+    str1 = static_cast<char*>(g_alloca(strlen(a) + 1));
+    str2 = static_cast<char*>(g_alloca(strlen(b) + 1));
 
     strcpy(str1, a);
     strcpy(str2, b);
