@@ -328,10 +328,10 @@ static gboolean process_package_args(const char *cmdline, GList **packages, FILE
             continue;
         }
 
-        if(!version_test(ver->comparison, req->version, ver->version.c_str())) {
+        if(!version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
             success = FALSE;
             verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver->name.c_str(),
-                    comparison_to_str(ver->comparison), ver->version.c_str(), req->name.c_str(), req->version);
+                    comparison_to_str(ver->comparison), ver->version.c_str(), req->name.c_str(), req->version.c_str());
             if(req->url)
                 verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url);
             continue;
@@ -629,7 +629,7 @@ int main(int argc, char **argv) {
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
 
-            printf("%s\n", pkg->version);
+            printf("%s\n", pkg->version.c_str());
 
             tmp = g_list_next(tmp);
         }
@@ -645,7 +645,7 @@ int main(int argc, char **argv) {
             while(*key == '/')
                 key++;
             if(strlen(key) > 0)
-                printf("%s = %s\n", key, pkg->version);
+                printf("%s = %s\n", key, pkg->version.c_str());
             tmp = g_list_next(tmp);
         }
     }

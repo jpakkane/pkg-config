@@ -167,7 +167,7 @@ add_virtual_pkgconfig_package(void) {
     pkg = g_new0(Package, 1);
 
     pkg->key = "pkg-config";
-    pkg->version = g_strdup(VERSION);
+    pkg->version = VERSION;
     pkg->name = "pkg-config";
     pkg->description = g_strdup("pkg-config is a system for managing "
             "compile/link flags for libraries");
@@ -585,7 +585,7 @@ static void verify_package(Package *pkg) {
         exit(1);
     }
 
-    if(pkg->version == NULL) {
+    if(pkg->version.empty()) {
         verbose_error("Package '%s' has no Version: field\n", pkg->key.c_str());
         exit(1);
     }
@@ -607,9 +607,9 @@ static void verify_package(Package *pkg) {
             ver = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, req->key.c_str()));
 
         if(ver) {
-            if(!version_test(ver->comparison, req->version, ver->version.c_str())) {
+            if(!version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
                 verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req->key.c_str(),
-                        comparison_to_str(ver->comparison), ver->version.c_str(), req->key.c_str(), req->version);
+                        comparison_to_str(ver->comparison), ver->version.c_str(), req->key.c_str(), req->version.c_str());
                 if(req->url)
                     verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url);
 
@@ -637,11 +637,11 @@ static void verify_package(Package *pkg) {
         while(conflicts_iter != NULL) {
             RequiredVersion *ver = static_cast<RequiredVersion*>(conflicts_iter->data);
 
-            if(strcmp(ver->name.c_str(), req->key.c_str()) == 0 && version_test(ver->comparison, req->version, ver->version.c_str())) {
+            if(strcmp(ver->name.c_str(), req->key.c_str()) == 0 && version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
                 verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req->version, req->key.c_str(), ver->name.c_str(),
+                        "(%s %s %s conflicts with %s %s)\n", req->version.c_str(), req->key.c_str(), ver->name.c_str(),
                         comparison_to_str(ver->comparison), ver->version.empty() ? ver->version.c_str() : "(any)", ver->owner->key.c_str(),
-                        ver->owner->version);
+                        ver->owner->version.c_str());
 
                 exit(1);
             }

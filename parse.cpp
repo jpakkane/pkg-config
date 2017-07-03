@@ -209,7 +209,7 @@ static void parse_name(Package *pkg, const char *str, const char *path) {
 }
 
 static void parse_version(Package *pkg, const char *str, const char *path) {
-    if(pkg->version) {
+    if(!pkg->version.empty()) {
         verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);

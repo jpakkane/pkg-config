@@ -56,7 +56,7 @@ struct RequiredVersion {
 struct Package {
     std::string key; /* filename name */
     std::string name; /* human-readable name */
-    char *version = nullptr;
+    std::string version;
     char *description = nullptr;
     char *url = nullptr;
     char *pcfiledir = nullptr; /* directory it was loaded from */
