@@ -291,10 +291,7 @@ internal_get_package(const char *name, bool warn) {
             exit(1);
         }
 
-        if(pkg->required_versions == NULL)
-            pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
-
-        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver.name.c_str()), const_cast<RequiredVersion*>(&ver));
+        pkg->required_versions[ver.name] = ver;
         pkg->requires.push_back(req);
     }
 
@@ -309,10 +306,7 @@ internal_get_package(const char *name, bool warn) {
             exit(1);
         }
 
-        if(pkg->required_versions == NULL)
-            pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
-
-        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver.name.c_str()), const_cast<RequiredVersion*>(&ver));
+        pkg->required_versions[ver.name] = ver;
         pkg->requires_private.push_back(req);
     }
 
@@ -573,15 +567,13 @@ static void verify_package(Package *pkg) {
     /* Make sure we have the right version for all requirements */
 
     for(const Package *req : pkg->requires_private) {
-        RequiredVersion *ver = NULL;
+        auto v_find = pkg->required_versions.find(req->key);
 
-        if(pkg->required_versions)
-            ver = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, req->key.c_str()));
-
-        if(ver) {
-            if(!version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
+        if(v_find != pkg->required_versions.end()) {
+            auto &ver = v_find->second;
+            if(!version_test(ver.comparison, req->version.c_str(), ver.version.c_str())) {
                 verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req->key.c_str(),
-                        comparison_to_str(ver->comparison), ver->version.c_str(), req->key.c_str(), req->version.c_str());
+                        comparison_to_str(ver.comparison), ver.version.c_str(), req->key.c_str(), req->version.c_str());
                 if(!req->url.empty())
                     verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url.c_str());
 

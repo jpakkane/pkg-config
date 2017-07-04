@@ -649,12 +649,13 @@ int main(int argc, char **argv) {
 
             /* process Requires: */
             for(Package *deppkg : pkg->requires) {
-                RequiredVersion *req;
-                req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
-                if((req == NULL) || (req->comparison == ALWAYS_MATCH))
+                auto lookup = pkg->required_versions.find(deppkg->key);
+                if(lookup == pkg->required_versions.end() || (lookup->second.comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key.c_str());
                 else
-                    printf("%s %s %s\n", deppkg->key.c_str(), comparison_to_str(req->comparison), req->version.c_str());
+                    printf("%s %s %s\n", deppkg->key.c_str(),
+                            comparison_to_str(lookup->second.comparison),
+                            lookup->second.version.c_str());
             }
         }
     }
@@ -668,11 +669,13 @@ int main(int argc, char **argv) {
                 if(std::find(pkg->requires.begin(), pkg->requires.end(), deppkg) != pkg->requires.end())
                     continue;
 
-                auto req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
-                if((req == NULL) || (req->comparison == ALWAYS_MATCH))
+                auto lookup = pkg->required_versions.find(deppkg->key);
+                if((lookup == pkg->required_versions.end()) || (lookup->second.comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key.c_str());
                 else
-                    printf("%s %s %s\n", deppkg->key.c_str(), comparison_to_str(req->comparison), req->version.c_str());
+                    printf("%s %s %s\n", deppkg->key.c_str(),
+                            comparison_to_str(lookup->second.comparison),
+                            lookup->second.version.c_str());
             }
         }
     }

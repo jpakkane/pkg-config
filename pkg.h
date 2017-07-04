@@ -22,6 +22,7 @@
 
 #include<string>
 #include<vector>
+#include<unordered_map>
 #include <glib.h>
 
 typedef guint8 FlagType; /* bit mask for flag types */
@@ -68,7 +69,7 @@ struct Package {
     std::vector<Flag> libs;
     std::vector<Flag> cflags;
     GHashTable *vars = nullptr;
-    GHashTable *required_versions = nullptr; /* hash from name to RequiredVersion */
+    std::unordered_map<std::string, RequiredVersion> required_versions; /* hash from name to RequiredVersion */
     std::vector<RequiredVersion> conflicts; /* list of RequiredVersion */
     bool uninstalled = false; /* used the -uninstalled file */
     int path_position = 0; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
