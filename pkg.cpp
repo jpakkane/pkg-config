@@ -38,7 +38,7 @@
 static void verify_package(Package *pkg);
 
 static GHashTable *packages = NULL;
-static GHashTable *globals = NULL;
+static std::unordered_map<std::string, std::string> globals;
 static GList *search_dirs = NULL;
 
 bool disable_uninstalled = false;
@@ -168,9 +168,7 @@ add_virtual_pkgconfig_package(void) {
     pkg->description = "pkg-config is a system for managing compile/link flags for libraries";
     pkg->url = "http://pkg-config.freedesktop.org/";
 
-    if(pkg->vars == NULL)
-        pkg->vars = g_hash_table_new(g_str_hash, g_str_equal);
-    g_hash_table_insert(pkg->vars, const_cast<char*>("pc_path"), const_cast<char*>(pkg_config_pc_path));
+    pkg->vars["pc_path"] = pkg_config_pc_path;
 
     debug_spew("Adding virtual 'pkg-config' package to list of known packages\n");
     g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
@@ -783,15 +781,13 @@ packages_get_flags(GList *pkgs, FlagType flags) {
 }
 
 void define_global_variable(const char *varname, const char *varval) {
-    if(globals == NULL)
-        globals = g_hash_table_new(g_str_hash, g_str_equal);
 
-    if(g_hash_table_lookup(globals, varname)) {
+    if(globals.find(varname) != globals.end()) {
         verbose_error("Variable '%s' defined twice globally\n", varname);
         exit(1);
     }
 
-    g_hash_table_insert(globals, g_strdup(varname), g_strdup(varval));
+    globals[varname] = varval;
 
     debug_spew("Global variable definition '%s' = '%s'\n", varname, varval);
 }
@@ -812,12 +808,12 @@ var_to_env_var(const char *pkg, const char *var) {
     return new_;
 }
 
-char *
+std::string
 package_get_var(Package *pkg, const char *var) {
-    char *varval = NULL;
-
-    if(globals)
-        varval = g_strdup(static_cast<char*>(g_hash_table_lookup(globals, var)));
+    std::string varval;
+    auto lookup = globals.find(var);
+    if(lookup != globals.end())
+        varval = lookup->second;
 
     /* Allow overriding specific variables using an environment variable of the
      * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
@@ -832,9 +828,11 @@ package_get_var(Package *pkg, const char *var) {
         }
     }
 
-    if(varval == NULL && pkg->vars)
-        varval = g_strdup(static_cast<char*>(g_hash_table_lookup(pkg->vars, var)));
-
+    if(varval.empty()) {
+        auto res = pkg->vars.find(var);
+        if(res != pkg->vars.end())
+            varval = res->second;
+    }
     return varval;
 }
 
@@ -848,14 +846,11 @@ packages_get_var(GList *pkgs, const char *varname) {
     tmp = pkgs;
     while(tmp != NULL) {
         Package *pkg = static_cast<Package*>(tmp->data);
-        char *var;
-
-        var = parse_package_variable(pkg, varname);
-        if(var) {
+        auto var = parse_package_variable(pkg, varname);
+        if(!var.empty()) {
             if(str->len > 0)
                 g_string_append_c(str, ' ');
-            g_string_append(str, var);
-            g_free(var);
+            g_string_append(str, var.c_str());
         }
 
         tmp = g_list_next(tmp);

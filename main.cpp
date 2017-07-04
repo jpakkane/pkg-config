@@ -246,8 +246,8 @@ static bool pkg_uninstalled(const Package *pkg) {
     return false;
 }
 
-void print_list_data(gpointer data, gpointer user_data) {
-    g_print("%s\n", (gchar *) data);
+void print_list_data(const gchar *data, gpointer user_data) {
+    g_print("%s\n", data);
 }
 
 static void init_pc_path(void) {
@@ -585,12 +585,16 @@ int main(int argc, char **argv) {
         tmp = packages;
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
-            if(pkg->vars != NULL) {
+            if(!pkg->vars.empty()) {
+                std::vector<std::string> keys;
+                for(const auto &i : pkg->vars) {
+                    keys.push_back(i.first);
+                }
                 /* Sort variables for consistent output */
-                GList *keys = g_hash_table_get_keys(pkg->vars);
-                keys = g_list_sort(keys, (GCompareFunc) g_strcmp0);
-                g_list_foreach(keys, print_list_data, NULL);
-                g_list_free(keys);
+                std::sort(keys.begin(), keys.end());
+                for(const auto &i : keys) {
+                    print_list_data(i.c_str(), NULL);
+                }
             }
             tmp = g_list_next(tmp);
             if(tmp)

@@ -21,13 +21,14 @@
 #define PKG_CONFIG_PARSE_H
 
 #include "pkg.h"
+#include<string>
 
 Package *parse_package_file(const char *key, const char *path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private);
 
 std::vector<RequiredVersion> parse_module_list(Package *pkg, const char *str, const char *path);
 
-char *parse_package_variable(Package *pkg, const char *variable);
+std::string parse_package_variable(Package *pkg, const char *variable);
 
 #endif
 

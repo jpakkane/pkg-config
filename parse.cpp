@@ -156,7 +156,7 @@ trim_and_sub(Package *pkg, const char *str, const char *path) {
             /* variable */
             char *var_start;
             char *varname;
-            char *varval;
+            std::string varval;
 
             var_start = &p[2];
 
@@ -170,7 +170,7 @@ trim_and_sub(Package *pkg, const char *str, const char *path) {
 
             varval = package_get_var(pkg, varname);
 
-            if(varval == NULL) {
+            if(varval.empty()) {
                 verbose_error("Variable '%s' not defined in '%s'\n", varname, path);
                 if(parse_strict)
                     exit(1);
@@ -178,8 +178,7 @@ trim_and_sub(Package *pkg, const char *str, const char *path) {
 
             g_free(varname);
 
-            g_string_append(subst, varval);
-            g_free(varval);
+            g_string_append(subst, varval.c_str());
         } else {
             g_string_append_c(subst, *p);
 
@@ -1109,7 +1108,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
 
                 varname = g_strdup(tag);
                 debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag, prefix);
-                g_hash_table_insert(pkg->vars, varname, prefix);
+                pkg->vars[varname] = prefix;
                 goto cleanup;
             }
         } else if(define_prefix && !pkg->orig_prefix.empty() &&
@@ -1117,12 +1116,17 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
         G_IS_DIR_SEPARATOR (p[pkg->orig_prefix.length()])) {
             char *oldstr = str;
 
-            p = str = g_strconcat(static_cast<char*>(g_hash_table_lookup(pkg->vars, prefix_variable)),
+            auto lookup = pkg->vars.find(prefix_variable);
+            const char *tmp = nullptr;
+            if(lookup != pkg->vars.end()) {
+                tmp = lookup->second.c_str();
+            }
+            p = str = g_strconcat(tmp,
                     p + strlen(pkg->orig_prefix.c_str()), NULL);
             g_free(oldstr);
         }
 
-        if(g_hash_table_lookup(pkg->vars, tag)) {
+        if(pkg->vars.find(tag) != pkg->vars.end()) {
             verbose_error("Duplicate definition of variable '%s' in '%s'\n", tag, path);
             if(parse_strict)
                 exit(1);
@@ -1134,7 +1138,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
         varval = trim_and_sub(pkg, p, path);
 
         debug_spew(" Variable declaration, '%s' has value '%s'\n", varname, varval);
-        g_hash_table_insert(pkg->vars, varname, varval);
+        pkg->vars[varname] = varval;
 
     }
 
@@ -1170,11 +1174,8 @@ parse_package_file(const char *key, const char *path, bool ignore_requires, bool
         pkg->pcfiledir = "???????";
     }
 
-    if(pkg->vars == NULL)
-        pkg->vars = g_hash_table_new(g_str_hash, g_str_equal);
-
     /* Variable storing directory of pc file */
-    g_hash_table_insert(pkg->vars, const_cast<char*>("pcfiledir"), const_cast<char*>(pkg->pcfiledir.c_str()));
+    pkg->vars["pcfiledir"] = pkg->pcfiledir;
 
     str = g_string_new("");
 
@@ -1200,25 +1201,26 @@ parse_package_file(const char *key, const char *path, bool ignore_requires, bool
  * unquote it so it can be more easily used in a shell. Otherwise,
  * return the raw value.
  */
-char *
+std::string
 parse_package_variable(Package *pkg, const char *variable) {
-    char *value;
+    std::string value;
     char *unquoted;
     GError *error = NULL;
 
     value = package_get_var(pkg, variable);
-    if(!value)
-        return NULL;
+    if(value.empty())
+        return value;
 
-    if(*value != '"' && *value != '\'')
+    if(value[0] != '"' && value[0] != '\'')
         /* Not quoted, return raw value */
         return value;
 
     /* Maybe too naive, but assume a fully quoted variable */
-    unquoted = g_shell_unquote(value, &error);
+    unquoted = g_shell_unquote(value.c_str(), &error);
     if(unquoted) {
-        g_free(value);
-        return unquoted;
+        std::string tmp(unquoted);
+        g_free(unquoted);
+        return tmp;
     } else {
         /* Note the issue, but just return the raw value */
         debug_spew("Couldn't unquote value of \"%s\": %s\n", variable, error ? error->message : "unknown");

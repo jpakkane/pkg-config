@@ -68,7 +68,7 @@ struct Package {
     std::vector<Package*> requires_private;
     std::vector<Flag> libs;
     std::vector<Flag> cflags;
-    GHashTable *vars = nullptr;
+    std::unordered_map<std::string, std::string> vars;
     std::unordered_map<std::string, RequiredVersion> required_versions; /* hash from name to RequiredVersion */
     std::vector<RequiredVersion> conflicts; /* list of RequiredVersion */
     bool uninstalled = false; /* used the -uninstalled file */
@@ -81,7 +81,7 @@ struct Package {
 Package *get_package(const char *name);
 Package *get_package_quiet(const char *name);
 std::string packages_get_flags(GList *pkgs, FlagType flags);
-char * package_get_var(Package *pkg, const char *var);
+std::string package_get_var(Package *pkg, const char *var);
 char * packages_get_var(GList *pkgs, const char *var);
 
 void add_search_dir(const char *path);
