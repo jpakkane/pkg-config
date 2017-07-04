@@ -12,9 +12,7 @@
  * features and pkg-config does not require a C99 compiler yet.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include "rpmvercmp.h"
 

@@ -17,17 +17,11 @@
  * 02111-1307, USA.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include "pkg.h"
 #include "parse.h"
 #include "rpmvercmp.h"
-
-#ifdef HAVE_MALLOC_H
-# include <malloc.h>
-#endif
 
 #include <sys/types.h>
 #include <string.h>

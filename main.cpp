@@ -17,9 +17,7 @@
  * 02111-1307, USA.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include "pkg.h"
 #include "parse.h"
@@ -31,7 +29,7 @@
 
 #include<algorithm>
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 #define STRICT
 #include <windows.h>
 #undef STRICT

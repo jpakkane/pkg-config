@@ -19,9 +19,7 @@
  * 02111-1307, USA.
  */
 
-#ifdef HAVE_CONFIG_H
 #include "config.h"
-#endif
 
 #include "parse.h"
 #include <stdio.h>
@@ -38,7 +36,7 @@ bool parse_strict = true;
 bool define_prefix = ENABLE_DEFINE_PREFIX;
 const char *prefix_variable = "prefix";
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 bool msvc_syntax = false;
 #endif
 
