@@ -692,7 +692,7 @@ parse_module_list2(Package *pkg, const char *str, const char *path) {
 static void parse_requires(Package *pkg, const char *str, const char *path) {
     char *trimmed;
 
-    if(pkg->requires) {
+    if(!pkg->requires_.empty()) {
         verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -708,7 +708,7 @@ static void parse_requires(Package *pkg, const char *str, const char *path) {
 static void parse_requires_private(Package *pkg, const char *str, const char *path) {
     char *trimmed;
 
-    if(pkg->requires_private) {
+    if(!pkg->requires_private_.empty()) {
         verbose_error("Requires.private field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);

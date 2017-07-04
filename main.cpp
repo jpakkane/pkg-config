@@ -29,6 +29,8 @@
 #include <ctype.h>
 #include <stdio.h>
 
+#include<algorithm>
+
 #ifdef G_OS_WIN32
 #define STRICT
 #include <windows.h>
@@ -232,21 +234,15 @@ static gboolean output_opt_cb(const char *opt, const char *arg, gpointer data, G
     return TRUE;
 }
 
-static gboolean pkg_uninstalled(Package *pkg) {
+static gboolean pkg_uninstalled(const Package *pkg) {
     /* See if > 0 pkgs were uninstalled */
-    GList *tmp;
 
     if(pkg->uninstalled)
         return TRUE;
 
-    tmp = pkg->requires;
-    while(tmp != NULL) {
-        Package *pkg = static_cast<Package*>(tmp->data);
-
+    for(const Package *pkg : pkg->requires_) {
         if(pkg_uninstalled(pkg))
             return TRUE;
-
-        tmp = g_list_next(tmp);
     }
 
     return FALSE;
@@ -654,11 +650,9 @@ int main(int argc, char **argv) {
         GList *pkgtmp;
         for(pkgtmp = packages; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
             Package *pkg = static_cast<Package*>(pkgtmp->data);
-            GList *reqtmp;
 
             /* process Requires: */
-            for(reqtmp = pkg->requires; reqtmp != NULL; reqtmp = g_list_next(reqtmp)) {
-                Package *deppkg = static_cast<Package*>(reqtmp->data);
+            for(Package *deppkg : pkg->requires_) {
                 RequiredVersion *req;
                 req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
@@ -672,17 +666,13 @@ int main(int argc, char **argv) {
         GList *pkgtmp;
         for(pkgtmp = packages; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
             Package *pkg = static_cast<Package*>(pkgtmp->data);
-            GList *reqtmp;
+
             /* process Requires.private: */
-            for(reqtmp = pkg->requires_private; reqtmp != NULL; reqtmp = g_list_next(reqtmp)) {
-
-                Package *deppkg = static_cast<Package*>(reqtmp->data);
-                RequiredVersion *req;
-
-                if(g_list_find(pkg->requires, reqtmp->data))
+            for(const Package *deppkg : pkg->requires_private_) {
+                if(std::find(pkg->requires_.begin(), pkg->requires_.end(), deppkg) != pkg->requires_.end())
                     continue;
 
-                req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
+                auto req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key.c_str());
                 else

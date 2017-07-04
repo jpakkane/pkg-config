@@ -39,6 +39,8 @@
 #include <stdlib.h>
 #include <ctype.h>
 
+#include<algorithm>
+
 static void verify_package(Package *pkg);
 
 static GHashTable *packages = NULL;
@@ -301,7 +303,7 @@ internal_get_package(const char *name, gboolean warn) {
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
         g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver->name.c_str()), ver);
-        pkg->requires = g_list_prepend(pkg->requires, req);
+        pkg->requires_.push_back(req);
     }
 
     /* pull in Requires.private packages */
@@ -320,14 +322,17 @@ internal_get_package(const char *name, gboolean warn) {
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
         g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver->name.c_str()), ver);
-        pkg->requires_private = g_list_prepend(pkg->requires_private, req);
+        pkg->requires_private_.push_back(req);
     }
 
+    std::reverse(pkg->requires_private_.begin(), pkg->requires_private_.end());
     /* make requires_private include a copy of the public requires too */
-    pkg->requires_private = g_list_concat(g_list_copy(pkg->requires), pkg->requires_private);
+    pkg->requires_private_.insert(pkg->requires_private_.begin(),
+            pkg->requires_.rbegin(),
+            pkg->requires_.rend());
 
-    pkg->requires = g_list_reverse(pkg->requires);
-    pkg->requires_private = g_list_reverse(pkg->requires_private);
+//    pkg->requires = g_list_reverse(pkg->requires);
+//    pkg->requires_private_ = g_list_reverse(pkg->requires_private_);
 
     verify_package(pkg);
 
@@ -442,7 +447,6 @@ packages_sort_by_path_position(GList *list) {
  * any package that it depends on.
  */
 static void recursive_fill_list(Package *pkg, gboolean include_private, GHashTable *visited, GList **listp) {
-    GList *tmp;
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
@@ -460,9 +464,9 @@ static void recursive_fill_list(Package *pkg, gboolean include_private, GHashTab
 
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
-    tmp = include_private ? pkg->requires_private : pkg->requires;
-    for(tmp = g_list_last(tmp); tmp != NULL; tmp = g_list_previous(tmp))
-        recursive_fill_list(static_cast<Package*>(tmp->data), include_private, visited, listp);
+    auto &tmp = include_private ? pkg->requires_private_ : pkg->requires_;
+    for(Package *pkg : tmp)
+        recursive_fill_list(pkg, include_private, visited, listp);
 
     *listp = g_list_prepend(*listp, pkg);
 }
@@ -577,10 +581,7 @@ static void verify_package(Package *pkg) {
 
     /* Make sure we have the right version for all requirements */
 
-    iter = pkg->requires_private;
-
-    while(iter != NULL) {
-        Package *req = static_cast<Package*>(iter->data);
+    for(const Package *req : pkg->requires_private_) {
         RequiredVersion *ver = NULL;
 
         if(pkg->required_versions)
@@ -597,7 +598,6 @@ static void verify_package(Package *pkg) {
             }
         }
 
-        iter = g_list_next(iter);
     }
 
     /* Make sure we didn't drag in any conflicts via Requires

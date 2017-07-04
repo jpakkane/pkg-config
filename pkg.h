@@ -62,9 +62,9 @@ struct Package {
     std::string url;
     std::string pcfiledir; /* directory it was loaded from */
     GList *requires_entries = nullptr;
-    GList *requires = nullptr;
+    std::vector<Package*> requires_;
     GList *requires_private_entries = nullptr;
-    GList *requires_private = nullptr;
+    std::vector<Package*> requires_private_;
     std::vector<Flag> libs_;
     std::vector<Flag> cflags_;
     GHashTable *vars = nullptr;
