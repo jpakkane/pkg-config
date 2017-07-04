@@ -687,7 +687,7 @@ parse_module_list2(Package *pkg, const char *str, const char *path) {
 static void parse_requires(Package *pkg, const char *str, const char *path) {
     char *trimmed;
 
-    if(!pkg->requires_.empty()) {
+    if(!pkg->requires.empty()) {
         verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -696,14 +696,14 @@ static void parse_requires(Package *pkg, const char *str, const char *path) {
     }
 
     trimmed = trim_and_sub(pkg, str, path);
-    pkg->requires_entries_ = parse_module_list(pkg, trimmed, path);
+    pkg->requires_entries = parse_module_list(pkg, trimmed, path);
     g_free(trimmed);
 }
 
 static void parse_requires_private(Package *pkg, const char *str, const char *path) {
     char *trimmed;
 
-    if(!pkg->requires_private_.empty()) {
+    if(!pkg->requires_private.empty()) {
         verbose_error("Requires.private field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -712,7 +712,7 @@ static void parse_requires_private(Package *pkg, const char *str, const char *pa
     }
 
     trimmed = trim_and_sub(pkg, str, path);
-    pkg->requires_private_entries_ = parse_module_list(pkg, trimmed, path);
+    pkg->requires_private_entries = parse_module_list(pkg, trimmed, path);
     g_free(trimmed);
 }
 
@@ -785,7 +785,7 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
 
             flag.type = LIBS_l;
             flag.arg = g_strconcat(l_flag, p, lib_suffix, NULL);
-            pkg->libs_.push_back(flag);
+            pkg->libs.push_back(flag);
         } else if(p[0] == '-' && p[1] == 'L') {
             p += 2;
             while(*p && isspace((guchar) *p))
@@ -793,7 +793,7 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
 
             flag.type = LIBS_L;
             flag.arg = g_strconcat(L_flag, p, NULL);
-            pkg->libs_.push_back(flag);
+            pkg->libs.push_back(flag);
         } else if((strcmp("-framework", p) == 0 || strcmp("-Wl,-framework", p) == 0) && i + 1 < argc) {
             /* Mac OS X has a -framework Foo which is really one option,
              * so we join those to avoid having -framework Foo
@@ -805,14 +805,14 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
             framework = strdup_escape_shell(tmp);
             flag.type = LIBS_OTHER;
             flag.arg = g_strconcat(arg, " ", framework, NULL);
-            pkg->libs_.push_back(flag);
+            pkg->libs.push_back(flag);
             i++;
             g_free(framework);
             g_free(tmp);
         } else if(*arg != '\0') {
             flag.type = LIBS_OTHER;
             flag.arg = arg;
-            pkg->libs_.push_back(flag);
+            pkg->libs.push_back(flag);
         } else {
             /* flag wasn't used */
         }
@@ -914,7 +914,7 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
     GError *error = NULL;
     int i;
 
-    if(!pkg->cflags_.empty()) {
+    if(!pkg->cflags.empty()) {
         verbose_error("Cflags field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -949,7 +949,7 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
 
             flag.type = CFLAGS_I;
             flag.arg = g_strconcat("-I", p, NULL);
-            pkg->cflags_.push_back(flag);
+            pkg->cflags.push_back(flag);
         } else if((strcmp("-idirafter", arg) == 0 || strcmp("-isystem", arg) == 0) && i + 1 < argc) {
             char *option, *tmp;
 
@@ -959,14 +959,14 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             /* These are -I flags since they control the search path */
             flag.type = CFLAGS_I;
             flag.arg = g_strconcat(arg, " ", option, NULL);
-            pkg->cflags_.push_back(flag);
+            pkg->cflags.push_back(flag);
             i++;
             g_free(option);
             g_free(tmp);
         } else if(*arg != '\0') {
             flag.type = CFLAGS_OTHER;
             flag.arg = arg;
-            pkg->cflags_.push_back(flag);
+            pkg->cflags.push_back(flag);
         } else {
             /* flag wasn't used */
         }

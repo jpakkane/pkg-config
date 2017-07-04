@@ -281,7 +281,7 @@ internal_get_package(const char *name, bool warn) {
     g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
 
     /* pull in Requires packages */
-    for(const auto &ver : pkg->requires_entries_) {
+    for(const auto &ver : pkg->requires_entries) {
         Package *req;
 
         debug_spew("Searching for '%s' requirement '%s'\n", pkg->key.c_str(), ver.name.c_str());
@@ -295,11 +295,11 @@ internal_get_package(const char *name, bool warn) {
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
         g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver.name.c_str()), const_cast<RequiredVersion*>(&ver));
-        pkg->requires_.push_back(req);
+        pkg->requires.push_back(req);
     }
 
     /* pull in Requires.private packages */
-    for(const auto &ver : pkg->requires_private_entries_) {
+    for(const auto &ver : pkg->requires_private_entries) {
         Package *req;
 
         debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key.c_str(), ver.name.c_str());
@@ -313,14 +313,14 @@ internal_get_package(const char *name, bool warn) {
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
         g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver.name.c_str()), const_cast<RequiredVersion*>(&ver));
-        pkg->requires_private_.push_back(req);
+        pkg->requires_private.push_back(req);
     }
 
-    std::reverse(pkg->requires_private_.begin(), pkg->requires_private_.end());
+    std::reverse(pkg->requires_private.begin(), pkg->requires_private.end());
     /* make requires_private include a copy of the public requires too */
-    pkg->requires_private_.insert(pkg->requires_private_.begin(),
-            pkg->requires_.rbegin(),
-            pkg->requires_.rend());
+    pkg->requires_private.insert(pkg->requires_private.begin(),
+            pkg->requires.rbegin(),
+            pkg->requires.rend());
 
 //    pkg->requires = g_list_reverse(pkg->requires);
 //    pkg->requires_private_ = g_list_reverse(pkg->requires_private_);
@@ -455,7 +455,7 @@ static void recursive_fill_list(Package *pkg, bool include_private, GHashTable *
 
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
-    auto &tmp = include_private ? pkg->requires_private_ : pkg->requires_;
+    auto &tmp = include_private ? pkg->requires_private : pkg->requires;
     for(Package *pkg : tmp)
         recursive_fill_list(pkg, include_private, visited, listp);
 
@@ -469,7 +469,7 @@ merge_flag_lists(GList *packages, FlagType type) {
     /* keep track of the last element to avoid traversing the whole list */
     for(; packages != NULL; packages = g_list_next(packages)) {
         Package *pkg = static_cast<Package*>(packages->data);
-        std::vector<Flag> &flags = (type & LIBS_ANY) ? pkg->libs_ : pkg->cflags_;
+        std::vector<Flag> &flags = (type & LIBS_ANY) ? pkg->libs : pkg->cflags;
         for(const auto &f : flags) {
             if(f.type & type) {
                 merged.push_back(f);
@@ -572,7 +572,7 @@ static void verify_package(Package *pkg) {
 
     /* Make sure we have the right version for all requirements */
 
-    for(const Package *req : pkg->requires_private_) {
+    for(const Package *req : pkg->requires_private) {
         RequiredVersion *ver = NULL;
 
         if(pkg->required_versions)
@@ -644,7 +644,7 @@ static void verify_package(Package *pkg) {
     }
 
     std::vector<Flag> filtered;
-    for(const auto &flag : pkg->cflags_) {
+    for(const auto &flag : pkg->cflags) {
         gint offset = 0;
 
         if(!(flag.type & CFLAGS_I)) {
@@ -683,7 +683,7 @@ static void verify_package(Package *pkg) {
             filtered.push_back(flag);
         }
     }
-    pkg->cflags_.swap(filtered);
+    pkg->cflags.swap(filtered);
 
 
     g_list_foreach(system_directories, (GFunc) g_free, NULL);
@@ -700,7 +700,7 @@ static void verify_package(Package *pkg) {
     system_directories = add_env_variable_to_list(system_directories, search_path);
 
     filtered.clear();
-    for(const auto &flag : pkg->libs_) {
+    for(const auto &flag : pkg->libs) {
         GList *system_dir_iter = system_directories;
 
         if(!(flag.type & LIBS_L)) {
@@ -734,7 +734,7 @@ static void verify_package(Package *pkg) {
     }
     g_list_free(system_directories);
 
-    pkg->libs_.swap(filtered);
+    pkg->libs.swap(filtered);
 }
 
 /* Create a merged list of required packages and retrieve the flags from them.

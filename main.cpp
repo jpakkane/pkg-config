@@ -238,7 +238,7 @@ static bool pkg_uninstalled(const Package *pkg) {
     if(pkg->uninstalled)
         return true;
 
-    for(const Package *pkg : pkg->requires_) {
+    for(const Package *pkg : pkg->requires) {
         if(pkg_uninstalled(pkg))
             return true;
     }
@@ -648,7 +648,7 @@ int main(int argc, char **argv) {
             Package *pkg = static_cast<Package*>(pkgtmp->data);
 
             /* process Requires: */
-            for(Package *deppkg : pkg->requires_) {
+            for(Package *deppkg : pkg->requires) {
                 RequiredVersion *req;
                 req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));
                 if((req == NULL) || (req->comparison == ALWAYS_MATCH))
@@ -664,8 +664,8 @@ int main(int argc, char **argv) {
             Package *pkg = static_cast<Package*>(pkgtmp->data);
 
             /* process Requires.private: */
-            for(const Package *deppkg : pkg->requires_private_) {
-                if(std::find(pkg->requires_.begin(), pkg->requires_.end(), deppkg) != pkg->requires_.end())
+            for(const Package *deppkg : pkg->requires_private) {
+                if(std::find(pkg->requires.begin(), pkg->requires.end(), deppkg) != pkg->requires.end())
                     continue;
 
                 auto req = static_cast<RequiredVersion*>(g_hash_table_lookup(pkg->required_versions, deppkg->key.c_str()));

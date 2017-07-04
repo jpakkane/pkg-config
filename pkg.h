@@ -61,12 +61,12 @@ struct Package {
     std::string description;
     std::string url;
     std::string pcfiledir; /* directory it was loaded from */
-    std::vector<RequiredVersion> requires_entries_;
-    std::vector<Package*> requires_;
-    std::vector<RequiredVersion> requires_private_entries_;
-    std::vector<Package*> requires_private_;
-    std::vector<Flag> libs_;
-    std::vector<Flag> cflags_;
+    std::vector<RequiredVersion> requires_entries;
+    std::vector<Package*> requires;
+    std::vector<RequiredVersion> requires_private_entries;
+    std::vector<Package*> requires_private;
+    std::vector<Flag> libs;
+    std::vector<Flag> cflags;
     GHashTable *vars = nullptr;
     GHashTable *required_versions = nullptr; /* hash from name to RequiredVersion */
     std::vector<RequiredVersion> conflicts; /* list of RequiredVersion */
