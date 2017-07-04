@@ -360,25 +360,23 @@ split_module_list(const char *str, const char *path) {
     return retval;
 }
 
-GList *
+std::vector<RequiredVersion>
 parse_module_list(Package *pkg, const char *str, const char *path) {
+    std::vector<RequiredVersion> retval;
     GList *split;
     GList *iter;
-    GList *retval = NULL;
 
     split = split_module_list(str, path);
 
     for(iter = split; iter != NULL; iter = g_list_next(iter)) {
-        RequiredVersion *ver;
         char *p;
         char *start;
 
         p = static_cast<char*>(iter->data);
 
-        ver = new RequiredVersion();
-        ver->comparison = ALWAYS_MATCH;
-        ver->owner = pkg;
-        retval = g_list_prepend(retval, ver);
+        RequiredVersion ver;
+        ver.comparison = ALWAYS_MATCH;
+        ver.owner = pkg;
 
         while(*p && MODULE_SEPARATOR(*p))
             ++p;
@@ -401,7 +399,7 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
                 continue;
         }
 
-        ver->name = start;
+        ver.name = start;
 
         start = p;
 
@@ -415,20 +413,20 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
 
         if(*start != '\0') {
             if(strcmp(start, "=") == 0)
-                ver->comparison = EQUAL;
+                ver.comparison = EQUAL;
             else if(strcmp(start, ">=") == 0)
-                ver->comparison = GREATER_THAN_EQUAL;
+                ver.comparison = GREATER_THAN_EQUAL;
             else if(strcmp(start, "<=") == 0)
-                ver->comparison = LESS_THAN_EQUAL;
+                ver.comparison = LESS_THAN_EQUAL;
             else if(strcmp(start, ">") == 0)
-                ver->comparison = GREATER_THAN;
+                ver.comparison = GREATER_THAN;
             else if(strcmp(start, "<") == 0)
-                ver->comparison = LESS_THAN;
+                ver.comparison = LESS_THAN;
             else if(strcmp(start, "!=") == 0)
-                ver->comparison = NOT_EQUAL;
+                ver.comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after "
-                        "package name '%s' in file '%s'\n", start, ver->name.c_str(), path);
+                        "package name '%s' in file '%s'\n", start, ver.name.c_str(), path);
                 if(parse_strict)
                     exit(1);
                 else
@@ -446,28 +444,27 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
             ++p;
         }
 
-        if(ver->comparison != ALWAYS_MATCH && *start == '\0') {
+        if(ver.comparison != ALWAYS_MATCH && *start == '\0') {
             verbose_error("Comparison operator but no version after package "
-                    "name '%s' in file '%s'\n", ver->name.c_str(), path);
+                    "name '%s' in file '%s'\n", ver.name.c_str(), path);
             if(parse_strict)
                 exit(1);
             else {
-                ver->version = "0";
+                ver.version = "0";
                 continue;
             }
         }
 
         if(*start != '\0') {
-            ver->version = start;
+            ver.version = start;
         }
 
-        g_assert(!ver->name.empty());
+        g_assert(!ver.name.empty());
+        retval.push_back(ver);
     }
 
     g_list_foreach(split, (GFunc) g_free, NULL);
     g_list_free(split);
-
-    retval = g_list_reverse(retval);
 
     return retval;
 }
@@ -699,7 +696,7 @@ static void parse_requires(Package *pkg, const char *str, const char *path) {
     }
 
     trimmed = trim_and_sub(pkg, str, path);
-    pkg->requires_entries = parse_module_list(pkg, trimmed, path);
+    pkg->requires_entries_ = parse_module_list(pkg, trimmed, path);
     g_free(trimmed);
 }
 
@@ -715,7 +712,7 @@ static void parse_requires_private(Package *pkg, const char *str, const char *pa
     }
 
     trimmed = trim_and_sub(pkg, str, path);
-    pkg->requires_private_entries = parse_module_list(pkg, trimmed, path);
+    pkg->requires_private_entries_ = parse_module_list(pkg, trimmed, path);
     g_free(trimmed);
 }
 

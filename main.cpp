@@ -278,54 +278,52 @@ static void init_pc_path(void) {
 
 static bool process_package_args(const char *cmdline, GList **packages, FILE *log) {
     bool success = true;
-    GList *reqs;
 
-    reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
-    if(reqs == NULL) {
+    auto reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
+    if(reqs.empty()) {
         fprintf(stderr, "Must specify package names on the command line\n");
         fflush(stderr);
         return false;
     }
 
-    for(; reqs != NULL; reqs = g_list_next(reqs)) {
+    for(auto &ver : reqs) {
         Package *req;
-        RequiredVersion *ver = static_cast<RequiredVersion*>(reqs->data);
 
         /* override requested versions with cmdline options */
         if(required_exact_version) {
-            ver->comparison = EQUAL;
-            ver->version = required_exact_version;
+            ver.comparison = EQUAL;
+            ver.version = required_exact_version;
         } else if(required_atleast_version) {
-            ver->comparison = GREATER_THAN_EQUAL;
-            ver->version = required_atleast_version;
+            ver.comparison = GREATER_THAN_EQUAL;
+            ver.version = required_atleast_version;
         } else if(required_max_version) {
-            ver->comparison = LESS_THAN_EQUAL;
-            ver->version = required_max_version;
+            ver.comparison = LESS_THAN_EQUAL;
+            ver.version = required_max_version;
         }
 
         if(want_short_errors)
-            req = get_package_quiet(ver->name.c_str());
+            req = get_package_quiet(ver.name.c_str());
         else
-            req = get_package(ver->name.c_str());
+            req = get_package(ver.name.c_str());
 
         if(log != NULL) {
             if(req == NULL)
-                fprintf(log, "%s NOT-FOUND\n", ver->name.c_str());
+                fprintf(log, "%s NOT-FOUND\n", ver.name.c_str());
             else
-                fprintf(log, "%s %s %s\n", ver->name.c_str(), comparison_to_str(ver->comparison),
-                        (ver->version.empty()) ? "(null)" : ver->version.c_str());
+                fprintf(log, "%s %s %s\n", ver.name.c_str(), comparison_to_str(ver.comparison),
+                        (ver.version.empty()) ? "(null)" : ver.version.c_str());
         }
 
         if(req == NULL) {
             success = false;
-            verbose_error("No package '%s' found\n", ver->name.c_str());
+            verbose_error("No package '%s' found\n", ver.name.c_str());
             continue;
         }
 
-        if(!version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
+        if(!version_test(ver.comparison, req->version.c_str(), ver.version.c_str())) {
             success = false;
-            verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver->name.c_str(),
-                    comparison_to_str(ver->comparison), ver->version.c_str(), req->name.c_str(), req->version.c_str());
+            verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver.name.c_str(),
+                    comparison_to_str(ver.comparison), ver.version.c_str(), req->name.c_str(), req->version.c_str());
             if(!req->url.empty())
                 verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url.c_str());
             continue;

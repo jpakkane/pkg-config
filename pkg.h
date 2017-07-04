@@ -61,9 +61,9 @@ struct Package {
     std::string description;
     std::string url;
     std::string pcfiledir; /* directory it was loaded from */
-    GList *requires_entries = nullptr;
+    std::vector<RequiredVersion> requires_entries_;
     std::vector<Package*> requires_;
-    GList *requires_private_entries = nullptr;
+    std::vector<RequiredVersion> requires_private_entries_;
     std::vector<Package*> requires_private_;
     std::vector<Flag> libs_;
     std::vector<Flag> cflags_;

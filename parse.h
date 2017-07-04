@@ -25,7 +25,7 @@
 Package *parse_package_file(const char *key, const char *path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private);
 
-GList *parse_module_list(Package *pkg, const char *str, const char *path);
+std::vector<RequiredVersion> parse_module_list(Package *pkg, const char *str, const char *path);
 
 char *parse_package_variable(Package *pkg, const char *variable);
 

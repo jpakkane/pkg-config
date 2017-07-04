@@ -199,7 +199,6 @@ internal_get_package(const char *name, bool warn) {
     char *key = NULL;
     char *location = NULL;
     unsigned int path_position = 0;
-    GList *iter;
     GList *dir_iter;
 
     pkg = static_cast<Package*>(g_hash_table_lookup(packages, name));
@@ -282,40 +281,38 @@ internal_get_package(const char *name, bool warn) {
     g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
 
     /* pull in Requires packages */
-    for(iter = pkg->requires_entries; iter != NULL; iter = g_list_next(iter)) {
+    for(const auto &ver : pkg->requires_entries_) {
         Package *req;
-        RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
-        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key.c_str(), ver->name.c_str());
-        req = internal_get_package(ver->name.c_str(), warn);
+        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key.c_str(), ver.name.c_str());
+        req = internal_get_package(ver.name.c_str(), warn);
         if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key.c_str());
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg->key.c_str());
             exit(1);
         }
 
         if(pkg->required_versions == NULL)
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
-        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver->name.c_str()), ver);
+        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver.name.c_str()), const_cast<RequiredVersion*>(&ver));
         pkg->requires_.push_back(req);
     }
 
     /* pull in Requires.private packages */
-    for(iter = pkg->requires_private_entries; iter != NULL; iter = g_list_next(iter)) {
+    for(const auto &ver : pkg->requires_private_entries_) {
         Package *req;
-        RequiredVersion *ver = static_cast<RequiredVersion*>(iter->data);
 
-        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key.c_str(), ver->name.c_str());
-        req = internal_get_package(ver->name.c_str(), warn);
+        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key.c_str(), ver.name.c_str());
+        req = internal_get_package(ver.name.c_str(), warn);
         if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver->name.c_str(), pkg->key.c_str());
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg->key.c_str());
             exit(1);
         }
 
         if(pkg->required_versions == NULL)
             pkg->required_versions = g_hash_table_new(g_str_hash, g_str_equal);
 
-        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver->name.c_str()), ver);
+        g_hash_table_insert(pkg->required_versions, const_cast<char*>(ver.name.c_str()), const_cast<RequiredVersion*>(&ver));
         pkg->requires_private_.push_back(req);
     }
 
