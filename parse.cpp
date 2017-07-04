@@ -34,12 +34,12 @@
 #endif
 #include <sys/types.h>
 
-gboolean parse_strict = TRUE;
-gboolean define_prefix = ENABLE_DEFINE_PREFIX;
+bool parse_strict = true;
+bool define_prefix = ENABLE_DEFINE_PREFIX;
 const char *prefix_variable = "prefix";
 
 #ifdef G_OS_WIN32
-gboolean msvc_syntax = FALSE;
+bool msvc_syntax = false;
 #endif
 
 /**
@@ -51,11 +51,11 @@ gboolean msvc_syntax = FALSE;
  * any other character is ignored and written into the output buffer
  * unmodified.
  * 
- * Return value: %FALSE if the stream was already at an EOF character.
+ * Return value: %false if the stream was already at an EOF character.
  **/
-static gboolean read_one_line(FILE *stream, GString *str) {
-    gboolean quoted = FALSE;
-    gboolean comment = FALSE;
+static bool read_one_line(FILE *stream, GString *str) {
+    bool quoted = false;
+    bool comment = false;
     int n_read = 0;
 
     g_string_truncate(str, 0);
@@ -74,7 +74,7 @@ static gboolean read_one_line(FILE *stream, GString *str) {
             n_read++;
 
         if(quoted) {
-            quoted = FALSE;
+            quoted = false;
 
             switch (c){
             case '#':
@@ -96,11 +96,11 @@ static gboolean read_one_line(FILE *stream, GString *str) {
         } else {
             switch (c){
             case '#':
-                comment = TRUE;
+                comment = true;
                 break;
             case '\\':
                 if(!comment)
-                    quoted = TRUE;
+                    quoted = true;
                 break;
             case '\n': {
                 int next_c = getc(stream);
@@ -191,7 +191,7 @@ trim_and_sub(Package *pkg, const char *str, const char *path) {
 
     g_free(trimmed);
     p = subst->str;
-    g_string_free(subst, FALSE);
+    g_string_free(subst, false);
 
     return p;
 }
@@ -996,8 +996,8 @@ static void parse_url(Package *pkg, const char *str, const char *path) {
     pkg->url = trim_and_sub(pkg, str, path);
 }
 
-static void parse_line(Package *pkg, const char *untrimmed, const char *path, gboolean ignore_requires,
-        gboolean ignore_private_libs, gboolean ignore_requires_private) {
+static void parse_line(Package *pkg, const char *untrimmed, const char *path, bool ignore_requires,
+        bool ignore_private_libs, bool ignore_requires_private) {
     char *str;
     char *p;
     char *tag;
@@ -1039,7 +1039,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
             if(!ignore_requires_private)
                 parse_requires_private(pkg, p, path);
         } else if(strcmp(tag, "Requires") == 0) {
-            if(ignore_requires == FALSE)
+            if(ignore_requires == false)
                 parse_requires(pkg, p, path);
             else
                 goto cleanup;
@@ -1076,7 +1076,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
              * for this package from the location of the .pc file.
              */
             gchar *base;
-            gboolean is_pkgconfigdir;
+            bool is_pkgconfigdir;
 
             base = g_path_get_basename(pkg->pcfiledir.c_str());
             is_pkgconfigdir = g_ascii_strcasecmp(base, "pkgconfig") == 0;
@@ -1148,12 +1148,12 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, gb
 }
 
 Package*
-parse_package_file(const char *key, const char *path, gboolean ignore_requires, gboolean ignore_private_libs,
-        gboolean ignore_requires_private) {
+parse_package_file(const char *key, const char *path, bool ignore_requires, bool ignore_private_libs,
+        bool ignore_requires_private) {
     FILE *f;
     Package *pkg;
     GString *str;
-    gboolean one_line = FALSE;
+    bool one_line = false;
 
     f = fopen(path, "r");
 
@@ -1184,7 +1184,7 @@ parse_package_file(const char *key, const char *path, gboolean ignore_requires, 
     str = g_string_new("");
 
     while(read_one_line(f, str)) {
-        one_line = TRUE;
+        one_line = true;
 
         parse_line(pkg, str->str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
 
@@ -1193,7 +1193,7 @@ parse_package_file(const char *key, const char *path, gboolean ignore_requires, 
 
     if(!one_line)
         verbose_error("Package file '%s' appears to be empty\n", path);
-    g_string_free(str, TRUE);
+    g_string_free(str, true);
     fclose(f);
 
     //pkg->libs = g_list_reverse(pkg->libs);

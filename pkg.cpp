@@ -47,10 +47,10 @@ static GHashTable *packages = NULL;
 static GHashTable *globals = NULL;
 static GList *search_dirs = NULL;
 
-gboolean disable_uninstalled = FALSE;
-gboolean ignore_requires = FALSE;
-gboolean ignore_requires_private = TRUE;
-gboolean ignore_private_libs = TRUE;
+bool disable_uninstalled = false;
+bool ignore_requires = false;
+bool ignore_requires_private = true;
+bool ignore_private_libs = true;
 
 void add_search_dir(const char *path) {
     search_dirs = g_list_append(search_dirs, g_strdup(path));
@@ -84,32 +84,32 @@ void add_search_dirs(const char *path, const char *separator) {
 
 #define EXT_LEN 3
 
-static gboolean ends_in_dotpc(const char *str) {
+static bool ends_in_dotpc(const char *str) {
     int len = strlen(str);
 
     if(len > EXT_LEN && str[len - 3] == '.' &&
     FOLD (str[len - 2]) == 'p' &&
     FOLD (str[len - 1]) == 'c')
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 /* strlen ("-uninstalled") */
 #define UNINSTALLED_LEN 12
 
-gboolean name_ends_in_uninstalled(const char *str) {
+bool name_ends_in_uninstalled(const char *str) {
     int len = strlen(str);
 
     if(len > UNINSTALLED_LEN &&
     FOLDCMP ((str + len - UNINSTALLED_LEN), "-uninstalled") == 0)
-        return TRUE;
+        return true;
     else
-        return FALSE;
+        return false;
 }
 
 static Package *
-internal_get_package(const char *name, gboolean warn);
+internal_get_package(const char *name, bool warn);
 
 /* Look for .pc files in the given directory and add them into
  * locations, ignoring duplicates
@@ -156,7 +156,7 @@ static void scan_dir(char *dirname) {
 
     while((filename = g_dir_read_name(dir))) {
         char *path = g_build_filename(dirname, filename, NULL);
-        internal_get_package(path, FALSE);
+        internal_get_package(path, false);
         g_free(path);
     }
     g_dir_close(dir);
@@ -184,7 +184,7 @@ add_virtual_pkgconfig_package(void) {
     return pkg;
 }
 
-void package_init(gboolean want_list) {
+void package_init(bool want_list) {
     if(packages)
         return;
 
@@ -200,7 +200,7 @@ void package_init(gboolean want_list) {
 }
 
 static Package *
-internal_get_package(const char *name, gboolean warn) {
+internal_get_package(const char *name, bool warn) {
     Package *pkg = NULL;
     char *key = NULL;
     char *location = NULL;
@@ -227,7 +227,7 @@ internal_get_package(const char *name, gboolean warn) {
 
             un = g_strconcat(name, "-uninstalled", NULL);
 
-            pkg = internal_get_package(un, FALSE);
+            pkg = internal_get_package(un, false);
 
             g_free(un);
 
@@ -271,7 +271,7 @@ internal_get_package(const char *name, gboolean warn) {
     g_free(key);
 
     if(pkg != NULL && strstr(location, "uninstalled.pc"))
-        pkg->uninstalled = TRUE;
+        pkg->uninstalled = true;
 
     g_free(location);
 
@@ -341,12 +341,12 @@ internal_get_package(const char *name, gboolean warn) {
 
 Package *
 get_package(const char *name) {
-    return internal_get_package(name, TRUE);
+    return internal_get_package(name, true);
 }
 
 Package *
 get_package_quiet(const char *name) {
-    return internal_get_package(name, FALSE);
+    return internal_get_package(name, false);
 }
 
 /* Strip consecutive duplicate arguments in the flag list. */
@@ -446,7 +446,7 @@ packages_sort_by_path_position(GList *list) {
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(Package *pkg, gboolean include_private, GHashTable *visited, GList **listp) {
+static void recursive_fill_list(Package *pkg, bool include_private, GHashTable *visited, GList **listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
@@ -490,7 +490,7 @@ merge_flag_lists(GList *packages, FlagType type) {
 }
 
 static std::vector<Flag>
-fill_list(GList *packages, FlagType type, gboolean in_path_order, gboolean include_private) {
+fill_list(GList *packages, FlagType type, bool in_path_order, bool include_private) {
     GList *tmp;
     GList *expanded = NULL;
     std::vector<Flag> flags;
@@ -604,7 +604,7 @@ static void verify_package(Package *pkg) {
      * (inefficient algorithm, who cares)
      */
     visited = g_hash_table_new(g_str_hash, g_str_equal);
-    recursive_fill_list(pkg, TRUE, visited, &requires);
+    recursive_fill_list(pkg, true, visited, &requires);
     g_hash_table_destroy(visited);
     conflicts = pkg->conflicts;
 
@@ -719,14 +719,14 @@ static void verify_package(Package *pkg) {
 
         bool discard_this = false;
         while(system_dir_iter != NULL) {
-            gboolean is_system = FALSE;
+            bool is_system = false;
             const char *linker_arg = flag.arg.c_str();
             const char *system_libpath = static_cast<char*>(system_dir_iter->data);
 
             if(strncmp(linker_arg, "-L ", 3) == 0 && strcmp(linker_arg + 3, system_libpath) == 0)
-                is_system = TRUE;
+                is_system = true;
             else if(strncmp(linker_arg, "-L", 2) == 0 && strcmp(linker_arg + 2, system_libpath) == 0)
-                is_system = TRUE;
+                is_system = true;
             if(is_system) {
                 debug_spew("Package %s has -L %s in Libs\n", pkg->key.c_str(), system_libpath);
                 if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
@@ -754,7 +754,7 @@ static void verify_package(Package *pkg) {
  * The former is done for -I/-L flags, and the latter for all others.
  */
 static std::string
-get_multi_merged(GList *pkgs, FlagType type, gboolean in_path_order, gboolean include_private) {
+get_multi_merged(GList *pkgs, FlagType type, bool in_path_order, bool include_private) {
     std::vector<Flag> list;
     std::string retval;
 
@@ -771,22 +771,22 @@ packages_get_flags(GList *pkgs, FlagType flags) {
 
     /* sort packages in path order for -L/-I, dependency order otherwise */
     if(flags & CFLAGS_OTHER) {
-        cur = get_multi_merged(pkgs, CFLAGS_OTHER, FALSE, TRUE);
+        cur = get_multi_merged(pkgs, CFLAGS_OTHER, false, true);
         debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur.c_str());
         str += cur;
     }
     if(flags & CFLAGS_I) {
-        cur = get_multi_merged(pkgs, CFLAGS_I, TRUE, TRUE);
+        cur = get_multi_merged(pkgs, CFLAGS_I, true, true);
         debug_spew("adding CFLAGS_I string \"%s\"\n", cur.c_str());
         str += cur;
     }
     if(flags & LIBS_L) {
-        cur = get_multi_merged(pkgs, LIBS_L, TRUE, !ignore_private_libs);
+        cur = get_multi_merged(pkgs, LIBS_L, true, !ignore_private_libs);
         debug_spew("adding LIBS_L string \"%s\"\n", cur.c_str());
         str += cur;
     }
     if(flags & (LIBS_OTHER | LIBS_l)) {
-        cur = get_multi_merged(pkgs, flags & (LIBS_OTHER | LIBS_l), FALSE, !ignore_private_libs);
+        cur = get_multi_merged(pkgs, flags & (LIBS_OTHER | LIBS_l), false, !ignore_private_libs);
         debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur.c_str());
         str += cur;
     }
@@ -878,14 +878,14 @@ packages_get_var(GList *pkgs, const char *varname) {
         tmp = g_list_next(tmp);
     }
 
-    return g_string_free(str, FALSE);
+    return g_string_free(str, false);
 }
 
 int compare_versions(const char * a, const char *b) {
     return rpmvercmp(a, b);
 }
 
-gboolean version_test(ComparisonType comparison, const char *a, const char *b) {
+bool version_test(ComparisonType comparison, const char *a, const char *b) {
     switch (comparison){
     case LESS_THAN:
         return compare_versions(a, b) < 0;
@@ -912,7 +912,7 @@ gboolean version_test(ComparisonType comparison, const char *a, const char *b) {
         break;
 
     case ALWAYS_MATCH:
-        return TRUE;
+        return true;
         break;
 
     default:
@@ -921,7 +921,7 @@ gboolean version_test(ComparisonType comparison, const char *a, const char *b) {
         break;
     }
 
-    return FALSE;
+    return false;
 }
 
 const char *
@@ -984,33 +984,33 @@ static void packages_foreach(gpointer key, gpointer value, gpointer data) {
 void print_package_list(void) {
     int mlen = 0;
 
-    ignore_requires = TRUE;
-    ignore_requires_private = TRUE;
+    ignore_requires = true;
+    ignore_requires_private = true;
 
     g_hash_table_foreach(packages, max_len_foreach, &mlen);
     g_hash_table_foreach(packages, packages_foreach, GINT_TO_POINTER(mlen + 1));
 }
 
 void enable_private_libs(void) {
-    ignore_private_libs = FALSE;
+    ignore_private_libs = false;
 }
 
 void disable_private_libs(void) {
-    ignore_private_libs = TRUE;
+    ignore_private_libs = true;
 }
 
 void enable_requires(void) {
-    ignore_requires = FALSE;
+    ignore_requires = false;
 }
 
 void disable_requires(void) {
-    ignore_requires = TRUE;
+    ignore_requires = true;
 }
 
 void enable_requires_private(void) {
-    ignore_requires_private = FALSE;
+    ignore_requires_private = false;
 }
 
 void disable_requires_private(void) {
-    ignore_requires_private = TRUE;
+    ignore_requires_private = true;
 }

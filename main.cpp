@@ -40,29 +40,29 @@
 char *pcsysrootdir = NULL;
 const char *pkg_config_pc_path = NULL;
 
-static gboolean want_my_version = FALSE;
-static gboolean want_version = FALSE;
+static bool want_my_version = false;
+static bool want_version = false;
 static FlagType pkg_flags = 0;
-static gboolean want_list = FALSE;
-static gboolean want_static_lib_list = ENABLE_INDIRECT_DEPS;
-static gboolean want_short_errors = FALSE;
-static gboolean want_uninstalled = FALSE;
+static bool want_list = false;
+static bool want_static_lib_list = ENABLE_INDIRECT_DEPS;
+static bool want_short_errors = false;
+static bool want_uninstalled = false;
 static char *variable_name = NULL;
-static gboolean want_exists = FALSE;
-static gboolean want_provides = FALSE;
-static gboolean want_requires = FALSE;
-static gboolean want_requires_private = FALSE;
-static gboolean want_validate = FALSE;
+static bool want_exists = false;
+static bool want_provides = false;
+static bool want_requires = false;
+static bool want_requires_private = false;
+static bool want_validate = false;
 static char *required_atleast_version = NULL;
 static char *required_exact_version = NULL;
 static char *required_max_version = NULL;
 static char *required_pkgconfig_version = NULL;
-static gboolean want_silence_errors = FALSE;
-static gboolean want_variable_list = FALSE;
-static gboolean want_debug_spew = FALSE;
-static gboolean want_verbose_errors = FALSE;
-static gboolean want_stdout_errors = FALSE;
-static gboolean output_opt_set = FALSE;
+static bool want_silence_errors = false;
+static bool want_variable_list = false;
+static bool want_debug_spew = false;
+static bool want_verbose_errors = false;
+static bool want_stdout_errors = false;
+static bool output_opt_set = false;
 
 void debug_spew(const char *format, ...) {
     va_list args;
@@ -114,7 +114,7 @@ void verbose_error(const char *format, ...) {
     g_free(str);
 }
 
-static gboolean define_variable_cb(const char *opt, const char *arg, gpointer data, GError **error) {
+static bool define_variable_cb(const char *opt, const char *arg, gpointer data, GError **error) {
     char *varname;
     char *varval;
     char *tmp;
@@ -143,15 +143,15 @@ static gboolean define_variable_cb(const char *opt, const char *arg, gpointer da
     define_global_variable(varname, varval);
 
     g_free(tmp);
-    return TRUE;
+    return true;
 }
 
-static gboolean output_opt_cb(const char *opt, const char *arg, gpointer data, GError **error) {
-    static gboolean vercmp_opt_set = FALSE;
+static bool output_opt_cb(const char *opt, const char *arg, gpointer data, GError **error) {
+    static bool vercmp_opt_set = false;
 
     /* only allow one output mode, with a few exceptions */
     if(output_opt_set) {
-        gboolean bad_opt = TRUE;
+        bool bad_opt = true;
 
         /* multiple flag options (--cflags --libs-only-l) allowed */
         if(pkg_flags != 0
@@ -159,30 +159,30 @@ static gboolean output_opt_cb(const char *opt, const char *arg, gpointer data, G
                         || strcmp(opt, "--libs-only-other") == 0 || strcmp(opt, "--libs-only-L") == 0
                         || strcmp(opt, "--cflags") == 0 || strcmp(opt, "--cflags-only-I") == 0
                         || strcmp(opt, "--cflags-only-other") == 0))
-            bad_opt = FALSE;
+            bad_opt = false;
 
         /* --print-requires and --print-requires-private allowed */
         if((want_requires && strcmp(opt, "--print-requires-private") == 0)
                 || (want_requires_private && strcmp(opt, "--print-requires") == 0))
-            bad_opt = FALSE;
+            bad_opt = false;
 
         /* --exists allowed with --atleast/exact/max-version */
         if(want_exists && !vercmp_opt_set
                 && (strcmp(opt, "--atleast-version") == 0 || strcmp(opt, "--exact-version") == 0
                         || strcmp(opt, "--max-version") == 0))
-            bad_opt = FALSE;
+            bad_opt = false;
 
         if(bad_opt) {
             fprintf(stderr, "Ignoring incompatible output option \"%s\"\n", opt);
             fflush(stderr);
-            return TRUE;
+            return true;
         }
     }
 
     if(strcmp(opt, "--version") == 0)
-        want_my_version = TRUE;
+        want_my_version = true;
     else if(strcmp(opt, "--modversion") == 0)
-        want_version = TRUE;
+        want_version = true;
     else if(strcmp(opt, "--libs") == 0)
         pkg_flags |= LIBS_ANY;
     else if(strcmp(opt, "--libs-only-l") == 0)
@@ -200,52 +200,52 @@ static gboolean output_opt_cb(const char *opt, const char *arg, gpointer data, G
     else if(strcmp(opt, "--variable") == 0)
         variable_name = g_strdup(arg);
     else if(strcmp(opt, "--exists") == 0)
-        want_exists = TRUE;
+        want_exists = true;
     else if(strcmp(opt, "--print-variables") == 0)
-        want_variable_list = TRUE;
+        want_variable_list = true;
     else if(strcmp(opt, "--uninstalled") == 0)
-        want_uninstalled = TRUE;
+        want_uninstalled = true;
     else if(strcmp(opt, "--atleast-version") == 0) {
         required_atleast_version = g_strdup(arg);
-        want_exists = TRUE;
-        vercmp_opt_set = TRUE;
+        want_exists = true;
+        vercmp_opt_set = true;
     } else if(strcmp(opt, "--exact-version") == 0) {
         required_exact_version = g_strdup(arg);
-        want_exists = TRUE;
-        vercmp_opt_set = TRUE;
+        want_exists = true;
+        vercmp_opt_set = true;
     } else if(strcmp(opt, "--max-version") == 0) {
         required_max_version = g_strdup(arg);
-        want_exists = TRUE;
-        vercmp_opt_set = TRUE;
+        want_exists = true;
+        vercmp_opt_set = true;
     } else if(strcmp(opt, "--list-all") == 0)
-        want_list = TRUE;
+        want_list = true;
     else if(strcmp(opt, "--print-provides") == 0)
-        want_provides = TRUE;
+        want_provides = true;
     else if(strcmp(opt, "--print-requires") == 0)
-        want_requires = TRUE;
+        want_requires = true;
     else if(strcmp(opt, "--print-requires-private") == 0)
-        want_requires_private = TRUE;
+        want_requires_private = true;
     else if(strcmp(opt, "--validate") == 0)
-        want_validate = TRUE;
+        want_validate = true;
     else
-        return FALSE;
+        return false;
 
-    output_opt_set = TRUE;
-    return TRUE;
+    output_opt_set = true;
+    return true;
 }
 
-static gboolean pkg_uninstalled(const Package *pkg) {
+static bool pkg_uninstalled(const Package *pkg) {
     /* See if > 0 pkgs were uninstalled */
 
     if(pkg->uninstalled)
-        return TRUE;
+        return true;
 
     for(const Package *pkg : pkg->requires_) {
         if(pkg_uninstalled(pkg))
-            return TRUE;
+            return true;
     }
 
-    return FALSE;
+    return false;
 }
 
 void print_list_data(gpointer data, gpointer user_data) {
@@ -278,15 +278,15 @@ static void init_pc_path(void) {
 #endif
 }
 
-static gboolean process_package_args(const char *cmdline, GList **packages, FILE *log) {
-    gboolean success = TRUE;
+static bool process_package_args(const char *cmdline, GList **packages, FILE *log) {
+    bool success = true;
     GList *reqs;
 
     reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
     if(reqs == NULL) {
         fprintf(stderr, "Must specify package names on the command line\n");
         fflush(stderr);
-        return FALSE;
+        return false;
     }
 
     for(; reqs != NULL; reqs = g_list_next(reqs)) {
@@ -319,13 +319,13 @@ static gboolean process_package_args(const char *cmdline, GList **packages, FILE
         }
 
         if(req == NULL) {
-            success = FALSE;
+            success = false;
             verbose_error("No package '%s' found\n", ver->name.c_str());
             continue;
         }
 
         if(!version_test(ver->comparison, req->version.c_str(), ver->version.c_str())) {
-            success = FALSE;
+            success = false;
             verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver->name.c_str(),
                     comparison_to_str(ver->comparison), ver->version.c_str(), req->name.c_str(), req->version.c_str());
             if(!req->url.empty())
@@ -410,7 +410,7 @@ int main(int argc, char **argv) {
     GList *packages = NULL;
     char *search_path;
     char *pcbuilddir;
-    gboolean need_newline;
+    bool need_newline;
     FILE *log = NULL;
     GError *error = NULL;
     GOptionContext *opt_context;
@@ -419,9 +419,9 @@ int main(int argc, char **argv) {
      * during arg parsing
      */
     if(getenv("PKG_CONFIG_DEBUG_SPEW")) {
-        want_debug_spew = TRUE;
-        want_verbose_errors = TRUE;
-        want_silence_errors = FALSE;
+        want_debug_spew = true;
+        want_verbose_errors = true;
+        want_silence_errors = false;
         debug_spew("PKG_CONFIG_DEBUG_SPEW variable enabling debug spew\n");
     }
 
@@ -462,7 +462,7 @@ int main(int argc, char **argv) {
 
     if(getenv("PKG_CONFIG_DISABLE_UNINSTALLED")) {
         debug_spew("disabling auto-preference for uninstalled packages\n");
-        disable_uninstalled = TRUE;
+        disable_uninstalled = true;
     }
 
     /* Parse options */
@@ -476,7 +476,7 @@ int main(int argc, char **argv) {
     /* If no output option was set, then --exists is the default. */
     if(!output_opt_set) {
         debug_spew("no output option set, defaulting to --exists\n");
-        want_exists = TRUE;
+        want_exists = true;
     }
 
     /* Error printing is determined as follows:
@@ -498,9 +498,9 @@ int main(int argc, char **argv) {
                 "--list-all. Value of --silence-errors: %d\n", want_silence_errors);
 
         if(want_silence_errors && getenv("PKG_CONFIG_DEBUG_SPEW") == NULL)
-            want_verbose_errors = FALSE;
+            want_verbose_errors = false;
         else
-            want_verbose_errors = TRUE;
+            want_verbose_errors = true;
     }
 
     if(want_verbose_errors)
@@ -527,7 +527,7 @@ int main(int argc, char **argv) {
 
     /* Allow errors in .pc files when listing all. */
     if(want_list)
-        parse_strict = FALSE;
+        parse_strict = false;
 
     if(want_my_version) {
         printf("%s\n", VERSION);
@@ -577,7 +577,7 @@ int main(int argc, char **argv) {
     if(log != NULL)
         fclose(log);
 
-    g_string_free(str, TRUE);
+    g_string_free(str, true);
 
     /* If the user just wants to check package existence or validate its .pc
      * file, we're all done. */
@@ -600,7 +600,7 @@ int main(int argc, char **argv) {
             if(tmp)
                 printf("\n");
         }
-        need_newline = FALSE;
+        need_newline = false;
     }
 
     if(want_uninstalled) {
@@ -682,19 +682,19 @@ int main(int argc, char **argv) {
     }
 
     /* Print all flags; then print a newline at the end. */
-    need_newline = FALSE;
+    need_newline = false;
 
     if(variable_name) {
         char *str = packages_get_var(packages, variable_name);
         printf("%s", str);
         g_free(str);
-        need_newline = TRUE;
+        need_newline = true;
     }
 
     if(pkg_flags != 0) {
         std::string str = packages_get_flags(packages, pkg_flags);
         printf("%s", str.c_str());
-        need_newline = TRUE;
+        need_newline = true;
     }
 
     if(need_newline)

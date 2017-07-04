@@ -70,7 +70,7 @@ struct Package {
     GHashTable *vars = nullptr;
     GHashTable *required_versions = nullptr; /* hash from name to RequiredVersion */
     std::vector<RequiredVersion> conflicts; /* list of RequiredVersion */
-    gboolean uninstalled = FALSE; /* used the -uninstalled file */
+    bool uninstalled = false; /* used the -uninstalled file */
     int path_position = 0; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
     int libs_num = 0; /* Number of times the "Libs" header has been seen */
     int libs_private_num = 0; /* Number of times the "Libs.private" header has been seen */
@@ -85,9 +85,9 @@ char * packages_get_var(GList *pkgs, const char *var);
 
 void add_search_dir(const char *path);
 void add_search_dirs(const char *path, const char *separator);
-void package_init(gboolean want_list);
+void package_init(bool want_list);
 int compare_versions(const char * a, const char *b);
-gboolean version_test(ComparisonType comparison, const char *a, const char *b);
+bool version_test(ComparisonType comparison, const char *a, const char *b);
 
 const char *comparison_to_str(ComparisonType comparison);
 
@@ -98,7 +98,7 @@ void define_global_variable(const char *varname, const char *varval);
 void debug_spew(const char *format, ...);
 void verbose_error(const char *format, ...);
 
-gboolean name_ends_in_uninstalled(const char *str);
+bool name_ends_in_uninstalled(const char *str);
 
 void enable_private_libs(void);
 void disable_private_libs(void);
@@ -107,8 +107,8 @@ void disable_requires(void);
 void enable_requires_private(void);
 void disable_requires_private(void);
 
-/* If TRUE, do not automatically prefer uninstalled versions */
-extern gboolean disable_uninstalled;
+/* If true, do not automatically prefer uninstalled versions */
+extern bool disable_uninstalled;
 
 extern char *pcsysrootdir;
 
@@ -117,18 +117,18 @@ extern char *pcsysrootdir;
  */
 extern const char *pkg_config_pc_path;
 
-/* Exit on parse errors if TRUE. */
-extern gboolean parse_strict;
+/* Exit on parse errors if true. */
+extern bool parse_strict;
 
-/* If TRUE, define "prefix" in .pc files at runtime. */
-extern gboolean define_prefix;
+/* If true, define "prefix" in .pc files at runtime. */
+extern bool define_prefix;
 
 /* The name of the variable that acts as prefix, unless it is "prefix" */
 extern const char *prefix_variable;
 
 #ifdef G_OS_WIN32
-/* If TRUE, output flags in MSVC syntax. */
-extern gboolean msvc_syntax;
+/* If true, output flags in MSVC syntax. */
+extern bool msvc_syntax;
 #endif
 
 #endif
