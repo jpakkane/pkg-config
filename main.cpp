@@ -433,12 +433,12 @@ int main(int argc, char **argv) {
 
     search_path = getenv("PKG_CONFIG_PATH");
     if(search_path) {
-        add_search_dirs(search_path, G_SEARCHPATH_SEPARATOR_S);
+        add_search_dirs(search_path, G_SEARCHPATH_SEPARATOR);
     }
     if(getenv("PKG_CONFIG_LIBDIR") != NULL) {
-        add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), G_SEARCHPATH_SEPARATOR_S);
+        add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), G_SEARCHPATH_SEPARATOR);
     } else {
-        add_search_dirs(pkg_config_pc_path, G_SEARCHPATH_SEPARATOR_S);
+        add_search_dirs(pkg_config_pc_path, G_SEARCHPATH_SEPARATOR);
     }
 
     pcsysrootdir = getenv("PKG_CONFIG_SYSROOT_DIR");

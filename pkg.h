@@ -85,7 +85,7 @@ std::string package_get_var(Package *pkg, const char *var);
 char * packages_get_var(GList *pkgs, const char *var);
 
 void add_search_dir(const char *path);
-void add_search_dirs(const char *path, const char *separator);
+void add_search_dirs(const char *path, const char separator);
 void package_init(bool want_list);
 int compare_versions(const char * a, const char *b);
 bool version_test(ComparisonType comparison, const char *a, const char *b);

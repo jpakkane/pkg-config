@@ -34,6 +34,7 @@
 #include <ctype.h>
 
 #include<algorithm>
+#include <sstream>
 
 static void verify_package(Package *pkg);
 
@@ -50,21 +51,16 @@ void add_search_dir(const char *path) {
     search_dirs.push_back(path);
 }
 
-void add_search_dirs(const char *path, const char *separator) {
-    char **search_dirs;
-    char **iter;
+void add_search_dirs(const char *path_, const char separator) {
+    std::string path(path_);
+    std::stringstream ss;
+    ss.str(path);
+    std::string item;
 
-    search_dirs = g_strsplit(path, separator, -1);
-
-    iter = search_dirs;
-    while(*iter) {
-        debug_spew("Adding directory '%s' from PKG_CONFIG_PATH\n", *iter);
-        add_search_dir(*iter);
-
-        ++iter;
+    while(std::getline(ss, item, separator)) {
+        debug_spew("Adding directory '%s' from PKG_CONFIG_PATH\n", item.c_str());
+        add_search_dir(item.c_str());
     }
-
-    g_strfreev(search_dirs);
 }
 
 #ifdef G_OS_WIN32
