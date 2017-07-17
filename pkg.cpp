@@ -39,7 +39,7 @@ static void verify_package(Package *pkg);
 
 static GHashTable *packages = NULL;
 static std::unordered_map<std::string, std::string> globals;
-static GList *search_dirs = NULL;
+static std::vector<std::string> search_dirs;
 
 bool disable_uninstalled = false;
 bool ignore_requires = false;
@@ -47,7 +47,7 @@ bool ignore_requires_private = true;
 bool ignore_private_libs = true;
 
 void add_search_dir(const char *path) {
-    search_dirs = g_list_append(search_dirs, g_strdup(path));
+    search_dirs.push_back(path);
 }
 
 void add_search_dirs(const char *path, const char *separator) {
@@ -108,7 +108,7 @@ internal_get_package(const char *name, bool warn);
 /* Look for .pc files in the given directory and add them into
  * locations, ignoring duplicates
  */
-static void scan_dir(char *dirname) {
+static void scan_dir(const char *dirname) {
     GDir *dir;
     const gchar *filename;
 
@@ -183,7 +183,9 @@ void package_init(bool want_list) {
     packages = g_hash_table_new(g_str_hash, g_str_equal);
 
     if(want_list)
-        g_list_foreach(search_dirs, (GFunc) scan_dir, NULL);
+        std::for_each(search_dirs.begin(), search_dirs.end(), [] (const std::string &dir) {
+        scan_dir(dir.c_str());
+        });
     else
         /* Should not add virtual pkgconfig package when listing to be
          * compatible with old code that only listed packages from real
@@ -197,7 +199,6 @@ internal_get_package(const char *name, bool warn) {
     char *key = NULL;
     char *location = NULL;
     unsigned int path_position = 0;
-    GList *dir_iter;
 
     pkg = static_cast<Package*>(g_hash_table_lookup(packages, name));
 
@@ -228,9 +229,9 @@ internal_get_package(const char *name, bool warn) {
             }
         }
 
-        for(dir_iter = search_dirs; dir_iter != NULL; dir_iter = g_list_next(dir_iter)) {
+        for(const auto &dir : search_dirs) {
             path_position++;
-            location = g_strdup_printf("%s%c%s.pc", (char*) dir_iter->data,
+            location = g_strdup_printf("%s%c%s.pc", dir.c_str(),
             G_DIR_SEPARATOR, name);
             if(g_file_test(location, G_FILE_TEST_IS_REGULAR))
                 break;
