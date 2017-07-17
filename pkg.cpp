@@ -38,7 +38,7 @@
 
 static void verify_package(Package *pkg);
 
-static GHashTable *packages = NULL;
+static std::unordered_map<std::string, Package*> packages;
 static std::unordered_map<std::string, std::string> globals;
 static std::vector<std::string> search_dirs;
 
@@ -167,20 +167,16 @@ add_virtual_pkgconfig_package(void) {
     pkg->vars["pc_path"] = pkg_config_pc_path;
 
     debug_spew("Adding virtual 'pkg-config' package to list of known packages\n");
-    g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
+    packages[pkg->key] = pkg;
 
     return pkg;
 }
 
 void package_init(bool want_list) {
-    if(packages)
-        return;
-
-    packages = g_hash_table_new(g_str_hash, g_str_equal);
 
     if(want_list)
         std::for_each(search_dirs.begin(), search_dirs.end(), [] (const std::string &dir) {
-        scan_dir(dir.c_str());
+            scan_dir(dir.c_str());
         });
     else
         /* Should not add virtual pkgconfig package when listing to be
@@ -196,10 +192,10 @@ internal_get_package(const char *name, bool warn) {
     char *location = NULL;
     unsigned int path_position = 0;
 
-    pkg = static_cast<Package*>(g_hash_table_lookup(packages, name));
+    auto res = packages.find(name);
 
-    if(pkg)
-        return pkg;
+    if(res != packages.end())
+        return res->second;
 
     debug_spew("Looking for package '%s'\n", name);
 
@@ -273,7 +269,7 @@ internal_get_package(const char *name, bool warn) {
     debug_spew("Path position of '%s' is %d\n", pkg->key.c_str(), pkg->path_position);
 
     debug_spew("Adding '%s' to list of known packages\n", pkg->key.c_str());
-    g_hash_table_insert(packages, const_cast<char*>(pkg->key.c_str()), pkg);
+    packages[pkg->key] = pkg;
 
     /* pull in Requires packages */
     for(const auto &ver : pkg->requires_entries) {
@@ -939,31 +935,22 @@ comparison_to_str(ComparisonType comparison) {
     return "???";
 }
 
-static void max_len_foreach(gpointer key, gpointer value, gpointer data) {
-    int *mlen = static_cast<int*>(data);
-
-    *mlen = MAX(*mlen, (int )strlen(static_cast<char*>(key)));
-}
-
-static void packages_foreach(gpointer key, gpointer value, gpointer data) {
-    Package *pkg = static_cast<Package*>(value);
-    char *pad;
-
-    pad = g_strnfill(GPOINTER_TO_INT (data) - strlen(pkg->key.c_str()), ' ');
-
-    printf("%s%s%s - %s\n", pkg->key.c_str(), pad, pkg->name.c_str(), pkg->description.c_str());
-
-    g_free(pad);
-}
-
 void print_package_list(void) {
-    int mlen = 0;
+    size_t mlen = 0;
 
     ignore_requires = true;
     ignore_requires_private = true;
 
-    g_hash_table_foreach(packages, max_len_foreach, &mlen);
-    g_hash_table_foreach(packages, packages_foreach, GINT_TO_POINTER(mlen + 1));
+    for(auto i = packages.begin(); i != packages.end(); ++i) {
+        mlen = std::max(mlen, i->first.length());
+    }
+    for(auto i = packages.begin(); i != packages.end(); ++i) {
+        std::string pad;
+        for(size_t counter=0; counter < mlen-i->first.size()+1; ++counter)
+            pad += " ";
+        printf("%s%s%s - %s\n", i->second->key.c_str(), pad.c_str(), i->second->name.c_str(),
+                i->second->description.c_str());
+    }
 }
 
 void enable_private_libs(void) {
