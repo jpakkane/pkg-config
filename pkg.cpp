@@ -35,6 +35,7 @@
 
 #include<algorithm>
 #include <sstream>
+#include<unordered_set>
 
 static void verify_package(Package *pkg);
 
@@ -422,7 +423,7 @@ packages_sort_by_path_position(GList *list) {
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(Package *pkg, bool include_private, std::unordered_map<std::string, Package*> &visited, GList **listp) {
+static void recursive_fill_list(Package *pkg, bool include_private, std::unordered_set<std::string> &visited, GList **listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
@@ -435,7 +436,7 @@ static void recursive_fill_list(Package *pkg, bool include_private, std::unorder
         return;
     }
     /* record this package in the dependency chain */
-    visited[pkg->key] = nullptr; // FIXME
+    visited.insert(pkg->key);
 
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
@@ -469,7 +470,7 @@ fill_list(GList *packages, FlagType type, bool in_path_order, bool include_priva
     GList *tmp;
     GList *expanded = NULL;
     std::vector<Flag> flags;
-    std::unordered_map<std::string, Package*> visited;
+    std::unordered_set<std::string> visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
@@ -525,7 +526,7 @@ static void verify_package(Package *pkg) {
     GList *iter;
     GList *requires_iter;
     GList *system_dir_iter = NULL;
-    std::unordered_map<std::string, Package*> visited;
+    std::unordered_set<std::string> visited;
     const gchar *search_path;
     const gchar **include_envvars;
     const gchar **var;
