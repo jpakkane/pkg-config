@@ -396,16 +396,11 @@ static int pathposcmp(gconstpointer a, gconstpointer b) {
         return 0;
 }
 
-static void spew_package_list(const char *name, GList *list) {
-    GList *tmp;
-
+static void spew_package_list(const char *name, const std::vector<Package*> &list) {
     debug_spew(" %s:", name);
 
-    tmp = list;
-    while(tmp != NULL) {
-        Package *pkg = static_cast<Package*>(tmp->data);
-        debug_spew(" %s", pkg->key.c_str());
-        tmp = tmp->next;
+    for(const auto &i : list) {
+        debug_spew(" %s", i->key.c_str());
     }
     debug_spew("\n");
 }
@@ -423,7 +418,7 @@ packages_sort_by_path_position(GList *list) {
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(Package *pkg, bool include_private, std::unordered_set<std::string> &visited, GList **listp) {
+static void recursive_fill_list(Package *pkg, bool include_private, std::unordered_set<std::string> &visited, std::vector<Package*> &listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
@@ -441,20 +436,19 @@ static void recursive_fill_list(Package *pkg, bool include_private, std::unorder
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
     auto &tmp = include_private ? pkg->requires_private : pkg->requires;
-    for(Package *pkg : tmp)
-        recursive_fill_list(pkg, include_private, visited, listp);
-
-    *listp = g_list_prepend(*listp, pkg);
+    for(Package *p : tmp) {
+        recursive_fill_list(p, include_private, visited, listp);
+    }
+    listp.insert(listp.begin(), pkg);
 }
 
 /* merge the flags from the individual packages */
 static std::vector<Flag>
-merge_flag_lists(GList *packages, FlagType type) {
+merge_flag_lists(const std::vector<Package*> &packages, FlagType type) {
     std::vector<Flag> merged;
     /* keep track of the last element to avoid traversing the whole list */
-    for(; packages != NULL; packages = g_list_next(packages)) {
-        Package *pkg = static_cast<Package*>(packages->data);
-        std::vector<Flag> &flags = (type & LIBS_ANY) ? pkg->libs : pkg->cflags;
+    for(const auto &i : packages) {
+        std::vector<Flag> &flags = (type & LIBS_ANY) ? i->libs : i->cflags;
         for(const auto &f : flags) {
             if(f.type & type) {
                 merged.push_back(f);
@@ -468,24 +462,25 @@ merge_flag_lists(GList *packages, FlagType type) {
 static std::vector<Flag>
 fill_list(GList *packages, FlagType type, bool in_path_order, bool include_private) {
     GList *tmp;
-    GList *expanded = NULL;
+    std::vector<Package*> expanded;
     std::vector<Flag> flags;
     std::unordered_set<std::string> visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
     for(tmp = g_list_last(packages); tmp != NULL; tmp = g_list_previous(tmp))
-        recursive_fill_list(static_cast<Package*>(tmp->data), include_private, visited, &expanded);
+        recursive_fill_list(static_cast<Package*>(tmp->data), include_private, visited, expanded);
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
         spew_package_list("original", expanded);
-        expanded = packages_sort_by_path_position(expanded);
+        std::stable_sort(expanded.begin(), expanded.end(), [] (const Package *pa, const Package *pb) {
+            return pa->path_position < pb->path_position;
+        });
         spew_package_list("  sorted", expanded);
     }
 
     flags = merge_flag_lists(expanded, type);
-    g_list_free(expanded);
 
     return flags;
 }
@@ -520,11 +515,10 @@ static const gchar *msvc_include_envvars[] = {
 #endif
 
 static void verify_package(Package *pkg) {
-    GList *requires = NULL;
-    std::vector<RequiredVersion>conflicts;
+    std::vector<Package*> requires;
+    std::vector<RequiredVersion> conflicts;
     GList *system_directories = NULL;
     GList *iter;
-    GList *requires_iter;
     GList *system_dir_iter = NULL;
     std::unordered_set<std::string> visited;
     const gchar *search_path;
@@ -575,12 +569,11 @@ static void verify_package(Package *pkg) {
     /* Make sure we didn't drag in any conflicts via Requires
      * (inefficient algorithm, who cares)
      */
-    recursive_fill_list(pkg, true, visited, &requires);
+    recursive_fill_list(pkg, true, visited, requires);
     conflicts = pkg->conflicts;
 
-    requires_iter = requires;
-    while(requires_iter != NULL) {
-        Package *req = static_cast<Package*>(requires_iter->data);
+    for(const auto &i : requires) {
+        Package *req = i;
 
         for(const auto & ver : req->conflicts) {
 
@@ -593,11 +586,7 @@ static void verify_package(Package *pkg) {
                 exit(1);
             }
         }
-
-        requires_iter = g_list_next(requires_iter);
     }
-
-    g_list_free(requires);
 
     /* We make a list of system directories that compilers expect so we
      * can remove them.
