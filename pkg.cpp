@@ -422,21 +422,20 @@ packages_sort_by_path_position(GList *list) {
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(Package *pkg, bool include_private, GHashTable *visited, GList **listp) {
+static void recursive_fill_list(Package *pkg, bool include_private, std::unordered_map<std::string, Package*> &visited, GList **listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
      * we can skip it. Additionally, this allows circular requires loops to be
      * broken.
      */
-    if(g_hash_table_lookup_extended(visited, pkg->key.c_str(), NULL, NULL)) {
+    auto found = visited.find(pkg->key);
+    if(found != visited.end()) {
         debug_spew("Package %s already in requires chain, skipping\n", pkg->key.c_str());
         return;
     }
     /* record this package in the dependency chain */
-    else {
-        g_hash_table_replace(visited, const_cast<char*>(pkg->key.c_str()), const_cast<char*>(pkg->key.c_str()));
-    }
+    visited[pkg->key] = nullptr; // FIXME
 
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
@@ -470,14 +469,12 @@ fill_list(GList *packages, FlagType type, bool in_path_order, bool include_priva
     GList *tmp;
     GList *expanded = NULL;
     std::vector<Flag> flags;
-    GHashTable *visited;
+    std::unordered_map<std::string, Package*> visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
-    visited = g_hash_table_new(g_str_hash, g_str_equal);
     for(tmp = g_list_last(packages); tmp != NULL; tmp = g_list_previous(tmp))
         recursive_fill_list(static_cast<Package*>(tmp->data), include_private, visited, &expanded);
-    g_hash_table_destroy(visited);
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
@@ -528,7 +525,7 @@ static void verify_package(Package *pkg) {
     GList *iter;
     GList *requires_iter;
     GList *system_dir_iter = NULL;
-    GHashTable *visited;
+    std::unordered_map<std::string, Package*> visited;
     const gchar *search_path;
     const gchar **include_envvars;
     const gchar **var;
@@ -577,9 +574,7 @@ static void verify_package(Package *pkg) {
     /* Make sure we didn't drag in any conflicts via Requires
      * (inefficient algorithm, who cares)
      */
-    visited = g_hash_table_new(g_str_hash, g_str_equal);
     recursive_fill_list(pkg, true, visited, &requires);
-    g_hash_table_destroy(visited);
     conflicts = pkg->conflicts;
 
     requires_iter = requires;
