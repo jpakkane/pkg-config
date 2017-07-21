@@ -904,14 +904,61 @@ static void parse_libs_private(Package *pkg, const char *str, const char *path) 
     pkg->libs_private_num++;
 }
 
+std::vector<std::string> parse_shell_string(std::string const& in)
+{
+    std::vector<std::string> out;
+    std::string arg;
+
+    char quoteChar = 0;
+
+    for(auto ch : in) {
+
+        if (quoteChar == '\\') {
+            arg.push_back(ch);
+            quoteChar = 0;
+            continue;
+        }
+
+        if (quoteChar && ch != quoteChar) {
+            arg.push_back(ch);
+            continue;
+        }
+
+        switch (ch)
+        {
+        case '\'':
+        case '\"':
+        case '\\':
+            quoteChar = quoteChar ? 0 : ch;
+            break;
+
+        case ' ':
+        case '\t':
+        case '\n':
+
+            if (!arg.empty()) {
+                out.push_back(arg);
+                arg.clear();
+            }
+            break;
+
+        default:
+            arg.push_back(ch);
+            break;
+        }
+    }
+
+    if (!arg.empty()) {
+        out.push_back(arg);
+    }
+
+    return out;
+}
+
 static void parse_cflags(Package *pkg, const char *str, const char *path) {
     /* Strip out -I flags, put them in a separate list. */
 
     char *trimmed;
-    char **argv = NULL;
-    int argc = 0;
-    GError *error = NULL;
-    int i;
 
     if(!pkg->cflags.empty()) {
         verbose_error("Cflags field occurs twice in '%s'\n", path);
@@ -923,8 +970,9 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
 
     trimmed = trim_and_sub(pkg, str, path);
 
-    if(trimmed && *trimmed && !g_shell_parse_argv(trimmed, &argc, &argv, &error)) {
-        verbose_error("Couldn't parse Cflags field into an argument vector: %s\n", error ? error->message : "unknown");
+    auto argv = parse_shell_string(trimmed);
+    if(trimmed && FALSE) {
+        verbose_error("Couldn't parse Cflags field into an argument vector: %s\n", "unknown");
         if(parse_strict)
             exit(1);
         else {
@@ -933,10 +981,9 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
         }
     }
 
-    i = 0;
-    while(i < argc) {
+    for(int i=0; i<(int)argv.size(); ++i) {
         Flag flag;
-        char *tmp = trim_string(argv[i]);
+        char *tmp = trim_string(argv[i].c_str());
         char *arg = strdup_escape_shell(tmp);
         char *p = arg;
         g_free(tmp);
@@ -949,10 +996,10 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             flag.type = CFLAGS_I;
             flag.arg = g_strconcat("-I", p, NULL);
             pkg->cflags.push_back(flag);
-        } else if((strcmp("-idirafter", arg) == 0 || strcmp("-isystem", arg) == 0) && i + 1 < argc) {
+        } else if((strcmp("-idirafter", arg) == 0 || strcmp("-isystem", arg) == 0) && i + 1 < (int)argv.size()) {
             char *option, *tmp;
 
-            tmp = trim_string(argv[i + 1]);
+            tmp = trim_string(argv[i + 1].c_str());
             option = strdup_escape_shell(tmp);
 
             /* These are -I flags since they control the search path */
@@ -970,11 +1017,8 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             /* flag wasn't used */
         }
         g_free(arg);
-
-        ++i;
     }
 
-    g_strfreev(argv);
     g_free(trimmed);
 }
 
