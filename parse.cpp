@@ -731,25 +731,17 @@ static void parse_conflicts(Package *pkg, const char *str, const char *path) {
     g_free(trimmed);
 }
 
-static char *strdup_escape_shell(const char *s) {
-    size_t r_s = strlen(s) + 10, c = 0;
-    char *r = static_cast<char*>(g_malloc(r_s));
-    while(s[0]) {
-        if((s[0] < '$') || (s[0] > '$' && s[0] < '(') || (s[0] > ')' && s[0] < '+') || (s[0] > ':' && s[0] < '=')
-                || (s[0] > '=' && s[0] < '@') || (s[0] > 'Z' && s[0] < '^') || (s[0] == '`')
-                || (s[0] > 'z' && s[0] < '~') || (s[0] > '~')) {
-            r[c] = '\\';
-            c++;
+static std::string strdup_escape_shell(const std::string &s) {
+    std::string r;
+    r.reserve(s.size() + 10);
+    for(char c : s) {
+        if((c < '$') || (c > '$' && s[0] < '(') || (c > ')' && c < '+') || (c > ':' && c < '=')
+                || (c > '=' && c < '@') || (c > 'Z' && c < '^') || (c == '`')
+                || (c > 'z' && c < '~') || (c > '~')) {
+            r.push_back('\\');
         }
-        r[c] = *s;
-        c++;
-        if(c + 2 >= r_s) {
-            r_s *= 2;
-            r = static_cast<char*>(g_realloc(r, r_s));
-        }
-        s++;
+        r.push_back(c);
     }
-    r[c] = 0;
     return r;
 }
 
@@ -769,9 +761,9 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
     while(i < argc) {
         Flag flag;
         char *tmp = trim_string(argv[i]);
-        char *arg = strdup_escape_shell(tmp);
-        char *p;
-        p = arg;
+        std::string arg = strdup_escape_shell(tmp);
+        const char *p;
+        p = arg.data();
         g_free(tmp);
 
         if(p[0] == '-' && p[1] == 'l' &&
@@ -799,23 +791,23 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
              * -framework Bar being changed into -framework Foo Bar
              * later
              */
-            gchar *framework, *tmp = trim_string(argv[i + 1]);
+            gchar *tmp = trim_string(argv[i + 1]);
 
-            framework = strdup_escape_shell(tmp);
+            auto framework = strdup_escape_shell(tmp);
             flag.type = LIBS_OTHER;
-            flag.arg = g_strconcat(arg, " ", framework, NULL);
+            flag.arg = arg;
+            flag.arg += " ";
+            flag.arg += framework;
             pkg->libs.push_back(flag);
             i++;
-            g_free(framework);
             g_free(tmp);
-        } else if(*arg != '\0') {
+        } else if(!arg.empty()) {
             flag.type = LIBS_OTHER;
             flag.arg = arg;
             pkg->libs.push_back(flag);
         } else {
             /* flag wasn't used */
         }
-        g_free(arg);
 
         ++i;
     }
@@ -984,8 +976,8 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
     for(int i=0; i<(int)argv.size(); ++i) {
         Flag flag;
         char *tmp = trim_string(argv[i].c_str());
-        char *arg = strdup_escape_shell(tmp);
-        char *p = arg;
+        std::string arg = strdup_escape_shell(tmp);
+        const char *p = arg.data();
         g_free(tmp);
 
         if(p[0] == '-' && p[1] == 'I') {
@@ -996,27 +988,27 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             flag.type = CFLAGS_I;
             flag.arg = g_strconcat("-I", p, NULL);
             pkg->cflags.push_back(flag);
-        } else if((strcmp("-idirafter", arg) == 0 || strcmp("-isystem", arg) == 0) && i + 1 < (int)argv.size()) {
-            char *option, *tmp;
+        } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < (int)argv.size())) {
+            char *tmp;
 
             tmp = trim_string(argv[i + 1].c_str());
-            option = strdup_escape_shell(tmp);
+            std::string option = strdup_escape_shell(tmp);
 
             /* These are -I flags since they control the search path */
             flag.type = CFLAGS_I;
-            flag.arg = g_strconcat(arg, " ", option, NULL);
+            flag.arg = arg;
+            flag.arg += " ";
+            flag.arg += option;
             pkg->cflags.push_back(flag);
             i++;
-            g_free(option);
             g_free(tmp);
-        } else if(*arg != '\0') {
+        } else if(!arg.empty()) {
             flag.type = CFLAGS_OTHER;
             flag.arg = arg;
             pkg->cflags.push_back(flag);
         } else {
             /* flag wasn't used */
         }
-        g_free(arg);
     }
 
     g_free(trimmed);
@@ -1147,12 +1139,12 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
                  * of arguments that include the prefix getting split.
                  */
                 q = prefix;
-                prefix = strdup_escape_shell(prefix);
+                std::string prefix_ = strdup_escape_shell(prefix);
                 g_free(q);
 
                 varname = g_strdup(tag);
-                debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag, prefix);
-                pkg->vars[varname] = prefix;
+                debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag, prefix_.c_str());
+                pkg->vars[varname] = prefix_;
                 goto cleanup;
             }
         } else if(define_prefix && !pkg->orig_prefix.empty() &&
