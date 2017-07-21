@@ -384,18 +384,6 @@ flag_list_to_string(const std::vector<Flag> &flags) {
     return str;
 }
 
-static int pathposcmp(gconstpointer a, gconstpointer b) {
-    const Package *pa = static_cast<const Package*>(a);
-    const Package *pb = static_cast<const Package*>(b);
-
-    if(pa->path_position < pb->path_position)
-        return -1;
-    else if(pa->path_position > pb->path_position)
-        return 1;
-    else
-        return 0;
-}
-
 static void spew_package_list(const char *name, const std::vector<Package*> &list) {
     debug_spew(" %s:", name);
 
@@ -403,11 +391,6 @@ static void spew_package_list(const char *name, const std::vector<Package*> &lis
         debug_spew(" %s", i->key.c_str());
     }
     debug_spew("\n");
-}
-
-static GList *
-packages_sort_by_path_position(GList *list) {
-    return g_list_sort(list, pathposcmp);
 }
 
 /* Construct a topological sort of all required packages.
@@ -770,17 +753,23 @@ void define_global_variable(const char *varname, const char *varval) {
     debug_spew("Global variable definition '%s' = '%s'\n", varname, varval);
 }
 
-char *
+std::string
 var_to_env_var(const char *pkg, const char *var) {
-    char *new_ = g_strconcat("PKG_CONFIG_", pkg, "_", var, NULL);
-    char *p;
-    for(p = new_; *p != 0; p++) {
-        char c = g_ascii_toupper(*p);
+    std::string new_("PKG_CONFIG_");
+    new_ += pkg;
+    new_ += "_";
+    new_ += var;
+    for(size_t i = 0; i<new_.length(); ++i) {
+        char c = new_[i];
+        if(c >= 'a' && c <= 'z') {
+            c += 'A' - 'a';
+        }
 
-        if(!g_ascii_isalnum(c))
+        if(!((c >= 'A' && c <= 'Z') || (c>='0' && c<='9'))) {
             c = '_';
+        }
 
-        *p = c;
+        new_[i] = c;
     }
 
     return new_;
@@ -797,9 +786,8 @@ package_get_var(Package *pkg, const char *var) {
      * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
      */
     if(pkg->key.c_str()) {
-        char *env_var = var_to_env_var(pkg->key.c_str(), var);
-        const char *env_var_content = g_getenv(env_var);
-        g_free(env_var);
+        std::string env_var = var_to_env_var(pkg->key.c_str(), var);
+        const char *env_var_content = g_getenv(env_var.c_str());
         if(env_var_content) {
             debug_spew("Overriding variable '%s' from environment\n", var);
             return g_strdup(env_var_content);
