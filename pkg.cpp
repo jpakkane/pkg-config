@@ -461,18 +461,16 @@ fill_list(GList *packages, FlagType type, bool in_path_order, bool include_priva
     return flags;
 }
 
-static GList *
-add_env_variable_to_list(GList *list, const gchar *env) {
+static void
+add_env_variable_to_list(std::vector<std::string> &list, const gchar *env) {
     gchar **values;
     gint i;
 
     values = g_strsplit(env, G_SEARCHPATH_SEPARATOR_S, 0);
     for(i = 0; values[i] != NULL; i++) {
-        list = g_list_append(list, g_strdup(values[i]));
+        list.push_back(values[i]);
     }
     g_strfreev(values);
-
-    return list;
 }
 
 /* Well known compiler include path environment variables. These are
@@ -493,7 +491,7 @@ static const gchar *msvc_include_envvars[] = {
 static void verify_package(Package *pkg) {
     std::vector<Package*> requires;
     std::vector<RequiredVersion> conflicts;
-    GList *system_directories = NULL;
+    std::vector<std::string> system_directories;
     GList *iter;
     GList *system_dir_iter = NULL;
     std::unordered_set<std::string> visited;
@@ -574,7 +572,7 @@ static void verify_package(Package *pkg) {
         search_path = PKG_CONFIG_SYSTEM_INCLUDE_PATH;
     }
 
-    system_directories = add_env_variable_to_list(system_directories, search_path);
+    add_env_variable_to_list(system_directories, search_path);
 
 #ifdef G_OS_WIN32
     include_envvars = msvc_syntax ? msvc_include_envvars : gcc_include_envvars;
@@ -584,7 +582,7 @@ static void verify_package(Package *pkg) {
     for(var = include_envvars; *var != NULL; var++) {
         search_path = g_getenv(*var);
         if(search_path != NULL)
-            system_directories = add_env_variable_to_list(system_directories, search_path);
+            add_env_variable_to_list(system_directories, search_path);
     }
 
     std::vector<Flag> filtered;
@@ -610,9 +608,8 @@ static void verify_package(Package *pkg) {
                 continue;
             }
 
-            system_dir_iter = system_directories;
-            while(system_dir_iter != NULL) {
-                if(strcmp(static_cast<char*>(system_dir_iter->data), &flag.arg[offset]) == 0) {
+            for(const auto &system_dir_iter : system_directories) {
+                if(strcmp(system_dir_iter.c_str(), &flag.arg[offset]) == 0) {
                     debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (gchar *) flag.arg.c_str());
                     if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == NULL) {
                         debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg->key.c_str());
@@ -620,7 +617,6 @@ static void verify_package(Package *pkg) {
                         break;
                     }
                 }
-                system_dir_iter = system_dir_iter->next;
             }
         }
         if(!discard_this) {
@@ -630,10 +626,7 @@ static void verify_package(Package *pkg) {
     pkg->cflags.swap(filtered);
 
 
-    g_list_foreach(system_directories, (GFunc) g_free, NULL);
-    g_list_free(system_directories);
-
-    system_directories = NULL;
+    system_directories.clear();
 
     search_path = g_getenv("PKG_CONFIG_SYSTEM_LIBRARY_PATH");
 
@@ -641,11 +634,10 @@ static void verify_package(Package *pkg) {
         search_path = PKG_CONFIG_SYSTEM_LIBRARY_PATH;
     }
 
-    system_directories = add_env_variable_to_list(system_directories, search_path);
+    add_env_variable_to_list(system_directories, search_path);
 
     filtered.clear();
     for(const auto &flag : pkg->libs) {
-        GList *system_dir_iter = system_directories;
 
         if(!(flag.type & LIBS_L)) {
             filtered.push_back(flag);
@@ -653,10 +645,10 @@ static void verify_package(Package *pkg) {
         }
 
         bool discard_this = false;
-        while(system_dir_iter != NULL) {
+        for(auto &system_dir_iter : system_directories) {
             bool is_system = false;
             const char *linker_arg = flag.arg.c_str();
-            const char *system_libpath = static_cast<char*>(system_dir_iter->data);
+            const char *system_libpath = system_dir_iter.c_str();
 
             if(strncmp(linker_arg, "-L ", 3) == 0 && strcmp(linker_arg + 3, system_libpath) == 0)
                 is_system = true;
@@ -670,13 +662,11 @@ static void verify_package(Package *pkg) {
                     break;
                 }
             }
-            system_dir_iter = system_dir_iter->next;
         }
         if(!discard_this) {
             filtered.push_back(flag);
         }
     }
-    g_list_free(system_directories);
 
     pkg->libs.swap(filtered);
 }
