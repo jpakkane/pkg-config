@@ -32,10 +32,12 @@
 #endif
 #include <stdlib.h>
 #include <ctype.h>
+#include<dirent.h>
 
 #include<algorithm>
 #include <sstream>
 #include<unordered_set>
+#include<memory>
 
 static void verify_package(Package *pkg);
 
@@ -100,57 +102,48 @@ bool name_ends_in_uninstalled(const char *str) {
 }
 
 static Package *
-internal_get_package(const char *name, bool warn);
+internal_get_package(const std::string &name, bool warn);
 
 /* Look for .pc files in the given directory and add them into
  * locations, ignoring duplicates
  */
-static void scan_dir(const char *dirname) {
-    GDir *dir;
-    const gchar *filename;
-
-    int dirnamelen = strlen(dirname);
+static void scan_dir(const std::string &dirname) {
     /* Use a copy of dirname cause Win32 opendir doesn't like
      * superfluous trailing (back)slashes in the directory name.
      */
-    char *dirname_copy = g_strdup(dirname);
+    std::string dirname_copy = dirname;
 
-    if(dirnamelen > 1 && dirname[dirnamelen - 1] == G_DIR_SEPARATOR) {
-        dirnamelen--;
-        dirname_copy[dirnamelen] = '\0';
+    if(dirname_copy.length() > 1 && dirname_copy.back() == G_DIR_SEPARATOR) {
+        dirname_copy.pop_back();
     }
 #ifdef G_OS_WIN32
-    {
-        gchar *p;
-        /* Turn backslashes into slashes or
-         * g_shell_parse_argv() will eat them when ${prefix}
-         * has been expanded in parse_libs().
-         */
-        p = dirname;
-        while (*p)
-        {
-            if (*p == '\\')
-            *p = '/';
-            p++;
-        }
-    }
+    for(size_t i=0; i<dirname_copy.length(); ++i)
+    if dirname_copy[i] == '\\')
+        dirname_copy[i] = '/';
 #endif
-    dir = g_dir_open(dirname_copy, 0, NULL);
-    g_free(dirname_copy);
+    std::vector<std::string> entries;
+    std::unique_ptr<DIR, int(*)(DIR*)> dirholder(opendir(dirname_copy.c_str()), closedir);
+    auto dir = dirholder.get();
 
     if(!dir) {
-        debug_spew("Cannot open directory '%s' in package search path: %s\n", dirname, g_strerror(errno));
+        debug_spew("Cannot open directory '%s' in package search path: %s\n", dirname.c_str(), strerror(errno));
         return;
     }
+    struct dirent *de;
+    std::string basename;
 
-    debug_spew("Scanning directory '%s'\n", dirname);
+    debug_spew("Scanning directory '%s'\n", dirname.c_str());
 
-    while((filename = g_dir_read_name(dir))) {
-        char *path = g_build_filename(dirname, filename, NULL);
+    while((de = readdir(dir))) {
+        if(de->d_name[0] == '.')
+            continue;
+        std::string path(dirname);
+        if(path.back() != '/') {
+            path.push_back('/');
+        }
+        path += de->d_name;
         internal_get_package(path, false);
-        g_free(path);
     }
-    g_dir_close(dir);
 }
 
 static Package *
@@ -177,7 +170,7 @@ void package_init(bool want_list) {
 
     if(want_list)
         std::for_each(search_dirs.begin(), search_dirs.end(), [] (const std::string &dir) {
-            scan_dir(dir.c_str());
+            scan_dir(dir);
         });
     else
         /* Should not add virtual pkgconfig package when listing to be
@@ -187,7 +180,7 @@ void package_init(bool want_list) {
 }
 
 static Package *
-internal_get_package(const char *name, bool warn) {
+internal_get_package(const std::string &name, bool warn) {
     Package *pkg = NULL;
     char *key = NULL;
     char *location = NULL;
@@ -198,26 +191,26 @@ internal_get_package(const char *name, bool warn) {
     if(res != packages.end())
         return res->second;
 
-    debug_spew("Looking for package '%s'\n", name);
+    debug_spew("Looking for package '%s'\n", name.c_str());
 
     /* treat "name" as a filename if it ends in .pc and exists */
-    if(ends_in_dotpc(name)) {
+    if(ends_in_dotpc(name.c_str())) {
         debug_spew("Considering '%s' to be a filename rather than a package name\n", name);
-        location = g_strdup(name);
-        key = g_strdup(name);
+        location = g_strdup(name.c_str());
+        key = g_strdup(name.c_str());
     } else {
         /* See if we should auto-prefer the uninstalled version */
-        if(!disable_uninstalled && !name_ends_in_uninstalled(name)) {
+        if(!disable_uninstalled && !name_ends_in_uninstalled(name.c_str())) {
             char *un;
 
-            un = g_strconcat(name, "-uninstalled", NULL);
+            un = g_strconcat(name.c_str(), "-uninstalled", NULL);
 
             pkg = internal_get_package(un, false);
 
             g_free(un);
 
             if(pkg) {
-                debug_spew("Preferring uninstalled version of package '%s'\n", name);
+                debug_spew("Preferring uninstalled version of package '%s'\n", name.c_str());
                 return pkg;
             }
         }
@@ -225,7 +218,7 @@ internal_get_package(const char *name, bool warn) {
         for(const auto &dir : search_dirs) {
             path_position++;
             location = g_strdup_printf("%s%c%s.pc", dir.c_str(),
-            G_DIR_SEPARATOR, name);
+            G_DIR_SEPARATOR, name.c_str());
             if(g_file_test(location, G_FILE_TEST_IS_REGULAR))
                 break;
             g_free(location);
@@ -244,10 +237,10 @@ internal_get_package(const char *name, bool warn) {
     }
 
     if(key == NULL)
-        key = g_strdup(name);
+        key = g_strdup(name.c_str());
     else {
         /* need to strip package name out of the filename */
-        key = g_path_get_basename(name);
+        key = g_path_get_basename(name.c_str());
         key[strlen(key) - EXT_LEN] = '\0';
     }
 
