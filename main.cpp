@@ -403,7 +403,7 @@ static const GOptionEntry options_table[] = { { "version", 0, G_OPTION_FLAG_NO_A
 
 int main(int argc, char **argv) {
     GString *str;
-    GList *packages = NULL;
+    GList *package_list = NULL;
     char *search_path;
     char *pcbuilddir;
     bool need_newline;
@@ -567,7 +567,7 @@ int main(int argc, char **argv) {
     }
 
     /* find and parse each of the packages specified */
-    if(!process_package_args(str->str, &packages, log))
+    if(!process_package_args(str->str, &package_list, log))
         return 1;
 
     if(log != NULL)
@@ -582,7 +582,7 @@ int main(int argc, char **argv) {
 
     if(want_variable_list) {
         GList *tmp;
-        tmp = packages;
+        tmp = package_list;
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
             if(!pkg->vars.empty()) {
@@ -606,7 +606,7 @@ int main(int argc, char **argv) {
     if(want_uninstalled) {
         /* See if > 0 pkgs (including dependencies recursively) were uninstalled */
         GList *tmp;
-        tmp = packages;
+        tmp = package_list;
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
 
@@ -621,7 +621,7 @@ int main(int argc, char **argv) {
 
     if(want_version) {
         GList *tmp;
-        tmp = packages;
+        tmp = package_list;
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
 
@@ -633,7 +633,7 @@ int main(int argc, char **argv) {
 
     if(want_provides) {
         GList *tmp;
-        tmp = packages;
+        tmp = package_list;
         while(tmp != NULL) {
             Package *pkg = static_cast<Package*>(tmp->data);
             const char *key;
@@ -648,7 +648,7 @@ int main(int argc, char **argv) {
 
     if(want_requires) {
         GList *pkgtmp;
-        for(pkgtmp = packages; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
+        for(pkgtmp = package_list; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
             Package *pkg = static_cast<Package*>(pkgtmp->data);
 
             /* process Requires: */
@@ -665,7 +665,7 @@ int main(int argc, char **argv) {
     }
     if(want_requires_private) {
         GList *pkgtmp;
-        for(pkgtmp = packages; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
+        for(pkgtmp = package_list; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
             Package *pkg = static_cast<Package*>(pkgtmp->data);
 
             /* process Requires.private: */
@@ -688,14 +688,14 @@ int main(int argc, char **argv) {
     need_newline = false;
 
     if(variable_name) {
-        char *str = packages_get_var(packages, variable_name);
+        char *str = packages_get_var(package_list, variable_name);
         printf("%s", str);
         g_free(str);
         need_newline = true;
     }
 
     if(pkg_flags != 0) {
-        std::string str = packages_get_flags(packages, pkg_flags);
+        std::string str = packages_get_flags(package_list, pkg_flags);
         printf("%s", str.c_str());
         need_newline = true;
     }
