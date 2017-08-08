@@ -76,13 +76,16 @@ struct Package {
     int libs_num = 0; /* Number of times the "Libs" header has been seen */
     int libs_private_num = 0; /* Number of times the "Libs.private" header has been seen */
     std::string orig_prefix; /* original prefix value before redefinition */
+
+    bool operator==(const Package &other) const { return key == other.key; }
+    bool empty() const { return key.empty(); }
 };
 
-Package *get_package(const char *name);
-Package *get_package_quiet(const char *name);
-std::string packages_get_flags(GList *pkgs, FlagType flags);
+Package get_package(const char *name);
+Package get_package_quiet(const char *name);
+std::string packages_get_flags(std::vector<Package> &pkgs, FlagType flags);
 std::string package_get_var(Package *pkg, const char *var);
-char * packages_get_var(GList *pkgs, const char *var);
+std::string packages_get_var(std::vector<Package> &pkgs, const char *var);
 
 void add_search_dir(const char *path);
 void add_search_dirs(const char *path, const char separator);

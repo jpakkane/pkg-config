@@ -41,7 +41,7 @@
 
 static void verify_package(Package *pkg);
 
-static std::unordered_map<std::string, Package*> packages;
+static std::unordered_map<std::string, Package> packages;
 static std::unordered_map<std::string, std::string> globals;
 static std::vector<std::string> search_dirs;
 
@@ -101,7 +101,7 @@ bool name_ends_in_uninstalled(const char *str) {
         return false;
 }
 
-static Package *
+static Package
 internal_get_package(const std::string &name, bool warn);
 
 /* Look for .pc files in the given directory and add them into
@@ -146,22 +146,20 @@ static void scan_dir(const std::string &dirname) {
     }
 }
 
-static Package *
+static Package
 add_virtual_pkgconfig_package(void) {
-    Package *pkg = NULL;
+    Package pkg;
 
-    pkg = new Package();
+    pkg.key = "pkg-config";
+    pkg.version = VERSION;
+    pkg.name = "pkg-config";
+    pkg.description = "pkg-config is a system for managing compile/link flags for libraries";
+    pkg.url = "http://pkg-config.freedesktop.org/";
 
-    pkg->key = "pkg-config";
-    pkg->version = VERSION;
-    pkg->name = "pkg-config";
-    pkg->description = "pkg-config is a system for managing compile/link flags for libraries";
-    pkg->url = "http://pkg-config.freedesktop.org/";
-
-    pkg->vars["pc_path"] = pkg_config_pc_path;
+    pkg.vars["pc_path"] = pkg_config_pc_path;
 
     debug_spew("Adding virtual 'pkg-config' package to list of known packages\n");
-    packages[pkg->key] = pkg;
+    packages[pkg.key] = pkg;
 
     return pkg;
 }
@@ -179,9 +177,9 @@ void package_init(bool want_list) {
         add_virtual_pkgconfig_package();
 }
 
-static Package *
+static Package
 internal_get_package(const std::string &name, bool warn) {
-    Package *pkg = NULL;
+    Package pkg;
     char *key = NULL;
     char *location = NULL;
     unsigned int path_position = 0;
@@ -209,7 +207,7 @@ internal_get_package(const std::string &name, bool warn) {
 
             g_free(un);
 
-            if(pkg) {
+            if(!pkg.key.empty()) {
                 debug_spew("Preferring uninstalled version of package '%s'\n", name.c_str());
                 return pkg;
             }
@@ -233,7 +231,7 @@ internal_get_package(const std::string &name, bool warn) {
                     "Perhaps you should add the directory containing `%s.pc'\n"
                     "to the PKG_CONFIG_PATH environment variable\n", name, name);
 
-        return NULL;
+        return Package();
     }
 
     if(key == NULL)
@@ -248,73 +246,69 @@ internal_get_package(const std::string &name, bool warn) {
     pkg = parse_package_file(key, location, ignore_requires, ignore_private_libs, ignore_requires_private);
     g_free(key);
 
-    if(pkg != NULL && strstr(location, "uninstalled.pc"))
-        pkg->uninstalled = true;
+    if(pkg.empty() && strstr(location, "uninstalled.pc"))
+        pkg.uninstalled = true;
 
     g_free(location);
 
-    if(pkg == NULL) {
+    if(pkg.empty()) {
         debug_spew("Failed to parse '%s'\n", location);
-        return NULL;
+        return Package();
     }
 
-    pkg->path_position = path_position;
+    pkg.path_position = path_position;
 
-    debug_spew("Path position of '%s' is %d\n", pkg->key.c_str(), pkg->path_position);
+    debug_spew("Path position of '%s' is %d\n", pkg.key.c_str(), pkg.path_position);
 
-    debug_spew("Adding '%s' to list of known packages\n", pkg->key.c_str());
-    packages[pkg->key] = pkg;
+    debug_spew("Adding '%s' to list of known packages\n", pkg.key.c_str());
+    packages[pkg.key] = pkg;
 
     /* pull in Requires packages */
-    for(const auto &ver : pkg->requires_entries) {
-        Package *req;
-
-        debug_spew("Searching for '%s' requirement '%s'\n", pkg->key.c_str(), ver.name.c_str());
-        req = internal_get_package(ver.name.c_str(), warn);
-        if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg->key.c_str());
+    for(const auto &ver : pkg.requires_entries) {
+        debug_spew("Searching for '%s' requirement '%s'\n", pkg.key.c_str(), ver.name.c_str());
+        auto req = internal_get_package(ver.name.c_str(), warn);
+        if(req.empty()) {
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg.key.c_str());
             exit(1);
         }
 
-        pkg->required_versions[ver.name] = ver;
-        pkg->requires.push_back(req);
+        pkg.required_versions[ver.name] = ver;
+        pkg.requires.push_back(&req);
     }
 
     /* pull in Requires.private packages */
-    for(const auto &ver : pkg->requires_private_entries) {
-        Package *req;
-
-        debug_spew("Searching for '%s' private requirement '%s'\n", pkg->key.c_str(), ver.name.c_str());
-        req = internal_get_package(ver.name.c_str(), warn);
-        if(req == NULL) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg->key.c_str());
+    for(const auto &ver : pkg.requires_private_entries) {
+        debug_spew("Searching for '%s' private requirement '%s'\n", pkg.key.c_str(), ver.name.c_str());
+        auto req = internal_get_package(ver.name.c_str(), warn);
+        if(req.empty()) {
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg.key.c_str());
             exit(1);
         }
 
-        pkg->required_versions[ver.name] = ver;
-        pkg->requires_private.push_back(req);
+        pkg.required_versions[ver.name] = ver;
+        pkg.requires_private.push_back(&req);
     }
 
-    std::reverse(pkg->requires_private.begin(), pkg->requires_private.end());
+    std::reverse(pkg.requires_private.begin(), pkg.requires_private.end());
     /* make requires_private include a copy of the public requires too */
-    pkg->requires_private.insert(pkg->requires_private.begin(),
-            pkg->requires.rbegin(),
-            pkg->requires.rend());
+    pkg.requires_private.insert(pkg.requires_private.begin(),
+            pkg.requires.rbegin(),
+            pkg.requires.rend());
 
 //    pkg->requires = g_list_reverse(pkg->requires);
 //    pkg->requires_private_ = g_list_reverse(pkg->requires_private_);
 
-    verify_package(pkg);
+    verify_package(&pkg);
 
     return pkg;
 }
 
-Package *
+Package
 get_package(const char *name) {
     return internal_get_package(name, true);
 }
 
-Package *
+Package
 get_package_quiet(const char *name) {
     return internal_get_package(name, false);
 }
@@ -394,28 +388,28 @@ static void spew_package_list(const char *name, const std::vector<Package*> &lis
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(Package *pkg, bool include_private, std::unordered_set<std::string> &visited, std::vector<Package*> &listp) {
+static void recursive_fill_list(Package &pkg, bool include_private, std::unordered_set<std::string> &visited, std::vector<Package*> &listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
      * we can skip it. Additionally, this allows circular requires loops to be
      * broken.
      */
-    auto found = visited.find(pkg->key);
+    auto found = visited.find(pkg.key);
     if(found != visited.end()) {
-        debug_spew("Package %s already in requires chain, skipping\n", pkg->key.c_str());
+        debug_spew("Package %s already in requires chain, skipping\n", pkg.key.c_str());
         return;
     }
     /* record this package in the dependency chain */
-    visited.insert(pkg->key);
+    visited.insert(pkg.key);
 
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
-    auto &tmp = include_private ? pkg->requires_private : pkg->requires;
+    auto &tmp = include_private ? pkg.requires_private : pkg.requires;
     for(Package *p : tmp) {
-        recursive_fill_list(p, include_private, visited, listp);
+        recursive_fill_list(*p, include_private, visited, listp);
     }
-    listp.insert(listp.begin(), pkg);
+    listp.insert(listp.begin(), &pkg);
 }
 
 /* merge the flags from the individual packages */
@@ -436,16 +430,15 @@ merge_flag_lists(const std::vector<Package*> &packages, FlagType type) {
 }
 
 static std::vector<Flag>
-fill_list(GList *packages, FlagType type, bool in_path_order, bool include_private) {
-    GList *tmp;
+fill_list(std::vector<Package> *packages, FlagType type, bool in_path_order, bool include_private) {
     std::vector<Package*> expanded;
     std::vector<Flag> flags;
     std::unordered_set<std::string> visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
-    for(tmp = g_list_last(packages); tmp != NULL; tmp = g_list_previous(tmp))
-        recursive_fill_list(static_cast<Package*>(tmp->data), include_private, visited, expanded);
+    for(auto tmp = packages->rbegin(); tmp != packages->rend(); ++tmp)
+        recursive_fill_list(*tmp, include_private, visited, expanded);
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
@@ -541,7 +534,7 @@ static void verify_package(Package *pkg) {
     /* Make sure we didn't drag in any conflicts via Requires
      * (inefficient algorithm, who cares)
      */
-    recursive_fill_list(pkg, true, visited, requires);
+    recursive_fill_list(*pkg, true, visited, requires);
     conflicts = pkg->conflicts;
 
     for(const auto &i : requires) {
@@ -676,7 +669,7 @@ static void verify_package(Package *pkg) {
  * The former is done for -I/-L flags, and the latter for all others.
  */
 static std::string
-get_multi_merged(GList *pkgs, FlagType type, bool in_path_order, bool include_private) {
+get_multi_merged(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool include_private) {
     std::vector<Flag> list;
     std::string retval;
 
@@ -688,27 +681,27 @@ get_multi_merged(GList *pkgs, FlagType type, bool in_path_order, bool include_pr
 }
 
 std::string
-packages_get_flags(GList *pkgs, FlagType flags) {
+packages_get_flags(std::vector<Package> &pkgs, FlagType flags) {
     std::string str, cur;
 
     /* sort packages in path order for -L/-I, dependency order otherwise */
     if(flags & CFLAGS_OTHER) {
-        cur = get_multi_merged(pkgs, CFLAGS_OTHER, false, true);
+        cur = get_multi_merged(&pkgs, CFLAGS_OTHER, false, true);
         debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur.c_str());
         str += cur;
     }
     if(flags & CFLAGS_I) {
-        cur = get_multi_merged(pkgs, CFLAGS_I, true, true);
+        cur = get_multi_merged(&pkgs, CFLAGS_I, true, true);
         debug_spew("adding CFLAGS_I string \"%s\"\n", cur.c_str());
         str += cur;
     }
     if(flags & LIBS_L) {
-        cur = get_multi_merged(pkgs, LIBS_L, true, !ignore_private_libs);
+        cur = get_multi_merged(&pkgs, LIBS_L, true, !ignore_private_libs);
         debug_spew("adding LIBS_L string \"%s\"\n", cur.c_str());
         str += cur;
     }
     if(flags & (LIBS_OTHER | LIBS_l)) {
-        cur = get_multi_merged(pkgs, flags & (LIBS_OTHER | LIBS_l), false, !ignore_private_libs);
+        cur = get_multi_merged(&pkgs, flags & (LIBS_OTHER | LIBS_l), false, !ignore_private_libs);
         debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur.c_str());
         str += cur;
     }
@@ -782,27 +775,21 @@ package_get_var(Package *pkg, const char *var) {
     return varval;
 }
 
-char *
-packages_get_var(GList *pkgs, const char *varname) {
-    GList *tmp;
-    GString *str;
+std::string
+packages_get_var(std::vector<Package> &pkgs, const char *varname) {
+    std::string str;
 
-    str = g_string_new(NULL);
-
-    tmp = pkgs;
-    while(tmp != NULL) {
-        Package *pkg = static_cast<Package*>(tmp->data);
-        auto var = parse_package_variable(pkg, varname);
+    for(auto &pkg : pkgs) {
+        auto var = parse_package_variable(&pkg, varname);
         if(!var.empty()) {
-            if(str->len > 0)
-                g_string_append_c(str, ' ');
-            g_string_append(str, var.c_str());
+            if(!str.empty())
+                str += ' ';
+            str += var;
         }
 
-        tmp = g_list_next(tmp);
     }
 
-    return g_string_free(str, false);
+    return str;
 }
 
 int compare_versions(const char * a, const char *b) {
@@ -901,8 +888,8 @@ void print_package_list(void) {
         std::string pad;
         for(size_t counter=0; counter < mlen-i->first.size()+1; ++counter)
             pad += " ";
-        printf("%s%s%s - %s\n", i->second->key.c_str(), pad.c_str(), i->second->name.c_str(),
-                i->second->description.c_str());
+        printf("%s%s%s - %s\n", i->second.key.c_str(), pad.c_str(), i->second.name.c_str(),
+                i->second.description.c_str());
     }
 }
 

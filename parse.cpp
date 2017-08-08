@@ -1182,11 +1182,11 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
     g_free(tag);
 }
 
-Package*
+Package
 parse_package_file(const char *key, const char *path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private) {
     FILE *f;
-    Package *pkg;
+    Package pkg;
     GString *str;
     bool one_line = false;
 
@@ -1195,30 +1195,29 @@ parse_package_file(const char *key, const char *path, bool ignore_requires, bool
     if(f == NULL) {
         verbose_error("Failed to open '%s': %s\n", path, strerror(errno));
 
-        return NULL;
+        return Package();
     }
 
     debug_spew("Parsing package file '%s'\n", path);
 
-    pkg = new Package();
-    pkg->key = key;
+    pkg.key = key;
 
     if(path) {
-        pkg->pcfiledir = g_dirname(path);
+        pkg.pcfiledir = g_dirname(path);
     } else {
         debug_spew("No pcfiledir determined for package\n");
-        pkg->pcfiledir = "???????";
+        pkg.pcfiledir = "???????";
     }
 
     /* Variable storing directory of pc file */
-    pkg->vars["pcfiledir"] = pkg->pcfiledir;
+    pkg.vars["pcfiledir"] = pkg.pcfiledir;
 
     str = g_string_new("");
 
     while(read_one_line(f, str)) {
         one_line = true;
 
-        parse_line(pkg, str->str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
+        parse_line(&pkg, str->str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
 
         g_string_truncate(str, 0);
     }

@@ -276,7 +276,7 @@ static void init_pc_path(void) {
 #endif
 }
 
-static bool process_package_args(const char *cmdline, GList **packages, FILE *log) {
+static bool process_package_args(const char *cmdline, std::vector<Package> *packages, FILE *log) {
     bool success = true;
 
     auto reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
@@ -287,7 +287,7 @@ static bool process_package_args(const char *cmdline, GList **packages, FILE *lo
     }
 
     for(auto &ver : reqs) {
-        Package *req;
+        Package req;
 
         /* override requested versions with cmdline options */
         if(required_exact_version) {
@@ -307,32 +307,30 @@ static bool process_package_args(const char *cmdline, GList **packages, FILE *lo
             req = get_package(ver.name.c_str());
 
         if(log != NULL) {
-            if(req == NULL)
+            if(req.empty())
                 fprintf(log, "%s NOT-FOUND\n", ver.name.c_str());
             else
                 fprintf(log, "%s %s %s\n", ver.name.c_str(), comparison_to_str(ver.comparison),
                         (ver.version.empty()) ? "(null)" : ver.version.c_str());
         }
 
-        if(req == NULL) {
+        if(req.empty()) {
             success = false;
             verbose_error("No package '%s' found\n", ver.name.c_str());
             continue;
         }
 
-        if(!version_test(ver.comparison, req->version.c_str(), ver.version.c_str())) {
+        if(!version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
             success = false;
             verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver.name.c_str(),
-                    comparison_to_str(ver.comparison), ver.version.c_str(), req->name.c_str(), req->version.c_str());
-            if(!req->url.empty())
-                verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url.c_str());
+                    comparison_to_str(ver.comparison), ver.version.c_str(), req.name.c_str(), req.version.c_str());
+            if(!req.url.empty())
+                verbose_error("You may find new versions of %s at %s\n", req.name.c_str(), req.url.c_str());
             continue;
         }
 
-        *packages = g_list_prepend(*packages, req);
+        packages->push_back(req);
     }
-
-    *packages = g_list_reverse(*packages);
 
     return success;
 }
@@ -403,7 +401,7 @@ static const GOptionEntry options_table[] = { { "version", 0, G_OPTION_FLAG_NO_A
 
 int main(int argc, char **argv) {
     GString *str;
-    GList *package_list = NULL;
+    std::vector<Package > package_list;
     char *search_path;
     char *pcbuilddir;
     bool need_newline;
@@ -581,13 +579,10 @@ int main(int argc, char **argv) {
         return 0;
 
     if(want_variable_list) {
-        GList *tmp;
-        tmp = package_list;
-        while(tmp != NULL) {
-            Package *pkg = static_cast<Package*>(tmp->data);
-            if(!pkg->vars.empty()) {
+        for(const auto &pkg : package_list) {
+            if(!pkg.vars.empty()) {
                 std::vector<std::string> keys;
-                for(const auto &i : pkg->vars) {
+                for(const auto &i : pkg.vars) {
                     keys.push_back(i.first);
                 }
                 /* Sort variables for consistent output */
@@ -596,8 +591,7 @@ int main(int argc, char **argv) {
                     print_list_data(i.c_str(), NULL);
                 }
             }
-            tmp = g_list_next(tmp);
-            if(tmp)
+            if(!pkg.empty())
                 printf("\n");
         }
         need_newline = false;
@@ -605,56 +599,38 @@ int main(int argc, char **argv) {
 
     if(want_uninstalled) {
         /* See if > 0 pkgs (including dependencies recursively) were uninstalled */
-        GList *tmp;
-        tmp = package_list;
-        while(tmp != NULL) {
-            Package *pkg = static_cast<Package*>(tmp->data);
+        for(const auto &pkg : package_list) {
 
-            if(pkg_uninstalled(pkg))
+            if(pkg_uninstalled(&pkg))
                 return 0;
-
-            tmp = g_list_next(tmp);
         }
 
         return 1;
     }
 
     if(want_version) {
-        GList *tmp;
-        tmp = package_list;
-        while(tmp != NULL) {
-            Package *pkg = static_cast<Package*>(tmp->data);
-
-            printf("%s\n", pkg->version.c_str());
-
-            tmp = g_list_next(tmp);
+        for(const auto &pkg : package_list) {
+            printf("%s\n", pkg.version.c_str());
         }
     }
 
     if(want_provides) {
-        GList *tmp;
-        tmp = package_list;
-        while(tmp != NULL) {
-            Package *pkg = static_cast<Package*>(tmp->data);
+        for(const auto &pkg : package_list) {
             const char *key;
-            key = pkg->key.c_str();
+            key = pkg.key.c_str();
             while(*key == '/')
                 key++;
             if(strlen(key) > 0)
-                printf("%s = %s\n", key, pkg->version.c_str());
-            tmp = g_list_next(tmp);
+                printf("%s = %s\n", key, pkg.version.c_str());
         }
     }
 
     if(want_requires) {
-        GList *pkgtmp;
-        for(pkgtmp = package_list; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
-            Package *pkg = static_cast<Package*>(pkgtmp->data);
-
+        for(const auto &pkg : package_list) {
             /* process Requires: */
-            for(Package *deppkg : pkg->requires) {
-                auto lookup = pkg->required_versions.find(deppkg->key);
-                if(lookup == pkg->required_versions.end() || (lookup->second.comparison == ALWAYS_MATCH))
+            for(Package *deppkg : pkg.requires) {
+                auto lookup = pkg.required_versions.find(deppkg->key);
+                if(lookup == pkg.required_versions.end() || (lookup->second.comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key.c_str());
                 else
                     printf("%s %s %s\n", deppkg->key.c_str(),
@@ -664,17 +640,14 @@ int main(int argc, char **argv) {
         }
     }
     if(want_requires_private) {
-        GList *pkgtmp;
-        for(pkgtmp = package_list; pkgtmp != NULL; pkgtmp = g_list_next(pkgtmp)) {
-            Package *pkg = static_cast<Package*>(pkgtmp->data);
-
+        for(const auto &pkg : package_list) {
             /* process Requires.private: */
-            for(const Package *deppkg : pkg->requires_private) {
-                if(std::find(pkg->requires.begin(), pkg->requires.end(), deppkg) != pkg->requires.end())
+            for(const Package *deppkg : pkg.requires_private) {
+                if(std::find(pkg.requires.begin(), pkg.requires.end(), deppkg) != pkg.requires.end())
                     continue;
 
-                auto lookup = pkg->required_versions.find(deppkg->key);
-                if((lookup == pkg->required_versions.end()) || (lookup->second.comparison == ALWAYS_MATCH))
+                auto lookup = pkg.required_versions.find(deppkg->key);
+                if((lookup == pkg.required_versions.end()) || (lookup->second.comparison == ALWAYS_MATCH))
                     printf("%s\n", deppkg->key.c_str());
                 else
                     printf("%s %s %s\n", deppkg->key.c_str(),
@@ -688,9 +661,8 @@ int main(int argc, char **argv) {
     need_newline = false;
 
     if(variable_name) {
-        char *str = packages_get_var(package_list, variable_name);
-        printf("%s", str);
-        g_free(str);
+        auto str = packages_get_var(package_list, variable_name);
+        printf("%s", str.c_str());
         need_newline = true;
     }
 
