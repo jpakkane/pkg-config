@@ -41,7 +41,7 @@
 
 static void verify_package(Package *pkg);
 
-static std::unordered_map<std::string, Package> packages;
+std::unordered_map<std::string, Package> packages;
 static std::unordered_map<std::string, std::string> globals;
 static std::vector<std::string> search_dirs;
 
@@ -262,45 +262,46 @@ internal_get_package(const std::string &name, bool warn) {
 
     debug_spew("Adding '%s' to list of known packages\n", pkg.key.c_str());
     packages[pkg.key] = pkg;
+    auto &added_pkg = packages[pkg.key];
 
     /* pull in Requires packages */
-    for(const auto &ver : pkg.requires_entries) {
-        debug_spew("Searching for '%s' requirement '%s'\n", pkg.key.c_str(), ver.name.c_str());
+    for(const auto &ver : added_pkg.requires_entries) {
+        debug_spew("Searching for '%s' requirement '%s'\n", added_pkg.key.c_str(), ver.name.c_str());
         auto req = internal_get_package(ver.name.c_str(), warn);
         if(req.empty()) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg.key.c_str());
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), added_pkg.key.c_str());
             exit(1);
         }
 
-        pkg.required_versions[ver.name] = ver;
-        pkg.requires.push_back(&req);
+        added_pkg.required_versions[ver.name] = ver;
+        added_pkg.requires.push_back(req.name);
     }
 
     /* pull in Requires.private packages */
-    for(const auto &ver : pkg.requires_private_entries) {
-        debug_spew("Searching for '%s' private requirement '%s'\n", pkg.key.c_str(), ver.name.c_str());
+    for(const auto &ver : added_pkg.requires_private_entries) {
+        debug_spew("Searching for '%s' private requirement '%s'\n", added_pkg.key.c_str(), ver.name.c_str());
         auto req = internal_get_package(ver.name.c_str(), warn);
         if(req.empty()) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), pkg.key.c_str());
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), added_pkg.key.c_str());
             exit(1);
         }
 
-        pkg.required_versions[ver.name] = ver;
-        pkg.requires_private.push_back(&req);
+        added_pkg.required_versions[ver.name] = ver;
+        added_pkg.requires_private.push_back(req.name);
     }
 
-    std::reverse(pkg.requires_private.begin(), pkg.requires_private.end());
+    std::reverse(added_pkg.requires_private.begin(), added_pkg.requires_private.end());
     /* make requires_private include a copy of the public requires too */
-    pkg.requires_private.insert(pkg.requires_private.begin(),
-            pkg.requires.rbegin(),
-            pkg.requires.rend());
+    added_pkg.requires_private.insert(added_pkg.requires_private.begin(),
+            added_pkg.requires.rbegin(),
+            added_pkg.requires.rend());
 
 //    pkg->requires = g_list_reverse(pkg->requires);
 //    pkg->requires_private_ = g_list_reverse(pkg->requires_private_);
 
-    verify_package(&pkg);
+    verify_package(&added_pkg);
 
-    return pkg;
+    return added_pkg;
 }
 
 Package
@@ -371,11 +372,11 @@ flag_list_to_string(const std::vector<Flag> &flags) {
     return str;
 }
 
-static void spew_package_list(const char *name, const std::vector<Package*> &list) {
+static void spew_package_list(const char *name, const std::vector<std::string> &list) {
     debug_spew(" %s:", name);
 
     for(const auto &i : list) {
-        debug_spew(" %s", i->key.c_str());
+        debug_spew(" %s", i.c_str());
     }
     debug_spew("\n");
 }
@@ -388,7 +389,7 @@ static void spew_package_list(const char *name, const std::vector<Package*> &lis
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(Package &pkg, bool include_private, std::unordered_set<std::string> &visited, std::vector<Package*> &listp) {
+static void recursive_fill_list(const Package &pkg, bool include_private, std::unordered_set<std::string> &visited, std::vector<std::string> &listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
@@ -406,19 +407,21 @@ static void recursive_fill_list(Package &pkg, bool include_private, std::unorder
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
     auto &tmp = include_private ? pkg.requires_private : pkg.requires;
-    for(Package *p : tmp) {
-        recursive_fill_list(*p, include_private, visited, listp);
+    for(auto &p_name : tmp) {
+        auto p = packages[p_name];
+        recursive_fill_list(p, include_private, visited, listp);
     }
-    listp.insert(listp.begin(), &pkg);
+    listp.insert(listp.begin(), pkg.key);
 }
 
 /* merge the flags from the individual packages */
 static std::vector<Flag>
-merge_flag_lists(const std::vector<Package*> &packages, FlagType type) {
+merge_flag_lists(const std::vector<std::string> &pkgs, FlagType type) {
     std::vector<Flag> merged;
     /* keep track of the last element to avoid traversing the whole list */
-    for(const auto &i : packages) {
-        std::vector<Flag> &flags = (type & LIBS_ANY) ? i->libs : i->cflags;
+    for(const auto &pkey : pkgs) {
+        auto &i = packages[pkey];
+        std::vector<Flag> &flags = (type & LIBS_ANY) ? i.libs : i.cflags;
         for(const auto &f : flags) {
             if(f.type & type) {
                 merged.push_back(f);
@@ -430,21 +433,21 @@ merge_flag_lists(const std::vector<Package*> &packages, FlagType type) {
 }
 
 static std::vector<Flag>
-fill_list(std::vector<Package> *packages, FlagType type, bool in_path_order, bool include_private) {
-    std::vector<Package*> expanded;
+fill_list(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool include_private) {
+    std::vector<std::string> expanded;
     std::vector<Flag> flags;
     std::unordered_set<std::string> visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
-    for(auto tmp = packages->rbegin(); tmp != packages->rend(); ++tmp)
+    for(auto tmp = pkgs->rbegin(); tmp != pkgs->rend(); ++tmp)
         recursive_fill_list(*tmp, include_private, visited, expanded);
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
         spew_package_list("original", expanded);
-        std::stable_sort(expanded.begin(), expanded.end(), [] (const Package *pa, const Package *pb) {
-            return pa->path_position < pb->path_position;
+        std::stable_sort(expanded.begin(), expanded.end(), [] (const std::string &pa, const std::string &pb) {
+            return packages[pa].path_position < packages[pb].path_position;
         });
         spew_package_list("  sorted", expanded);
     }
@@ -482,7 +485,7 @@ static const gchar *msvc_include_envvars[] = {
 #endif
 
 static void verify_package(Package *pkg) {
-    std::vector<Package*> requires;
+    std::vector<std::string> requires;
     std::vector<RequiredVersion> conflicts;
     std::vector<std::string> system_directories;
     std::unordered_set<std::string> visited;
@@ -514,16 +517,17 @@ static void verify_package(Package *pkg) {
 
     /* Make sure we have the right version for all requirements */
 
-    for(const Package *req : pkg->requires_private) {
-        auto v_find = pkg->required_versions.find(req->key);
+    for(const auto &req_name : pkg->requires_private) {
+        auto &req = packages[req_name];
+        auto v_find = pkg->required_versions.find(req.key);
 
         if(v_find != pkg->required_versions.end()) {
             auto &ver = v_find->second;
-            if(!version_test(ver.comparison, req->version.c_str(), ver.version.c_str())) {
-                verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req->key.c_str(),
-                        comparison_to_str(ver.comparison), ver.version.c_str(), req->key.c_str(), req->version.c_str());
-                if(!req->url.empty())
-                    verbose_error("You may find new versions of %s at %s\n", req->name.c_str(), req->url.c_str());
+            if(!version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
+                verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req.key.c_str(),
+                        comparison_to_str(ver.comparison), ver.version.c_str(), req.key.c_str(), req.version.c_str());
+                if(!req.url.empty())
+                    verbose_error("You may find new versions of %s at %s\n", req.name.c_str(), req.url.c_str());
 
                 exit(1);
             }
@@ -537,14 +541,14 @@ static void verify_package(Package *pkg) {
     recursive_fill_list(*pkg, true, visited, requires);
     conflicts = pkg->conflicts;
 
-    for(const auto &i : requires) {
-        Package *req = i;
+    for(const auto &req_name : requires) {
+        Package &req = packages[req_name];
 
-        for(const auto & ver : req->conflicts) {
+        for(const auto & ver : req.conflicts) {
 
-            if(strcmp(ver.name.c_str(), req->key.c_str()) == 0 && version_test(ver.comparison, req->version.c_str(), ver.version.c_str())) {
+            if(strcmp(ver.name.c_str(), req.key.c_str()) == 0 && version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
                 verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req->version.c_str(), req->key.c_str(), ver.name.c_str(),
+                        "(%s %s %s conflicts with %s %s)\n", req.version.c_str(), req.key.c_str(), ver.name.c_str(),
                         comparison_to_str(ver.comparison), ver.version.empty() ? ver.version.c_str() : "(any)", ver.owner->key.c_str(),
                         ver.owner->version.c_str());
 

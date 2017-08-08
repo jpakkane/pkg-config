@@ -63,9 +63,9 @@ struct Package {
     std::string url;
     std::string pcfiledir; /* directory it was loaded from */
     std::vector<RequiredVersion> requires_entries;
-    std::vector<Package*> requires;
+    std::vector<std::string> requires;
     std::vector<RequiredVersion> requires_private_entries;
-    std::vector<Package*> requires_private;
+    std::vector<std::string> requires_private;
     std::vector<Flag> libs;
     std::vector<Flag> cflags;
     std::unordered_map<std::string, std::string> vars;

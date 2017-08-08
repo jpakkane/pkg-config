@@ -62,6 +62,9 @@ static bool want_verbose_errors = false;
 static bool want_stdout_errors = false;
 static bool output_opt_set = false;
 
+// FIXME, should be somewhere saner.
+extern std::unordered_map<std::string, Package> packages;
+
 void debug_spew(const char *format, ...) {
     va_list args;
     gchar *str;
@@ -232,13 +235,14 @@ static bool output_opt_cb(const char *opt, const char *arg, gpointer data, GErro
     return true;
 }
 
-static bool pkg_uninstalled(const Package *pkg) {
+static bool pkg_uninstalled(const Package &pkg) {
     /* See if > 0 pkgs were uninstalled */
 
-    if(pkg->uninstalled)
+    if(pkg.uninstalled)
         return true;
 
-    for(const Package *pkg : pkg->requires) {
+    for(const std::string &pkg_name : pkg.requires) {
+        auto pkg = packages[pkg_name];
         if(pkg_uninstalled(pkg))
             return true;
     }
@@ -601,7 +605,7 @@ int main(int argc, char **argv) {
         /* See if > 0 pkgs (including dependencies recursively) were uninstalled */
         for(const auto &pkg : package_list) {
 
-            if(pkg_uninstalled(&pkg))
+            if(pkg_uninstalled(pkg))
                 return 0;
         }
 
@@ -628,12 +632,12 @@ int main(int argc, char **argv) {
     if(want_requires) {
         for(const auto &pkg : package_list) {
             /* process Requires: */
-            for(Package *deppkg : pkg.requires) {
-                auto lookup = pkg.required_versions.find(deppkg->key);
+            for(const std::string &req_name : pkg.requires) {
+                auto lookup = pkg.required_versions.find(req_name);
                 if(lookup == pkg.required_versions.end() || (lookup->second.comparison == ALWAYS_MATCH))
-                    printf("%s\n", deppkg->key.c_str());
+                    printf("%s\n", req_name.c_str());
                 else
-                    printf("%s %s %s\n", deppkg->key.c_str(),
+                    printf("%s %s %s\n", req_name.c_str(),
                             comparison_to_str(lookup->second.comparison),
                             lookup->second.version.c_str());
             }
@@ -642,15 +646,15 @@ int main(int argc, char **argv) {
     if(want_requires_private) {
         for(const auto &pkg : package_list) {
             /* process Requires.private: */
-            for(const Package *deppkg : pkg.requires_private) {
-                if(std::find(pkg.requires.begin(), pkg.requires.end(), deppkg) != pkg.requires.end())
+            for(const std::string req_name : pkg.requires_private) {
+                if(std::find(pkg.requires.begin(), pkg.requires.end(), req_name) != pkg.requires.end())
                     continue;
 
-                auto lookup = pkg.required_versions.find(deppkg->key);
+                auto lookup = pkg.required_versions.find(req_name);
                 if((lookup == pkg.required_versions.end()) || (lookup->second.comparison == ALWAYS_MATCH))
-                    printf("%s\n", deppkg->key.c_str());
+                    printf("%s\n", req_name.c_str());
                 else
-                    printf("%s %s %s\n", deppkg->key.c_str(),
+                    printf("%s %s %s\n", req_name.c_str(),
                             comparison_to_str(lookup->second.comparison),
                             lookup->second.version.c_str());
             }
@@ -661,14 +665,14 @@ int main(int argc, char **argv) {
     need_newline = false;
 
     if(variable_name) {
-        auto str = packages_get_var(package_list, variable_name);
-        printf("%s", str.c_str());
+        auto varname = packages_get_var(package_list, variable_name);
+        printf("%s", varname.c_str());
         need_newline = true;
     }
 
     if(pkg_flags != 0) {
-        std::string str = packages_get_flags(package_list, pkg_flags);
-        printf("%s", str.c_str());
+        std::string flags = packages_get_flags(package_list, pkg_flags);
+        printf("%s", flags.c_str());
         need_newline = true;
     }
 
