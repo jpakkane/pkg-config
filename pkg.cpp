@@ -492,8 +492,6 @@ static void verify_package(Package *pkg) {
     std::vector<Package*> requires;
     std::vector<RequiredVersion> conflicts;
     std::vector<std::string> system_directories;
-    GList *iter;
-    GList *system_dir_iter = NULL;
     std::unordered_set<std::string> visited;
     const gchar *search_path;
     const gchar **include_envvars;
@@ -604,7 +602,6 @@ static void verify_package(Package *pkg) {
         if(((strncmp(flag.arg.c_str(), "-I", 2) == 0) && (offset = 2))
                 || ((strncmp(flag.arg.c_str(), "-I ", 3) == 0) && (offset = 3))) {
             if(offset == 0) {
-                iter = iter->next;
                 continue;
             }
 
