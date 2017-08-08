@@ -246,7 +246,7 @@ internal_get_package(const std::string &name, bool warn) {
     pkg = parse_package_file(key, location, ignore_requires, ignore_private_libs, ignore_requires_private);
     g_free(key);
 
-    if(pkg.empty() && strstr(location, "uninstalled.pc"))
+    if(!pkg.empty() && strstr(location, "uninstalled.pc"))
         pkg.uninstalled = true;
 
     g_free(location);
@@ -274,7 +274,7 @@ internal_get_package(const std::string &name, bool warn) {
         }
 
         added_pkg.required_versions[ver.name] = ver;
-        added_pkg.requires.push_back(req.name);
+        added_pkg.requires.push_back(req.key);
     }
 
     /* pull in Requires.private packages */
@@ -287,7 +287,7 @@ internal_get_package(const std::string &name, bool warn) {
         }
 
         added_pkg.required_versions[ver.name] = ver;
-        added_pkg.requires_private.push_back(req.name);
+        added_pkg.requires_private.push_back(req.key);
     }
 
     std::reverse(added_pkg.requires_private.begin(), added_pkg.requires_private.end());
