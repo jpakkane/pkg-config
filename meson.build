@@ -11,8 +11,8 @@ glib_dep = dependency('glib-2.0')
 cdata = configuration_data()
 
 cdata.set_quoted('VERSION', meson.project_version())
-cdata.set('ENABLE_DEFINE_PREFIX', 'TRUE')
-cdata.set('ENABLE_INDIRECT_DEPS', 'TRUE')
+cdata.set('ENABLE_DEFINE_PREFIX', 'true')
+cdata.set('ENABLE_INDIRECT_DEPS', 'true')
 # These need to be /usr instead of prefix, which can point to /usr/local or something like that.
 cdata.set_quoted('PKG_CONFIG_SYSTEM_INCLUDE_PATH', join_paths('/usr', get_option('includedir')))
 cdata.set_quoted('PKG_CONFIG_SYSTEM_LIBRARY_PATH', join_paths('/usr', get_option('libdir')))

@@ -22,6 +22,7 @@
 #include "pkg.h"
 #include "parse.h"
 #include "rpmvercmp.h"
+#include<glib.h>
 
 #include <sys/types.h>
 #include <string.h>
@@ -869,7 +870,7 @@ comparison_to_str(ComparisonType comparison) {
         break;
 
     default:
-        throw "Unreachable code";
+        throw "Unreachable code.";
     }
 
     return "???";

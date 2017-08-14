@@ -23,9 +23,9 @@
 #include<string>
 #include<vector>
 #include<unordered_map>
-#include <glib.h>
+#include <cstdint>
 
-typedef guint8 FlagType; /* bit mask for flag types */
+typedef uint8_t FlagType; /* bit mask for flag types */
 
 #define LIBS_l       (1 << 0)
 #define LIBS_L       (1 << 1)

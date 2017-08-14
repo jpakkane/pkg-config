@@ -32,6 +32,8 @@
 #endif
 #include <sys/types.h>
 
+#include<glib.h>
+
 bool parse_strict = true;
 bool define_prefix = ENABLE_DEFINE_PREFIX;
 const char *prefix_variable = "prefix";

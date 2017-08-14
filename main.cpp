@@ -35,6 +35,8 @@
 #undef STRICT
 #endif
 
+#include<glib.h>
+
 char *pcsysrootdir = NULL;
 const char *pkg_config_pc_path = NULL;
 
