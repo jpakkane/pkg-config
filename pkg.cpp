@@ -459,8 +459,8 @@ fill_list(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool in
 }
 
 static void
-add_env_variable_to_list(std::vector<std::string> &list, const gchar *env) {
-    gchar **values;
+add_env_variable_to_list(std::vector<std::string> &list, const char *env) {
+    char **values;
     gint i;
 
     values = g_strsplit(env, G_SEARCHPATH_SEPARATOR_S, 0);
@@ -473,13 +473,13 @@ add_env_variable_to_list(std::vector<std::string> &list, const gchar *env) {
 /* Well known compiler include path environment variables. These are
  * used to find additional system include paths to remove. See
  * https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html. */
-static const gchar *gcc_include_envvars[] = { "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH",
+static const char *gcc_include_envvars[] = { "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH",
 NULL };
 
 #ifdef G_OS_WIN32
 /* MSVC include path environment variables. See
  * https://msdn.microsoft.com/en-us/library/73f9s62w.aspx. */
-static const gchar *msvc_include_envvars[] = {
+static const char *msvc_include_envvars[] = {
     "INCLUDE",
     NULL
 };
@@ -490,9 +490,9 @@ static void verify_package(Package *pkg) {
     std::vector<RequiredVersion> conflicts;
     std::vector<std::string> system_directories;
     std::unordered_set<std::string> visited;
-    const gchar *search_path;
-    const gchar **include_envvars;
-    const gchar **var;
+    const char *search_path;
+    const char **include_envvars;
+    const char **var;
 
     /* Be sure we have the required fields */
 
@@ -605,7 +605,7 @@ static void verify_package(Package *pkg) {
 
             for(const auto &system_dir_iter : system_directories) {
                 if(strcmp(system_dir_iter.c_str(), &flag.arg[offset]) == 0) {
-                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (gchar *) flag.arg.c_str());
+                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (char *) flag.arg.c_str());
                     if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == NULL) {
                         debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg->key.c_str());
                         discard_this = true;

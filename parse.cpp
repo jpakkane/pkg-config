@@ -780,7 +780,7 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
              * -framework Bar being changed into -framework Foo Bar
              * later
              */
-            gchar *tmp = trim_string(argv[i + 1]);
+            char *tmp = trim_string(argv[i + 1]);
 
             auto framework = strdup_escape_shell(tmp);
             flag.type = LIBS_OTHER;
@@ -1094,7 +1094,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
             /* This is the prefix variable. Try to guesstimate a value for it
              * for this package from the location of the .pc file.
              */
-            gchar *base;
+            char *base;
             bool is_pkgconfigdir;
 
             base = g_path_get_basename(pkg->pcfiledir.c_str());
@@ -1102,8 +1102,8 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
             g_free(base);
             if(is_pkgconfigdir) {
                 /* It ends in pkgconfig. Good. */
-                gchar *q;
-                gchar *prefix;
+                char *q;
+                char *prefix;
 
                 /* Keep track of the original prefix value. */
                 pkg->orig_prefix = p;

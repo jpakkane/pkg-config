@@ -69,7 +69,7 @@ extern std::unordered_map<std::string, Package> packages;
 
 void debug_spew(const char *format, ...) {
     va_list args;
-    gchar *str;
+    char *str;
     FILE* stream;
 
     g_return_if_fail(format != NULL);
@@ -94,7 +94,7 @@ void debug_spew(const char *format, ...) {
 
 void verbose_error(const char *format, ...) {
     va_list args;
-    gchar *str;
+    char *str;
     FILE* stream;
 
     g_return_if_fail(format != NULL);
@@ -252,7 +252,7 @@ static bool pkg_uninstalled(const Package &pkg) {
     return false;
 }
 
-void print_list_data(const gchar *data, gpointer user_data) {
+void print_list_data(const char *data, gpointer user_data) {
     g_print("%s\n", data);
 }
 
