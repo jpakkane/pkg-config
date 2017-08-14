@@ -796,11 +796,11 @@ packages_get_var(std::vector<Package> &pkgs, const char *varname) {
     return str;
 }
 
-int compare_versions(const char * a, const char *b) {
+int compare_versions(const std::string &a, const std::string &b) {
     return rpmvercmp(a, b);
 }
 
-bool version_test(ComparisonType comparison, const char *a, const char *b) {
+bool version_test(ComparisonType comparison, const std::string &a, const std::string &b) {
     switch (comparison){
     case LESS_THAN:
         return compare_versions(a, b) < 0;
@@ -831,9 +831,7 @@ bool version_test(ComparisonType comparison, const char *a, const char *b) {
         break;
 
     default:
-        g_assert_not_reached ()
-        ;
-        break;
+        throw "Unreachable code.";
     }
 
     return false;
@@ -871,9 +869,7 @@ comparison_to_str(ComparisonType comparison) {
         break;
 
     default:
-        g_assert_not_reached ()
-        ;
-        break;
+        throw "Unreachable code";
     }
 
     return "???";

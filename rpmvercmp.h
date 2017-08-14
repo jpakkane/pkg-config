@@ -19,4 +19,6 @@
 
 #pragma once
 
-int rpmvercmp(const char * a, const char * b);
+#include<string>
+
+int rpmvercmp(const std::string &a, const std::string &b);

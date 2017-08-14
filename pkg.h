@@ -90,8 +90,8 @@ std::string packages_get_var(std::vector<Package> &pkgs, const char *var);
 void add_search_dir(const char *path);
 void add_search_dirs(const char *path, const char separator);
 void package_init(bool want_list);
-int compare_versions(const char * a, const char *b);
-bool version_test(ComparisonType comparison, const char *a, const char *b);
+int compare_versions(const std::string &a, const std::string &b);
+bool version_test(ComparisonType comparison, const std::string &a, const std::string &b);
 
 const char *comparison_to_str(ComparisonType comparison);
 
