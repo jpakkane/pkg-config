@@ -250,46 +250,43 @@ typedef enum {
 
 #define PARSE_SPEW 0
 
-static GList *
-split_module_list(const char *str, const char *path) {
-    GList *retval = NULL;
-    const char *p;
-    const char *start;
+static std::vector<std::string>
+split_module_list(const std::string &str, const char *path) {
+    std::vector<std::string> retval;
+    std::string::size_type p = 0;
+    std::string::size_type start = 0;
     ModuleSplitState state = OUTSIDE_MODULE;
     ModuleSplitState last_state = OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
 
-    start = str;
-    p = str;
-
-    while(*p) {
+    while(p < str.size()) {
 #if PARSE_SPEW
-        fprintf (stderr, "p: %c state: %d last_state: %d\n", *p, state, last_state);
+        fprintf (stderr, "p: %c state: %d last_state: %d\n", str.c_str() + (int)p, state, last_state);
 #endif
 
         switch (state){
         case OUTSIDE_MODULE:
-            if(!MODULE_SEPARATOR(*p))
+            if(!MODULE_SEPARATOR(str[p]))
                 state = IN_MODULE_NAME;
             break;
 
         case IN_MODULE_NAME:
-            if(isspace((guchar) *p)) {
+            if(isspace((guchar) str[p])) {
                 /* Need to look ahead to determine next state */
-                const char *s = p;
-                while(*s && isspace((guchar) *s))
+                auto s = p;
+                while(s < str.size() && isspace((guchar) str[s]))
                     ++s;
 
-                if(*s == '\0')
+                if(s == str.size())
                     state = OUTSIDE_MODULE;
-                else if(MODULE_SEPARATOR(*s))
+                else if(MODULE_SEPARATOR(str[s]))
                     state = OUTSIDE_MODULE;
-                else if(OPERATOR_CHAR(*s))
+                else if(OPERATOR_CHAR(str[s]))
                     state = BEFORE_OPERATOR;
                 else
                     state = OUTSIDE_MODULE;
-            } else if(MODULE_SEPARATOR(*p))
+            } else if(MODULE_SEPARATOR(str[p]))
                 state = OUTSIDE_MODULE; /* comma precludes any operators */
             break;
 
@@ -297,39 +294,37 @@ split_module_list(const char *str, const char *path) {
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
-            if(isspace((guchar) *p))
+            if(isspace((guchar) str[p]))
                 ; /* no change */
-            else if(OPERATOR_CHAR(*p))
+            else if(OPERATOR_CHAR(str[p]))
                 state = IN_OPERATOR;
             else
-                g_assert_not_reached ()
-                ;
+                throw "Unreachable code";
             break;
 
         case IN_OPERATOR:
-            if(!OPERATOR_CHAR(*p))
+            if(!OPERATOR_CHAR(str[p]))
                 state = AFTER_OPERATOR;
             break;
 
         case AFTER_OPERATOR:
-            if(!isspace((guchar) *p))
+            if(!isspace((guchar) str[p]))
                 state = IN_MODULE_VERSION;
             break;
 
         case IN_MODULE_VERSION:
-            if(MODULE_SEPARATOR(*p))
+            if(MODULE_SEPARATOR(str[p]))
                 state = OUTSIDE_MODULE;
             break;
 
         default:
-            g_assert_not_reached ()
-            ;
+            throw "Unreachable code.";
         }
 
         if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
             /* We left a module */
-            char *module = g_strndup(start, p - start);
-            retval = g_list_prepend(retval, module);
+            std::string module = str.substr(start, p - start);
+            retval.push_back(module);
 
 #if PARSE_SPEW
             fprintf (stderr, "found module: '%s'\n", module);
@@ -345,8 +340,8 @@ split_module_list(const char *str, const char *path) {
 
     if(p != start) {
         /* get the last module */
-        char *module = g_strndup(start, p - start);
-        retval = g_list_prepend(retval, module);
+        std::string module = str.substr(start, p - start);
+        retval.push_back(module);
 
 #if PARSE_SPEW
         fprintf (stderr, "found module: '%s'\n", module);
@@ -354,43 +349,37 @@ split_module_list(const char *str, const char *path) {
 
     }
 
-    retval = g_list_reverse(retval);
-
     return retval;
 }
 
 std::vector<RequiredVersion>
-parse_module_list(Package *pkg, const char *str, const char *path) {
+parse_module_list(Package *pkg, const char *str_, const char *path) {
     std::vector<RequiredVersion> retval;
-    GList *split;
-    GList *iter;
 
-    split = split_module_list(str, path);
+    auto split = split_module_list(str_, path);
 
-    for(iter = split; iter != NULL; iter = g_list_next(iter)) {
-        char *p;
-        char *start;
-
-        p = static_cast<char*>(iter->data);
+    for(auto &str : split) {
+        std::string::size_type p = 0;
+        std::string::size_type start = 0;
 
         RequiredVersion ver;
         ver.comparison = ALWAYS_MATCH;
         ver.owner = pkg;
 
-        while(*p && MODULE_SEPARATOR(*p))
+        while(p<str.size() && MODULE_SEPARATOR(str[p]))
             ++p;
 
         start = p;
 
-        while(*p && !isspace((guchar) *p))
+        while(p<str.size() && !isspace((guchar) str[p]))
             ++p;
 
-        while(*p && MODULE_SEPARATOR(*p)) {
-            *p = '\0';
+        std::string package_name = str.substr(start, p-start);
+        while(p<str.size() && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
 
-        if(*start == '\0') {
+        if(package_name.empty()) {
             verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
             if(parse_strict)
                 exit(1);
@@ -398,34 +387,35 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
                 continue;
         }
 
-        ver.name = start;
+        ver.name = package_name;
 
         start = p;
 
-        while(*p && !isspace((guchar) *p))
-            ++p;
-
-        while(*p && isspace((guchar) *p)) {
-            *p = '\0';
+        while(p<str.size() && !isspace((guchar) str[p])) {
             ++p;
         }
 
-        if(*start != '\0') {
-            if(strcmp(start, "=") == 0)
+        std::string comparison = str.substr(start, p-start);
+        while(p<str.size() && isspace((guchar) str[p])) {
+            ++p;
+        }
+
+        if(!comparison.empty()) {
+            if(comparison == "=")
                 ver.comparison = EQUAL;
-            else if(strcmp(start, ">=") == 0)
+            else if(comparison == ">=")
                 ver.comparison = GREATER_THAN_EQUAL;
-            else if(strcmp(start, "<=") == 0)
+            else if(comparison == "<=")
                 ver.comparison = LESS_THAN_EQUAL;
-            else if(strcmp(start, ">") == 0)
+            else if(comparison == ">")
                 ver.comparison = GREATER_THAN;
-            else if(strcmp(start, "<") == 0)
+            else if(comparison == "<")
                 ver.comparison = LESS_THAN;
-            else if(strcmp(start, "!=") == 0)
+            else if(comparison == "!=")
                 ver.comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after "
-                        "package name '%s' in file '%s'\n", start, ver.name.c_str(), path);
+                        "package name '%s' in file '%s'\n", comparison.c_str(), ver.name.c_str(), path);
                 if(parse_strict)
                     exit(1);
                 else
@@ -435,15 +425,15 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
 
         start = p;
 
-        while(*p && !MODULE_SEPARATOR(*p))
+        while(p<str.size() && !MODULE_SEPARATOR(str[p]))
             ++p;
 
-        while(*p && MODULE_SEPARATOR(*p)) {
-            *p = '\0';
+        std::string version = str.substr(start, p-start);
+        while(p<str.size() && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
 
-        if(ver.comparison != ALWAYS_MATCH && *start == '\0') {
+        if(ver.comparison != ALWAYS_MATCH && version.empty()) {
             verbose_error("Comparison operator but no version after package "
                     "name '%s' in file '%s'\n", ver.name.c_str(), path);
             if(parse_strict)
@@ -454,16 +444,13 @@ parse_module_list(Package *pkg, const char *str, const char *path) {
             }
         }
 
-        if(*start != '\0') {
-            ver.version = start;
+        if(!version.empty()) {
+            ver.version = version;
         }
 
         g_assert(!ver.name.empty());
         retval.push_back(ver);
     }
-
-    g_list_foreach(split, (GFunc) g_free, NULL);
-    g_list_free(split);
 
     return retval;
 }
