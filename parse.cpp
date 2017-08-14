@@ -1172,14 +1172,14 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
 }
 
 Package
-parse_package_file(const char *key, const char *path, bool ignore_requires, bool ignore_private_libs,
+parse_package_file(const std::string &key, const std::string &path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private) {
     FILE *f;
     Package pkg;
     GString *str;
     bool one_line = false;
 
-    f = fopen(path, "r");
+    f = fopen(path.c_str(), "r");
 
     if(f == NULL) {
         verbose_error("Failed to open '%s': %s\n", path, strerror(errno));
@@ -1191,8 +1191,8 @@ parse_package_file(const char *key, const char *path, bool ignore_requires, bool
 
     pkg.key = key;
 
-    if(path) {
-        pkg.pcfiledir = g_dirname(path);
+    if(!path.empty()) {
+        pkg.pcfiledir = g_dirname(path.c_str());
     } else {
         debug_spew("No pcfiledir determined for package\n");
         pkg.pcfiledir = "???????";
@@ -1206,7 +1206,7 @@ parse_package_file(const char *key, const char *path, bool ignore_requires, bool
     while(read_one_line(f, str)) {
         one_line = true;
 
-        parse_line(&pkg, str->str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
+        parse_line(&pkg, str->str, path.c_str(), ignore_requires, ignore_private_libs, ignore_requires_private);
 
         g_string_truncate(str, 0);
     }

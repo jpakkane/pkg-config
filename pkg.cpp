@@ -181,8 +181,7 @@ void package_init(bool want_list) {
 static Package
 internal_get_package(const std::string &name, bool warn) {
     Package pkg;
-    char *key = NULL;
-    char *location = NULL;
+    std::string key, location;
     unsigned int path_position = 0;
 
     auto res = packages.find(name);
@@ -195,18 +194,14 @@ internal_get_package(const std::string &name, bool warn) {
     /* treat "name" as a filename if it ends in .pc and exists */
     if(ends_in_dotpc(name.c_str())) {
         debug_spew("Considering '%s' to be a filename rather than a package name\n", name);
-        location = g_strdup(name.c_str());
-        key = g_strdup(name.c_str());
+        location = name;
+        key = name;
     } else {
         /* See if we should auto-prefer the uninstalled version */
         if(!disable_uninstalled && !name_ends_in_uninstalled(name.c_str())) {
-            char *un;
-
-            un = g_strconcat(name.c_str(), "-uninstalled", NULL);
+            std::string un = name + "-uninstalled";
 
             pkg = internal_get_package(un, false);
-
-            g_free(un);
 
             if(!pkg.key.empty()) {
                 debug_spew("Preferring uninstalled version of package '%s'\n", name.c_str());
@@ -216,41 +211,39 @@ internal_get_package(const std::string &name, bool warn) {
 
         for(const auto &dir : search_dirs) {
             path_position++;
-            location = g_strdup_printf("%s%c%s.pc", dir.c_str(),
-            G_DIR_SEPARATOR, name.c_str());
-            if(g_file_test(location, G_FILE_TEST_IS_REGULAR))
+            location = dir;
+            location += G_DIR_SEPARATOR;
+            location += name;
+            location += ".pc";
+            if(g_file_test(location.c_str(), G_FILE_TEST_IS_REGULAR))
                 break;
-            g_free(location);
-            location = NULL;
+            location.clear();
         }
 
     }
 
-    if(location == NULL) {
+    if(location.empty()) {
         if(warn)
             verbose_error("Package %s was not found in the pkg-config search path.\n"
                     "Perhaps you should add the directory containing `%s.pc'\n"
-                    "to the PKG_CONFIG_PATH environment variable\n", name, name);
+                    "to the PKG_CONFIG_PATH environment variable\n", name.c_str(), name.c_str());
 
         return Package();
     }
 
-    if(key == NULL)
-        key = g_strdup(name.c_str());
+    if(key.empty())
+        key = name;
     else {
         /* need to strip package name out of the filename */
         key = g_path_get_basename(name.c_str());
-        key[strlen(key) - EXT_LEN] = '\0';
+        key[strlen(key.c_str()) - EXT_LEN] = '\0';
     }
 
-    debug_spew("Reading '%s' from file '%s'\n", name, location);
+    debug_spew("Reading '%s' from file '%s'\n", name.c_str(), location.c_str());
     pkg = parse_package_file(key, location, ignore_requires, ignore_private_libs, ignore_requires_private);
-    g_free(key);
 
-    if(!pkg.empty() && strstr(location, "uninstalled.pc"))
+    if(!pkg.empty() && location.find("uninstalled.pc") != std::string::npos)
         pkg.uninstalled = true;
-
-    g_free(location);
 
     if(pkg.empty()) {
         debug_spew("Failed to parse '%s'\n", location);

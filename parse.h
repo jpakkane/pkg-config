@@ -23,7 +23,7 @@
 #include "pkg.h"
 #include<string>
 
-Package parse_package_file(const char *key, const char *path, bool ignore_requires, bool ignore_private_libs,
+Package parse_package_file(const std::string &key, const std::string &path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private);
 
 std::vector<RequiredVersion> parse_module_list(Package *pkg, const char *str, const char *path);
