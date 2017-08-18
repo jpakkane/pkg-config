@@ -136,7 +136,7 @@ trim_string(const std::string &str) {
 }
 
 static std::string
-trim_and_sub(Package *pkg, const std::string &str, const char *path) {
+trim_and_sub(Package *pkg, const std::string &str, const std::string &path) {
     std::string subst;
     std::string::size_type p = 0;
 
@@ -180,7 +180,7 @@ trim_and_sub(Package *pkg, const std::string &str, const char *path) {
     return subst;
 }
 
-static void parse_name(Package *pkg, std::string &str, const char *path) {
+static void parse_name(Package *pkg, std::string &str, const std::string &path) {
     if(!pkg->name.empty()) {
         verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -192,7 +192,7 @@ static void parse_name(Package *pkg, std::string &str, const char *path) {
     pkg->name = trim_and_sub(pkg, str, path);
 }
 
-static void parse_version(Package *pkg, const std::string &str, const char *path) {
+static void parse_version(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->version.empty()) {
         verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -204,7 +204,7 @@ static void parse_version(Package *pkg, const std::string &str, const char *path
     pkg->version = trim_and_sub(pkg, str, path);
 }
 
-static void parse_description(Package *pkg, const std::string &str, const char *path) {
+static void parse_description(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->description.empty()) {
         verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -238,7 +238,7 @@ typedef enum {
 #define PARSE_SPEW 0
 
 static std::vector<std::string>
-split_module_list(const std::string &str, const char *path) {
+split_module_list(const std::string &str, const std::string &path) {
     std::vector<std::string> retval;
     std::string::size_type p = 0;
     std::string::size_type start = 0;
@@ -340,7 +340,7 @@ split_module_list(const std::string &str, const char *path) {
 }
 
 std::vector<RequiredVersion>
-parse_module_list(Package *pkg, const std::string &str_, const char *path) {
+parse_module_list(Package *pkg, const std::string &str_, const std::string &path) {
     std::vector<RequiredVersion> retval;
 
     auto split = split_module_list(str_, path);
@@ -443,7 +443,7 @@ parse_module_list(Package *pkg, const std::string &str_, const char *path) {
 }
 
 static std::vector<std::string>
-split_module_list2(const char *str, const char *path) {
+split_module_list2(const char *str, const std::string &path) {
     std::vector<std::string> retval;
     const char *p;
     const char *start;
@@ -552,7 +552,7 @@ split_module_list2(const char *str, const char *path) {
 }
 
 std::vector<RequiredVersion>
-parse_module_list2(Package *pkg, const std::string &str, const char *path) {
+parse_module_list2(Package *pkg, const std::string &str, const std::string &path) {
     std::vector<std::string> split;
     std::vector<RequiredVersion> retval;
 
@@ -657,7 +657,7 @@ parse_module_list2(Package *pkg, const std::string &str, const char *path) {
     return retval;
 }
 
-static void parse_requires(Package *pkg, const std::string &str, const char *path) {
+static void parse_requires(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->requires.empty()) {
         verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -670,7 +670,7 @@ static void parse_requires(Package *pkg, const std::string &str, const char *pat
     pkg->requires_entries = parse_module_list(pkg, trimmed, path);
 }
 
-static void parse_requires_private(Package *pkg, const std::string &str, const char *path) {
+static void parse_requires_private(Package *pkg, const std::string &str, const std::string &path) {
     std::string trimmed;
 
     if(!pkg->requires_private.empty()) {
@@ -685,7 +685,7 @@ static void parse_requires_private(Package *pkg, const std::string &str, const c
     pkg->requires_private_entries = parse_module_list(pkg, trimmed, path);
 }
 
-static void parse_conflicts(Package *pkg, const std::string &str, const char *path) {
+static void parse_conflicts(Package *pkg, const std::string &str, const std::string &path) {
 
     if(!pkg->conflicts.empty()) {
         verbose_error("Conflicts field occurs twice in '%s'\n", path);
@@ -780,7 +780,7 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
 
 }
 
-static void parse_libs(Package *pkg, const std::string &str, const char *path) {
+static void parse_libs(Package *pkg, const std::string &str, const std::string &path) {
     /* Strip out -l and -L flags, put them in a separate list. */
 
     char **argv = NULL;
@@ -812,7 +812,7 @@ static void parse_libs(Package *pkg, const std::string &str, const char *path) {
     pkg->libs_num++;
 }
 
-static void parse_libs_private(Package *pkg, const std::string &str, const char *path) {
+static void parse_libs_private(Package *pkg, const std::string &str, const std::string &path) {
     /*
      List of private libraries.  Private libraries are libraries which
      are needed in the case of static linking or on platforms not
@@ -907,7 +907,7 @@ std::vector<std::string> parse_shell_string(std::string const& in)
     return out;
 }
 
-static void parse_cflags(Package *pkg, const std::string &str, const char *path) {
+static void parse_cflags(Package *pkg, const std::string &str, const std::string &path) {
     /* Strip out -I flags, put them in a separate list. */
 
     if(!pkg->cflags.empty()) {
@@ -966,7 +966,7 @@ static void parse_cflags(Package *pkg, const std::string &str, const char *path)
 
 }
 
-static void parse_url(Package *pkg, const std::string &str, const char *path) {
+static void parse_url(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->url.empty()) {
         verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -978,7 +978,7 @@ static void parse_url(Package *pkg, const std::string &str, const char *path) {
     pkg->url = trim_and_sub(pkg, str, path);
 }
 
-static void parse_line(Package *pkg, const std::string &untrimmed, const char *path, bool ignore_requires,
+static void parse_line(Package *pkg, const std::string &untrimmed, const std::string &path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
     std::string::size_type p;
 
