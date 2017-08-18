@@ -308,9 +308,9 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
         }
 
         if(want_short_errors)
-            req = get_package_quiet(ver.name.c_str());
+            req = get_package_quiet(ver.name);
         else
-            req = get_package(ver.name.c_str());
+            req = get_package(ver.name);
 
         if(log != NULL) {
             if(req.empty())

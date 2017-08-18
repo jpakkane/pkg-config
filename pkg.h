@@ -81,8 +81,8 @@ struct Package {
     bool empty() const { return key.empty(); }
 };
 
-Package get_package(const char *name);
-Package get_package_quiet(const char *name);
+Package get_package(const std::string &name);
+Package get_package_quiet(const std::string &name);
 std::string packages_get_flags(std::vector<Package> &pkgs, FlagType flags);
 std::string package_get_var(Package *pkg, const std::string &var);
 std::string packages_get_var(std::vector<Package> &pkgs, const char *var);

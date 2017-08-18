@@ -299,12 +299,12 @@ internal_get_package(const std::string &name, bool warn) {
 }
 
 Package
-get_package(const char *name) {
+get_package(const std::string &name) {
     return internal_get_package(name, true);
 }
 
 Package
-get_package_quiet(const char *name) {
+get_package_quiet(const std::string &name) {
     return internal_get_package(name, false);
 }
 
