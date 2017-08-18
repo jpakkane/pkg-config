@@ -355,7 +355,7 @@ split_module_list(const std::string &str, const char *path) {
 }
 
 std::vector<RequiredVersion>
-parse_module_list(Package *pkg, const char *str_, const char *path) {
+parse_module_list(Package *pkg, const std::string &str_, const char *path) {
     std::vector<RequiredVersion> retval;
 
     auto split = split_module_list(str_, path);

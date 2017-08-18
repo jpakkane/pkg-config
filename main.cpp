@@ -282,7 +282,7 @@ static void init_pc_path(void) {
 #endif
 }
 
-static bool process_package_args(const char *cmdline, std::vector<Package> *packages, FILE *log) {
+static bool process_package_args(const std::string &cmdline, std::vector<Package> *packages, FILE *log) {
     bool success = true;
 
     auto reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
@@ -406,7 +406,7 @@ static const GOptionEntry options_table[] = { { "version", 0, G_OPTION_FLAG_NO_A
         { NULL, 0, 0, G_OPTION_ARG_NONE, NULL, NULL, NULL } };
 
 int main(int argc, char **argv) {
-    GString *str;
+    std::string str;
     std::vector<Package > package_list;
     char *search_path;
     char *pcbuilddir;
@@ -549,18 +549,22 @@ int main(int argc, char **argv) {
     }
 
     /* Collect packages from remaining args */
-    str = g_string_new("");
     while(argc > 1) {
         argc--;
         argv++;
 
-        g_string_append(str, *argv);
-        g_string_append(str, " ");
+        str += *argv;
+        str += " ";
     }
 
     g_option_context_free(opt_context);
 
-    g_strstrip(str->str);
+    while(!str.empty() && str.front() == ' ') {
+        str.erase(0, 1);
+    }
+    while(!str.empty() && str.back() == ' ') {
+        str.erase(str.size()-1, 1);
+    }
 
     if(getenv("PKG_CONFIG_LOG") != NULL) {
         log = fopen(getenv("PKG_CONFIG_LOG"), "a");
@@ -571,13 +575,11 @@ int main(int argc, char **argv) {
     }
 
     /* find and parse each of the packages specified */
-    if(!process_package_args(str->str, &package_list, log))
+    if(!process_package_args(str, &package_list, log))
         return 1;
 
     if(log != NULL)
         fclose(log);
-
-    g_string_free(str, true);
 
     /* If the user just wants to check package existence or validate its .pc
      * file, we're all done. */
