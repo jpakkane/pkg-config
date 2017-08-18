@@ -137,17 +137,15 @@ trim_string(const std::string &str) {
 
 static std::string
 trim_and_sub(Package *pkg, const std::string &str, const char *path) {
-    GString *subst;
+    std::string subst;
     std::string::size_type p = 0;
 
     auto trimmed = trim_string(str);
 
-    subst = g_string_new("");
-
     while(p<trimmed.size()) {
         if(str[p] == '$' && str[p+1] == '$') {
             /* escaped $ */
-            g_string_append_c(subst, '$');
+            subst += '$';
             p += 2;
         } else if(str[p] == '$' && str[p+1] == '{') {
             /* variable */
@@ -171,18 +169,15 @@ trim_and_sub(Package *pkg, const std::string &str, const char *path) {
                     exit(1);
             }
 
-            g_string_append(subst, varval.c_str());
+            subst += varval;
         } else {
-            g_string_append_c(subst, str[p]);
+            subst += str[p];
 
             ++p;
         }
     }
 
-    std::string res(subst->str);
-    g_string_free(subst, true);
-
-    return res;
+    return subst;
 }
 
 static void parse_name(Package *pkg, std::string &str, const char *path) {
