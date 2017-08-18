@@ -84,7 +84,7 @@ struct Package {
 Package get_package(const char *name);
 Package get_package_quiet(const char *name);
 std::string packages_get_flags(std::vector<Package> &pkgs, FlagType flags);
-std::string package_get_var(Package *pkg, const char *var);
+std::string package_get_var(Package *pkg, const std::string &var);
 std::string packages_get_var(std::vector<Package> &pkgs, const char *var);
 
 void add_search_dir(const char *path);

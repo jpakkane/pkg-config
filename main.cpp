@@ -559,10 +559,10 @@ int main(int argc, char **argv) {
 
     g_option_context_free(opt_context);
 
-    while(!str.empty() && str.front() == ' ') {
+    while(!str.empty() && isspace(str.front())) {
         str.erase(0, 1);
     }
-    while(!str.empty() && str.back() == ' ') {
+    while(!str.empty() && isspace(str.back())) {
         str.erase(str.size()-1, 1);
     }
 

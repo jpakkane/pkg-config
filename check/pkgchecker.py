@@ -30,6 +30,7 @@ class PkgChecker:
         for expected_rc, expected_stdout, expected_stderr, envvars, arguments in tests:
             test_number += 1
             print('Test', test_number)
+            sys.stdout.flush()
             env = os.environ.copy()
             if 'PKG_CONFIG_PATH' in env:
                 del env['PKG_CONFIG_PATH']

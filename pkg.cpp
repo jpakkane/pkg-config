@@ -747,7 +747,7 @@ var_to_env_var(const char *pkg, const char *var) {
 }
 
 std::string
-package_get_var(Package *pkg, const char *var) {
+package_get_var(Package *pkg, const std::string &var) {
     std::string varval;
     auto lookup = globals.find(var);
     if(lookup != globals.end())
@@ -757,7 +757,7 @@ package_get_var(Package *pkg, const char *var) {
      * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
      */
     if(pkg->key.c_str()) {
-        std::string env_var = var_to_env_var(pkg->key.c_str(), var);
+        std::string env_var = var_to_env_var(pkg->key.c_str(), var.c_str());
         const char *env_var_content = g_getenv(env_var.c_str());
         if(env_var_content) {
             debug_spew("Overriding variable '%s' from environment\n", var);

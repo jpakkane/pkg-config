@@ -53,21 +53,21 @@ bool msvc_syntax = false;
  * 
  * Return value: %false if the stream was already at an EOF character.
  **/
-static bool read_one_line(FILE *stream, GString *str) {
+static bool read_one_line(FILE *stream, std::string &str) {
     bool quoted = false;
     bool comment = false;
     int n_read = 0;
 
-    g_string_truncate(str, 0);
+    str.clear();
 
-    while(1) {
+    while(true) {
         int c;
 
         c = getc(stream);
 
         if(c == EOF) {
             if(quoted)
-                g_string_append_c(str, '\\');
+                str += '\\';
 
             goto done;
         } else
@@ -78,7 +78,7 @@ static bool read_one_line(FILE *stream, GString *str) {
 
             switch (c){
             case '#':
-                g_string_append_c(str, '#');
+                str += '#';
                 break;
             case '\r':
             case '\n': {
@@ -90,8 +90,8 @@ static bool read_one_line(FILE *stream, GString *str) {
                 break;
             }
             default:
-                g_string_append_c(str, '\\');
-                g_string_append_c(str, c);
+                str +=  '\\';
+                str += c;
             }
         } else {
             switch (c){
@@ -112,7 +112,7 @@ static bool read_one_line(FILE *stream, GString *str) {
             }
             default:
                 if(!comment)
-                    g_string_append_c(str, c);
+                    str += c;
             }
         }
     }
@@ -122,51 +122,44 @@ static bool read_one_line(FILE *stream, GString *str) {
     return n_read > 0;
 }
 
-static char *
-trim_string(const char *str) {
-    int len;
+static std::string
+trim_string(const std::string &str) {
+    std::string res(str);
 
-    g_return_val_if_fail(str != NULL, NULL);
-
-    while(*str && isspace((guchar) *str))
-        str++;
-
-    len = strlen(str);
-    while(len > 0 && isspace((guchar) str[len - 1]))
-        len--;
-
-    return g_strndup(str, len);
+    while(!res.empty() && isspace(res.front())) {
+        res.erase(0, 1);
+    }
+    while(!res.empty() && isspace(res.back())) {
+        res.erase(str.size()-1, 1);
+    }
+    return res;
 }
 
-static char *
-trim_and_sub(Package *pkg, const char *str, const char *path) {
-    char *trimmed;
+static std::string
+trim_and_sub(Package *pkg, const std::string &str, const char *path) {
     GString *subst;
-    char *p;
+    std::string::size_type p = 0;
 
-    trimmed = trim_string(str);
+    auto trimmed = trim_string(str);
 
     subst = g_string_new("");
 
-    p = trimmed;
-    while(*p) {
-        if(p[0] == '$' && p[1] == '$') {
+    while(p<trimmed.size()) {
+        if(str[p] == '$' && str[p+1] == '$') {
             /* escaped $ */
             g_string_append_c(subst, '$');
             p += 2;
-        } else if(p[0] == '$' && p[1] == '{') {
+        } else if(str[p] == '$' && str[p+1] == '{') {
             /* variable */
-            char *var_start;
-            char *varname;
             std::string varval;
 
-            var_start = &p[2];
+            auto var_start = p+2;
 
             /* Get up to close brace. */
-            while(*p && *p != '}')
+            while(p<str.size() && str[p] != '}')
                 ++p;
 
-            varname = g_strndup(var_start, p - var_start);
+            auto varname = str.substr(var_start, p-var_start);
 
             ++p; /* past brace */
 
@@ -178,24 +171,21 @@ trim_and_sub(Package *pkg, const char *str, const char *path) {
                     exit(1);
             }
 
-            g_free(varname);
-
             g_string_append(subst, varval.c_str());
         } else {
-            g_string_append_c(subst, *p);
+            g_string_append_c(subst, str[p]);
 
             ++p;
         }
     }
 
-    g_free(trimmed);
-    p = subst->str;
-    g_string_free(subst, false);
+    std::string res(subst->str);
+    g_string_free(subst, true);
 
-    return p;
+    return res;
 }
 
-static void parse_name(Package *pkg, const char *str, const char *path) {
+static void parse_name(Package *pkg, std::string &str, const char *path) {
     if(!pkg->name.empty()) {
         verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -207,7 +197,7 @@ static void parse_name(Package *pkg, const char *str, const char *path) {
     pkg->name = trim_and_sub(pkg, str, path);
 }
 
-static void parse_version(Package *pkg, const char *str, const char *path) {
+static void parse_version(Package *pkg, const std::string &str, const char *path) {
     if(!pkg->version.empty()) {
         verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -219,7 +209,7 @@ static void parse_version(Package *pkg, const char *str, const char *path) {
     pkg->version = trim_and_sub(pkg, str, path);
 }
 
-static void parse_description(Package *pkg, const char *str, const char *path) {
+static void parse_description(Package *pkg, const std::string &str, const char *path) {
     if(!pkg->description.empty()) {
         verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -567,11 +557,11 @@ split_module_list2(const char *str, const char *path) {
 }
 
 std::vector<RequiredVersion>
-parse_module_list2(Package *pkg, const char *str, const char *path) {
+parse_module_list2(Package *pkg, const std::string &str, const char *path) {
     std::vector<std::string> split;
     std::vector<RequiredVersion> retval;
 
-    split = split_module_list2(str, path);
+    split = split_module_list2(str.c_str(), path);
 
     for(const auto &iter : split) {
         RequiredVersion ver;
@@ -672,9 +662,7 @@ parse_module_list2(Package *pkg, const char *str, const char *path) {
     return retval;
 }
 
-static void parse_requires(Package *pkg, const char *str, const char *path) {
-    char *trimmed;
-
+static void parse_requires(Package *pkg, const std::string &str, const char *path) {
     if(!pkg->requires.empty()) {
         verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -683,13 +671,12 @@ static void parse_requires(Package *pkg, const char *str, const char *path) {
             return;
     }
 
-    trimmed = trim_and_sub(pkg, str, path);
+    auto trimmed = trim_and_sub(pkg, str, path);
     pkg->requires_entries = parse_module_list(pkg, trimmed, path);
-    g_free(trimmed);
 }
 
-static void parse_requires_private(Package *pkg, const char *str, const char *path) {
-    char *trimmed;
+static void parse_requires_private(Package *pkg, const std::string &str, const char *path) {
+    std::string trimmed;
 
     if(!pkg->requires_private.empty()) {
         verbose_error("Requires.private field occurs twice in '%s'\n", path);
@@ -701,11 +688,9 @@ static void parse_requires_private(Package *pkg, const char *str, const char *pa
 
     trimmed = trim_and_sub(pkg, str, path);
     pkg->requires_private_entries = parse_module_list(pkg, trimmed, path);
-    g_free(trimmed);
 }
 
-static void parse_conflicts(Package *pkg, const char *str, const char *path) {
-    char *trimmed;
+static void parse_conflicts(Package *pkg, const std::string &str, const char *path) {
 
     if(!pkg->conflicts.empty()) {
         verbose_error("Conflicts field occurs twice in '%s'\n", path);
@@ -715,9 +700,8 @@ static void parse_conflicts(Package *pkg, const char *str, const char *path) {
             return;
     }
 
-    trimmed = trim_and_sub(pkg, str, path);
+    auto trimmed = trim_and_sub(pkg, str, path);
     pkg->conflicts = parse_module_list2(pkg, trimmed, path);
-    g_free(trimmed);
 }
 
 static std::string strdup_escape_shell(const std::string &s) {
@@ -749,11 +733,10 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
     i = 0;
     while(i < argc) {
         Flag flag;
-        char *tmp = trim_string(argv[i]);
+        auto tmp = trim_string(argv[i]);
         std::string arg = strdup_escape_shell(tmp);
         const char *p;
         p = arg.data();
-        g_free(tmp);
 
         if(p[0] == '-' && p[1] == 'l' &&
         /* -lib: is used by the C# compiler for libs; it's not an -l
@@ -780,7 +763,7 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
              * -framework Bar being changed into -framework Foo Bar
              * later
              */
-            char *tmp = trim_string(argv[i + 1]);
+            auto tmp = trim_string(argv[i + 1]);
 
             auto framework = strdup_escape_shell(tmp);
             flag.type = LIBS_OTHER;
@@ -789,7 +772,6 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
             flag.arg += framework;
             pkg->libs.push_back(flag);
             i++;
-            g_free(tmp);
         } else if(!arg.empty()) {
             flag.type = LIBS_OTHER;
             flag.arg = arg;
@@ -803,10 +785,9 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
 
 }
 
-static void parse_libs(Package *pkg, const char *str, const char *path) {
+static void parse_libs(Package *pkg, const std::string &str, const char *path) {
     /* Strip out -l and -L flags, put them in a separate list. */
 
-    char *trimmed;
     char **argv = NULL;
     int argc = 0;
     GError *error = NULL;
@@ -819,26 +800,24 @@ static void parse_libs(Package *pkg, const char *str, const char *path) {
             return;
     }
 
-    trimmed = trim_and_sub(pkg, str, path);
+    auto trimmed = trim_and_sub(pkg, str, path);
 
-    if(trimmed && *trimmed && !g_shell_parse_argv(trimmed, &argc, &argv, &error)) {
+    if(!trimmed.empty() && !g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
         verbose_error("Couldn't parse Libs field into an argument vector: %s\n", error ? error->message : "unknown");
         if(parse_strict)
             exit(1);
         else {
-            g_free(trimmed);
             return;
         }
     }
 
     _do_parse_libs(pkg, argc, argv);
 
-    g_free(trimmed);
     g_strfreev(argv);
     pkg->libs_num++;
 }
 
-static void parse_libs_private(Package *pkg, const char *str, const char *path) {
+static void parse_libs_private(Package *pkg, const std::string &str, const char *path) {
     /*
      List of private libraries.  Private libraries are libraries which
      are needed in the case of static linking or on platforms not
@@ -851,7 +830,6 @@ static void parse_libs_private(Package *pkg, const char *str, const char *path) 
      a public dependency and not a private one.
      */
 
-    char *trimmed;
     char **argv = NULL;
     int argc = 0;
     GError *error = NULL;
@@ -864,15 +842,14 @@ static void parse_libs_private(Package *pkg, const char *str, const char *path) 
             return;
     }
 
-    trimmed = trim_and_sub(pkg, str, path);
+    auto trimmed = trim_and_sub(pkg, str, path);
 
-    if(trimmed && *trimmed && !g_shell_parse_argv(trimmed, &argc, &argv, &error)) {
+    if(!trimmed.empty() && !g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
         verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
                 error ? error->message : "unknown");
         if(parse_strict)
             exit(1);
         else {
-            g_free(trimmed);
             return;
         }
     }
@@ -880,7 +857,6 @@ static void parse_libs_private(Package *pkg, const char *str, const char *path) 
     _do_parse_libs(pkg, argc, argv);
 
     g_strfreev(argv);
-    g_free(trimmed);
 
     pkg->libs_private_num++;
 }
@@ -936,10 +912,8 @@ std::vector<std::string> parse_shell_string(std::string const& in)
     return out;
 }
 
-static void parse_cflags(Package *pkg, const char *str, const char *path) {
+static void parse_cflags(Package *pkg, const std::string &str, const char *path) {
     /* Strip out -I flags, put them in a separate list. */
-
-    char *trimmed;
 
     if(!pkg->cflags.empty()) {
         verbose_error("Cflags field occurs twice in '%s'\n", path);
@@ -949,25 +923,23 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             return;
     }
 
-    trimmed = trim_and_sub(pkg, str, path);
+    auto trimmed = trim_and_sub(pkg, str, path);
 
     auto argv = parse_shell_string(trimmed);
-    if(trimmed && FALSE) {
+    if(!trimmed.empty() && FALSE) {
         verbose_error("Couldn't parse Cflags field into an argument vector: %s\n", "unknown");
         if(parse_strict)
             exit(1);
         else {
-            g_free(trimmed);
             return;
         }
     }
 
     for(int i=0; i<(int)argv.size(); ++i) {
         Flag flag;
-        char *tmp = trim_string(argv[i].c_str());
+        auto tmp = trim_string(argv[i].c_str());
         std::string arg = strdup_escape_shell(tmp);
         const char *p = arg.data();
-        g_free(tmp);
 
         if(p[0] == '-' && p[1] == 'I') {
             p += 2;
@@ -978,9 +950,7 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             flag.arg = g_strconcat("-I", p, NULL);
             pkg->cflags.push_back(flag);
         } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < (int)argv.size())) {
-            char *tmp;
-
-            tmp = trim_string(argv[i + 1].c_str());
+            auto tmp = trim_string(argv[i + 1].c_str());
             std::string option = strdup_escape_shell(tmp);
 
             /* These are -I flags since they control the search path */
@@ -990,7 +960,6 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
             flag.arg += option;
             pkg->cflags.push_back(flag);
             i++;
-            g_free(tmp);
         } else if(!arg.empty()) {
             flag.type = CFLAGS_OTHER;
             flag.arg = arg;
@@ -1000,10 +969,9 @@ static void parse_cflags(Package *pkg, const char *str, const char *path) {
         }
     }
 
-    g_free(trimmed);
 }
 
-static void parse_url(Package *pkg, const char *str, const char *path) {
+static void parse_url(Package *pkg, const std::string &str, const char *path) {
     if(!pkg->url.empty()) {
         verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -1015,64 +983,65 @@ static void parse_url(Package *pkg, const char *str, const char *path) {
     pkg->url = trim_and_sub(pkg, str, path);
 }
 
-static void parse_line(Package *pkg, const char *untrimmed, const char *path, bool ignore_requires,
+static void parse_line(Package *pkg, const std::string &untrimmed, const char *path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
-    char *str;
-    char *p;
-    char *tag;
+    std::string::size_type p;
 
     debug_spew("  line>%s\n", untrimmed);
 
-    str = trim_string(untrimmed);
+    auto str = trim_string(untrimmed);
 
-    if(*str == '\0') /* empty line */
+    if(str.empty()) /* empty line */
     {
-        g_free(str);
         return;
     }
 
-    p = str;
+    p=0;
 
     /* Get first word */
-    while((*p >= 'A' && *p <= 'Z') || (*p >= 'a' && *p <= 'z') || (*p >= '0' && *p <= '9') || *p == '_' || *p == '.')
+    while((str[p] >= 'A' && str[p] <= 'Z') ||
+            (str[p] >= 'a' && str[p] <= 'z') ||
+            (str[p] >= '0' && str[p] <= '9') ||
+            str[p] == '_' || str[p] == '.')
         p++;
 
-    tag = g_strndup(str, p - str);
+    auto tag = str.substr(0, p);
 
-    while(*p && isspace((guchar) *p))
+    while(str.length() < p && isspace(str[p]))
         ++p;
 
-    if(*p == ':') {
+    if(str[p] == ':') {
         /* keyword */
         ++p;
-        while(*p && isspace((guchar) *p))
+        while(p<str.length() && isspace(str[p]))
             ++p;
 
-        if(strcmp(tag, "Name") == 0)
-            parse_name(pkg, p, path);
-        else if(strcmp(tag, "Description") == 0)
-            parse_description(pkg, p, path);
-        else if(strcmp(tag, "Version") == 0)
-            parse_version(pkg, p, path);
-        else if(strcmp(tag, "Requires.private") == 0) {
+        auto remainder = str.substr(p, std::string::npos);
+        if(tag == "Name")
+            parse_name(pkg, remainder, path);
+        else if(tag == "Description")
+            parse_description(pkg, remainder, path);
+        else if(tag == "Version")
+            parse_version(pkg, remainder, path);
+        else if(tag == "Requires.private") {
             if(!ignore_requires_private)
-                parse_requires_private(pkg, p, path);
-        } else if(strcmp(tag, "Requires") == 0) {
+                parse_requires_private(pkg, remainder, path);
+        } else if(tag == "Requires") {
             if(ignore_requires == false)
-                parse_requires(pkg, p, path);
+                parse_requires(pkg, remainder, path);
             else
                 goto cleanup;
-        } else if(strcmp(tag, "Libs.private") == 0) {
+        } else if(tag == "Libs.private") {
             if(!ignore_private_libs)
-                parse_libs_private(pkg, p, path);
-        } else if(strcmp(tag, "Libs") == 0)
-            parse_libs(pkg, p, path);
-        else if(strcmp(tag, "Cflags") == 0 || strcmp(tag, "CFlags") == 0)
-            parse_cflags(pkg, p, path);
-        else if(strcmp(tag, "Conflicts") == 0)
-            parse_conflicts(pkg, p, path);
-        else if(strcmp(tag, "URL") == 0)
-            parse_url(pkg, p, path);
+                parse_libs_private(pkg, remainder, path);
+        } else if(tag == "Libs")
+            parse_libs(pkg, remainder, path);
+        else if(tag == "Cflags" || tag == "CFlags")
+            parse_cflags(pkg, remainder, path);
+        else if(tag == "Conflicts")
+            parse_conflicts(pkg, remainder, path);
+        else if(tag == "URL")
+            parse_url(pkg, remainder, path);
         else {
             /* we don't error out on unknown keywords because they may
              * represent additions to the .pc file format from future
@@ -1081,16 +1050,15 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
              * files. */
             debug_spew("Unknown keyword '%s' in '%s'\n", tag, path);
         }
-    } else if(*p == '=') {
+    } else if(str[p] == '=') {
         /* variable */
         char *varname;
-        char *varval;
 
         ++p;
-        while(*p && isspace((guchar) *p))
+        while(p<str.length() && isspace(str[p]))
             ++p;
 
-        if(define_prefix && strcmp(tag, prefix_variable) == 0) {
+        if(define_prefix && tag == prefix_variable) {
             /* This is the prefix variable. Try to guesstimate a value for it
              * for this package from the location of the .pc file.
              */
@@ -1106,7 +1074,7 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
                 char *prefix;
 
                 /* Keep track of the original prefix value. */
-                pkg->orig_prefix = p;
+                pkg->orig_prefix = str.substr(p, std::string::npos);
 
                 /* Get grandparent directory for new prefix. */
                 q = g_path_get_dirname(pkg->pcfiledir.c_str());
@@ -1131,24 +1099,23 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
                 std::string prefix_ = strdup_escape_shell(prefix);
                 g_free(q);
 
-                varname = g_strdup(tag);
+                varname = g_strdup(tag.c_str());
                 debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag, prefix_.c_str());
                 pkg->vars[varname] = prefix_;
                 goto cleanup;
             }
         } else if(define_prefix && !pkg->orig_prefix.empty() &&
-        strncmp (p, pkg->orig_prefix.c_str(), pkg->orig_prefix.length()) == 0 &&
-        G_IS_DIR_SEPARATOR (p[pkg->orig_prefix.length()])) {
-            char *oldstr = str;
+                strncmp(str.data()+p, pkg->orig_prefix.c_str(), pkg->orig_prefix.length()) == 0 &&
+                G_IS_DIR_SEPARATOR (str[p+pkg->orig_prefix.length()])) {
+            std::string oldstr = str;
 
             auto lookup = pkg->vars.find(prefix_variable);
-            const char *tmp = nullptr;
+            std::string tmp;
             if(lookup != pkg->vars.end()) {
-                tmp = lookup->second.c_str();
+                tmp = lookup->second;
             }
-            p = str = g_strconcat(tmp,
-                    p + strlen(pkg->orig_prefix.c_str()), NULL);
-            g_free(oldstr);
+            str = tmp + str.substr(p + pkg->orig_prefix.length(), std::string::npos);
+            p = 0;
         }
 
         if(pkg->vars.find(tag) != pkg->vars.end()) {
@@ -1159,16 +1126,16 @@ static void parse_line(Package *pkg, const char *untrimmed, const char *path, bo
                 goto cleanup;
         }
 
-        varname = g_strdup(tag);
-        varval = trim_and_sub(pkg, p, path);
+        varname = g_strdup(tag.c_str());
+        auto remainder = str.substr(p, std::string::npos);
+        auto varval = trim_and_sub(pkg, remainder, path);
 
         debug_spew(" Variable declaration, '%s' has value '%s'\n", varname, varval);
         pkg->vars[varname] = varval;
 
     }
 
-    cleanup: g_free(str);
-    g_free(tag);
+    cleanup:;
 }
 
 Package
@@ -1176,7 +1143,7 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
         bool ignore_requires_private) {
     FILE *f;
     Package pkg;
-    GString *str;
+    std::string str;
     bool one_line = false;
 
     f = fopen(path.c_str(), "r");
@@ -1201,19 +1168,16 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
     /* Variable storing directory of pc file */
     pkg.vars["pcfiledir"] = pkg.pcfiledir;
 
-    str = g_string_new("");
-
     while(read_one_line(f, str)) {
         one_line = true;
 
-        parse_line(&pkg, str->str, path.c_str(), ignore_requires, ignore_private_libs, ignore_requires_private);
+        parse_line(&pkg, str, path.c_str(), ignore_requires, ignore_private_libs, ignore_requires_private);
 
-        g_string_truncate(str, 0);
+        str.clear();
     }
 
     if(!one_line)
         verbose_error("Package file '%s' appears to be empty\n", path);
-    g_string_free(str, true);
     fclose(f);
 
     //pkg->libs = g_list_reverse(pkg->libs);
