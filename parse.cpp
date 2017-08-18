@@ -552,29 +552,26 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
 
     for(const auto &iter : split) {
         RequiredVersion ver;
-        char *p;
-        char *start;
+        std::string::size_type p=0, start=0;
         std::string tmpstr{iter};
-
-        p = &tmpstr[0];
 
         ver.comparison = ALWAYS_MATCH;
         ver.owner = pkg;
 
-        while(*p && MODULE_SEPARATOR(*p))
+        while(p<iter.size() && MODULE_SEPARATOR(iter[p]))
             ++p;
 
         start = p;
 
-        while(*p && !isspace((guchar) *p))
+        while(p<iter.size() && !isspace(iter[p]))
             ++p;
 
-        while(*p && MODULE_SEPARATOR(*p)) {
-            *p = '\0';
+        auto name = iter.substr(start, p-start);
+        while(p<iter.length() && MODULE_SEPARATOR(iter[p])) {
             ++p;
         }
 
-        if(*start == '\0') {
+        if(name.empty()) {
             verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
             if(parse_strict)
                 exit(1);
@@ -582,34 +579,34 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
                 continue;
         }
 
-        ver.name = start;
+        ver.name = name;
 
         start = p;
 
-        while(*p && !isspace((guchar) *p))
+        while(p<str.size() && !isspace(str[p]))
             ++p;
 
-        while(*p && isspace((guchar) *p)) {
-            *p = '\0';
+        auto comparer = iter.substr(start, p-start);
+        while(p<iter.size() && isspace(iter[p])) {
             ++p;
         }
 
-        if(*start != '\0') {
-            if(strcmp(start, "=") == 0)
+        if(!comparer.empty()) {
+            if(comparer == "=")
                 ver.comparison = EQUAL;
-            else if(strcmp(start, ">=") == 0)
+            else if(comparer == ">=")
                 ver.comparison = GREATER_THAN_EQUAL;
-            else if(strcmp(start, "<=") == 0)
+            else if(comparer == "<=")
                 ver.comparison = LESS_THAN_EQUAL;
-            else if(strcmp(start, ">") == 0)
+            else if(comparer == ">")
                 ver.comparison = GREATER_THAN;
-            else if(strcmp(start, "<") == 0)
+            else if(comparer == "<")
                 ver.comparison = LESS_THAN;
-            else if(strcmp(start, "!=") == 0)
+            else if(comparer == "!=")
                 ver.comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after "
-                        "package name '%s' in file '%s'\n", start, ver.name.c_str(), path);
+                        "package name '%s' in file '%s'\n", comparer.c_str(), ver.name.c_str(), path.c_str());
                 if(parse_strict)
                     exit(1);
                 else
@@ -619,17 +616,17 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
 
         start = p;
 
-        while(*p && !MODULE_SEPARATOR(*p))
+        while(p<iter.size() && !MODULE_SEPARATOR(iter[p]))
             ++p;
 
-        while(*p && MODULE_SEPARATOR(*p)) {
-            *p = '\0';
+        auto number = iter.substr(start, p-start);
+        while(p<iter.length() && MODULE_SEPARATOR(iter[p])) {
             ++p;
         }
 
-        if(ver.comparison != ALWAYS_MATCH && *start == '\0') {
+        if(ver.comparison != ALWAYS_MATCH && number.empty()) {
             verbose_error("Comparison operator but no version after package "
-                    "name '%s' in file '%s'\n", ver.name.c_str(), path);
+                    "name '%s' in file '%s'\n", ver.name.c_str(), path.c_str());
             if(parse_strict)
                 exit(1);
             else {
@@ -638,8 +635,8 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
             }
         }
 
-        if(*start != '\0') {
-            ver.version = start;
+        if(!number.empty()) {
+            ver.version = number;
         }
 
         g_assert(!ver.name.empty());
