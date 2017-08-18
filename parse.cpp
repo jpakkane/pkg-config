@@ -443,45 +443,41 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
 }
 
 static std::vector<std::string>
-split_module_list2(const char *str, const std::string &path) {
+split_module_list2(const std::string &str, const std::string &path) {
     std::vector<std::string> retval;
-    const char *p;
-    const char *start;
+    std::string::size_type p = 0, start = 0;
     ModuleSplitState state = OUTSIDE_MODULE;
     ModuleSplitState last_state = OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
 
-    start = str;
-    p = str;
-
-    while(*p) {
+    while(p<str.length()) {
 #if PARSE_SPEW
         fprintf (stderr, "p: %c state: %d last_state: %d\n", *p, state, last_state);
 #endif
 
         switch (state){
         case OUTSIDE_MODULE:
-            if(!MODULE_SEPARATOR(*p))
+            if(!MODULE_SEPARATOR(str[p]))
                 state = IN_MODULE_NAME;
             break;
 
         case IN_MODULE_NAME:
-            if(isspace((guchar) *p)) {
+            if(isspace(str[p])) {
                 /* Need to look ahead to determine next state */
-                const char *s = p;
-                while(*s && isspace((guchar) *s))
+                auto s = p;
+                while(s<str.length() && isspace(str[s]))
                     ++s;
 
-                if(*s == '\0')
+                if(s>=str.length())
                     state = OUTSIDE_MODULE;
-                else if(MODULE_SEPARATOR(*s))
+                else if(MODULE_SEPARATOR(str[s]))
                     state = OUTSIDE_MODULE;
-                else if(OPERATOR_CHAR(*s))
+                else if(OPERATOR_CHAR(str[s]))
                     state = BEFORE_OPERATOR;
                 else
                     state = OUTSIDE_MODULE;
-            } else if(MODULE_SEPARATOR(*p))
+            } else if(MODULE_SEPARATOR(str[p]))
                 state = OUTSIDE_MODULE; /* comma precludes any operators */
             break;
 
@@ -489,40 +485,37 @@ split_module_list2(const char *str, const std::string &path) {
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
-            if(isspace((guchar) *p))
+            if(isspace(str[p]))
                 ; /* no change */
-            else if(OPERATOR_CHAR(*p))
+            else if(OPERATOR_CHAR(str[p]))
                 state = IN_OPERATOR;
             else
-                g_assert_not_reached ()
-                ;
+                throw "Unreachable code.";
             break;
 
         case IN_OPERATOR:
-            if(!OPERATOR_CHAR(*p))
+            if(!OPERATOR_CHAR(str[p]))
                 state = AFTER_OPERATOR;
             break;
 
         case AFTER_OPERATOR:
-            if(!isspace((guchar) *p))
+            if(!isspace(str[p]))
                 state = IN_MODULE_VERSION;
             break;
 
         case IN_MODULE_VERSION:
-            if(MODULE_SEPARATOR(*p))
+            if(MODULE_SEPARATOR(str[p]))
                 state = OUTSIDE_MODULE;
             break;
 
         default:
-            g_assert_not_reached ()
-            ;
+            throw "Unreachable code";
         }
 
         if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
             /* We left a module */
-            char *module = g_strndup(start, p - start);
+            auto module = str.substr(start, p - start);
             retval.push_back(module);
-            g_free(module);
 
 #if PARSE_SPEW
             fprintf (stderr, "found module: '%s'\n", module);
@@ -538,9 +531,8 @@ split_module_list2(const char *str, const std::string &path) {
 
     if(p != start) {
         /* get the last module */
-        char *module = g_strndup(start, p - start);
+        auto module = str.substr(start, p - start);
         retval.push_back(module);
-        g_free(module);
 
 #if PARSE_SPEW
         fprintf (stderr, "found module: '%s'\n", module);
