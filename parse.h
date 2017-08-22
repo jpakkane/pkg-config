@@ -28,7 +28,7 @@ Package parse_package_file(const std::string &key, const std::string &path, bool
 
 std::vector<RequiredVersion> parse_module_list(Package *pkg, const std::string &str, const std::string &path);
 
-std::string parse_package_variable(Package *pkg, const char *variable);
+std::string parse_package_variable(Package *pkg, const std::string &variable);
 
 #endif
 

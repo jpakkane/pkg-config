@@ -1174,7 +1174,7 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
  * return the raw value.
  */
 std::string
-parse_package_variable(Package *pkg, const char *variable) {
+parse_package_variable(Package *pkg, const std::string &variable) {
     std::string value;
     char *unquoted;
     GError *error = NULL;

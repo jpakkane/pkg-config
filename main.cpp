@@ -316,7 +316,7 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
             if(req.empty())
                 fprintf(log, "%s NOT-FOUND\n", ver.name.c_str());
             else
-                fprintf(log, "%s %s %s\n", ver.name.c_str(), comparison_to_str(ver.comparison),
+                fprintf(log, "%s %s %s\n", ver.name.c_str(), comparison_to_str(ver.comparison).c_str(),
                         (ver.version.empty()) ? "(null)" : ver.version.c_str());
         }
 
@@ -329,7 +329,7 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
         if(!version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
             success = false;
             verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver.name.c_str(),
-                    comparison_to_str(ver.comparison), ver.version.c_str(), req.name.c_str(), req.version.c_str());
+                    comparison_to_str(ver.comparison).c_str(), ver.version.c_str(), req.name.c_str(), req.version.c_str());
             if(!req.url.empty())
                 verbose_error("You may find new versions of %s at %s\n", req.name.c_str(), req.url.c_str());
             continue;
@@ -642,7 +642,7 @@ int main(int argc, char **argv) {
                     printf("%s\n", req_name.c_str());
                 else
                     printf("%s %s %s\n", req_name.c_str(),
-                            comparison_to_str(lookup->second.comparison),
+                            comparison_to_str(lookup->second.comparison).c_str(),
                             lookup->second.version.c_str());
             }
         }
@@ -659,7 +659,7 @@ int main(int argc, char **argv) {
                     printf("%s\n", req_name.c_str());
                 else
                     printf("%s %s %s\n", req_name.c_str(),
-                            comparison_to_str(lookup->second.comparison),
+                            comparison_to_str(lookup->second.comparison).c_str(),
                             lookup->second.version.c_str());
             }
         }

@@ -51,11 +51,11 @@ bool ignore_requires = false;
 bool ignore_requires_private = true;
 bool ignore_private_libs = true;
 
-void add_search_dir(const char *path) {
+void add_search_dir(const std::string &path) {
     search_dirs.push_back(path);
 }
 
-void add_search_dirs(const char *path_, const char separator) {
+void add_search_dirs(const std::string &path_, const char separator) {
     std::string path(path_);
     std::stringstream ss;
     ss.str(path);
@@ -63,7 +63,7 @@ void add_search_dirs(const char *path_, const char separator) {
 
     while(std::getline(ss, item, separator)) {
         debug_spew("Adding directory '%s' from PKG_CONFIG_PATH\n", item.c_str());
-        add_search_dir(item.c_str());
+        add_search_dir(item);
     }
 }
 
@@ -78,8 +78,8 @@ void add_search_dirs(const char *path_, const char separator) {
 
 #define EXT_LEN 3
 
-static bool ends_in_dotpc(const char *str) {
-    int len = strlen(str);
+static bool ends_in_dotpc(const std::string &str) {
+    const auto len = str.length();
 
     if(len > EXT_LEN && str[len - 3] == '.' &&
     FOLD (str[len - 2]) == 'p' &&
@@ -92,11 +92,11 @@ static bool ends_in_dotpc(const char *str) {
 /* strlen ("-uninstalled") */
 #define UNINSTALLED_LEN 12
 
-bool name_ends_in_uninstalled(const char *str) {
-    int len = strlen(str);
+bool name_ends_in_uninstalled(const std::string &str) {
+    auto len = str.length();
 
     if(len > UNINSTALLED_LEN &&
-    FOLDCMP ((str + len - UNINSTALLED_LEN), "-uninstalled") == 0)
+    FOLDCMP ((str.c_str() + len - UNINSTALLED_LEN), "-uninstalled") == 0)
         return true;
     else
         return false;
@@ -366,8 +366,8 @@ flag_list_to_string(const std::vector<Flag> &flags) {
     return str;
 }
 
-static void spew_package_list(const char *name, const std::vector<std::string> &list) {
-    debug_spew(" %s:", name);
+static void spew_package_list(const std::string &name, const std::vector<std::string> &list) {
+    debug_spew(" %s:", name.c_str());
 
     for(const auto &i : list) {
         debug_spew(" %s", i.c_str());
@@ -452,11 +452,11 @@ fill_list(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool in
 }
 
 static void
-add_env_variable_to_list(std::vector<std::string> &list, const char *env) {
+add_env_variable_to_list(std::vector<std::string> &list, const std::string &env) {
     char **values;
     gint i;
 
-    values = g_strsplit(env, G_SEARCHPATH_SEPARATOR_S, 0);
+    values = g_strsplit(env.c_str(), G_SEARCHPATH_SEPARATOR_S, 0);
     for(i = 0; values[i] != NULL; i++) {
         list.push_back(values[i]);
     }
@@ -712,7 +712,7 @@ packages_get_flags(std::vector<Package> &pkgs, FlagType flags) {
     return str;
 }
 
-void define_global_variable(const char *varname, const char *varval) {
+void define_global_variable(const std::string &varname, const std::string &varval) {
 
     if(globals.find(varname) != globals.end()) {
         verbose_error("Variable '%s' defined twice globally\n", varname);
@@ -721,11 +721,11 @@ void define_global_variable(const char *varname, const char *varval) {
 
     globals[varname] = varval;
 
-    debug_spew("Global variable definition '%s' = '%s'\n", varname, varval);
+    debug_spew("Global variable definition '%s' = '%s'\n", varname.c_str(), varval.c_str());
 }
 
 std::string
-var_to_env_var(const char *pkg, const char *var) {
+var_to_env_var(const std::string &pkg, const std::string &var) {
     std::string new_("PKG_CONFIG_");
     new_ += pkg;
     new_ += "_";
@@ -761,7 +761,7 @@ package_get_var(Package *pkg, const std::string &var) {
         const char *env_var_content = g_getenv(env_var.c_str());
         if(env_var_content) {
             debug_spew("Overriding variable '%s' from environment\n", var);
-            return g_strdup(env_var_content);
+            return std::string(env_var_content);
         }
     }
 
@@ -774,7 +774,7 @@ package_get_var(Package *pkg, const std::string &var) {
 }
 
 std::string
-packages_get_var(std::vector<Package> &pkgs, const char *varname) {
+packages_get_var(std::vector<Package> &pkgs, const std::string &varname) {
     std::string str;
 
     for(auto &pkg : pkgs) {
@@ -831,7 +831,7 @@ bool version_test(ComparisonType comparison, const std::string &a, const std::st
     return false;
 }
 
-const char *
+std::string
 comparison_to_str(ComparisonType comparison) {
     switch (comparison){
     case LESS_THAN:

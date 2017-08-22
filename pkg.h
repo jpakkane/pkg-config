@@ -85,24 +85,24 @@ Package get_package(const std::string &name);
 Package get_package_quiet(const std::string &name);
 std::string packages_get_flags(std::vector<Package> &pkgs, FlagType flags);
 std::string package_get_var(Package *pkg, const std::string &var);
-std::string packages_get_var(std::vector<Package> &pkgs, const char *var);
+std::string packages_get_var(std::vector<Package> &pkgs, const std::string &var);
 
-void add_search_dir(const char *path);
-void add_search_dirs(const char *path, const char separator);
+void add_search_dir(const std::string &path);
+void add_search_dirs(const std::string &path, const char separator);
 void package_init(bool want_list);
 int compare_versions(const std::string &a, const std::string &b);
 bool version_test(ComparisonType comparison, const std::string &a, const std::string &b);
 
-const char *comparison_to_str(ComparisonType comparison);
+std::string comparison_to_str(ComparisonType comparison);
 
 void print_package_list(void);
 
-void define_global_variable(const char *varname, const char *varval);
+void define_global_variable(const std::string &varname, const std::string &varval);
 
 void debug_spew(const char *format, ...);
 void verbose_error(const char *format, ...);
 
-bool name_ends_in_uninstalled(const char *str);
+bool name_ends_in_uninstalled(const std::string &str);
 
 void enable_private_libs(void);
 void disable_private_libs(void);
