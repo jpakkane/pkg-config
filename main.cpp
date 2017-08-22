@@ -47,16 +47,16 @@ static bool want_list = false;
 static bool want_static_lib_list = ENABLE_INDIRECT_DEPS;
 static bool want_short_errors = false;
 static bool want_uninstalled = false;
-static char *variable_name = NULL;
+static std::string variable_name;
 static bool want_exists = false;
 static bool want_provides = false;
 static bool want_requires = false;
 static bool want_requires_private = false;
 static bool want_validate = false;
-static char *required_atleast_version = NULL;
-static char *required_exact_version = NULL;
-static char *required_max_version = NULL;
-static char *required_pkgconfig_version = NULL;
+static std::string required_atleast_version;
+static std::string required_exact_version;
+static std::string required_max_version;
+static char *required_pkgconfig_version = nullptr;
 static bool want_silence_errors = false;
 static bool want_variable_list = false;
 static bool want_debug_spew = false;
@@ -201,7 +201,7 @@ static bool output_opt_cb(const char *opt, const char *arg, gpointer data, GErro
     else if(strcmp(opt, "--cflags-only-other") == 0)
         pkg_flags |= CFLAGS_OTHER;
     else if(strcmp(opt, "--variable") == 0)
-        variable_name = g_strdup(arg);
+        variable_name = arg;
     else if(strcmp(opt, "--exists") == 0)
         want_exists = true;
     else if(strcmp(opt, "--print-variables") == 0)
@@ -209,15 +209,15 @@ static bool output_opt_cb(const char *opt, const char *arg, gpointer data, GErro
     else if(strcmp(opt, "--uninstalled") == 0)
         want_uninstalled = true;
     else if(strcmp(opt, "--atleast-version") == 0) {
-        required_atleast_version = g_strdup(arg);
+        required_atleast_version = arg;
         want_exists = true;
         vercmp_opt_set = true;
     } else if(strcmp(opt, "--exact-version") == 0) {
-        required_exact_version = g_strdup(arg);
+        required_exact_version = arg;
         want_exists = true;
         vercmp_opt_set = true;
     } else if(strcmp(opt, "--max-version") == 0) {
-        required_max_version = g_strdup(arg);
+        required_max_version = arg;
         want_exists = true;
         vercmp_opt_set = true;
     } else if(strcmp(opt, "--list-all") == 0)
@@ -296,13 +296,13 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
         Package req;
 
         /* override requested versions with cmdline options */
-        if(required_exact_version) {
+        if(!required_exact_version.empty()) {
             ver.comparison = EQUAL;
             ver.version = required_exact_version;
-        } else if(required_atleast_version) {
+        } else if(!required_atleast_version.empty()) {
             ver.comparison = GREATER_THAN_EQUAL;
             ver.version = required_atleast_version;
-        } else if(required_max_version) {
+        } else if(!required_max_version.empty()) {
             ver.comparison = LESS_THAN_EQUAL;
             ver.version = required_max_version;
         }
@@ -668,7 +668,7 @@ int main(int argc, char **argv) {
     /* Print all flags; then print a newline at the end. */
     need_newline = false;
 
-    if(variable_name) {
+    if(!variable_name.empty()) {
         auto varname = packages_get_var(package_list, variable_name);
         printf("%s", varname.c_str());
         need_newline = true;
