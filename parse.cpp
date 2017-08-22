@@ -923,15 +923,15 @@ static void parse_cflags(Package *pkg, const std::string &str, const std::string
         Flag flag;
         auto tmp = trim_string(argv[i].c_str());
         std::string arg = strdup_escape_shell(tmp);
-        const char *p = arg.data();
+        std::string::size_type p = 0;
 
-        if(p[0] == '-' && p[1] == 'I') {
+        if(p < arg.size()-2 && arg[p] == '-' && arg[p+1] == 'I') {
             p += 2;
-            while(*p && isspace((guchar) *p))
+            while(p<arg.length() && isspace(arg[p]))
                 ++p;
 
             flag.type = CFLAGS_I;
-            flag.arg = g_strconcat("-I", p, NULL);
+            flag.arg = std::string("-I") + arg.substr(p, std::string::npos);
             pkg->cflags.push_back(flag);
         } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < (int)argv.size())) {
             auto tmp = trim_string(argv[i + 1].c_str());
