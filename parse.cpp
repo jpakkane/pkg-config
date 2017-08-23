@@ -797,7 +797,6 @@ static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
 
 }
 
-#if 0
 /*
  * This is take from Glib internals.
  */
@@ -1068,7 +1067,7 @@ g_shell_parse_argv2 (const gchar *command_line,
 
   return FALSE;
 }
-#endif
+
 static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
     std::vector<std::string> res;
     for(int i=0; i<argc; ++i) {
@@ -1077,69 +1076,6 @@ static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
     return res;
 }
 
-#if 0
-static std::vector<std::string> split_arg_string(const std::string &trimmed) {
-    int argc;
-    char **argv = nullptr;
-    GError *error = nullptr;
-    if(!g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
-        throw "Something broke";
-    }
-    return c_arr_to_cpp(argc, argv);
-}
-
-enum QuoteState {
-    PLAIN,
-    SINGLE,
-    DOUBLE,
-};
-
-static std::vector<std::string> split_arg_string(const std::string &trimmed) {
-    std::vector<std::string> args;
-
-    std::string current;
-    QuoteState s = PLAIN;
-    for(std::string::size_type i=0; i<trimmed.size(); ++i) {
-        switch(s) {
-        case PLAIN:
-            switch(trimmed[i]) {
-            case ' ' : if(!current.empty()) { args.push_back(current); current.clear(); } break;
-            case '"' : s = DOUBLE; break;
-            case '\'': s = SINGLE; break;
-            case '\\' : if(i+1<trimmed.size()) {
-                ++i;
-                if(trimmed[i] == '\'') {
-                    s = SINGLE;
-                } else if(trimmed[i] == '"') {
-                    s = DOUBLE;
-                } else if(trimmed[i] == ' ') {
-                    current.push_back(trimmed[i]);
-                } else {
-                    current.push_back('\'');
-                    current.push_back(trimmed[i]);
-                }
-            } else {
-                current.push_back('\'');
-            } break;
-            default : current.push_back(trimmed[i]); break;
-            }
-            break;
-        case DOUBLE:
-            switch(trimmed[i]) {
-                default : break;
-            }
-            break;
-        case SINGLE:
-            switch(trimmed[i]) {
-                default : break;
-            }
-            break;
-        }
-    }
-//    args.push_back(trimmed.substr(start, end));
-    return args;
-}
-#endif
 static void parse_libs(Package *pkg, const std::string &str, const std::string &path) {
     /* Strip out -l and -L flags, put them in a separate list. */
     char **argv = NULL;
@@ -1155,7 +1091,7 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    if(!trimmed.empty() && !g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
+    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv, &error)) {
         verbose_error("Couldn't parse Libs field into an argument vector: %s\n", error ? error->message : "unknown");        verbose_error("Couldn't parse Libs field into an argument vector\n");
         if(parse_strict)
             exit(1);
@@ -1197,7 +1133,7 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    if(!trimmed.empty() && !g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
+    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv, &error)) {
         verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
                 error ? error->message : "unknown");
         if(parse_strict)
