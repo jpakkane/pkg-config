@@ -60,6 +60,18 @@ static std::string get_dirname(const std::string &s) {
     return s.substr(0, loc);
 }
 
+bool string_starts_with(const std::string &s, const std::string prefix) {
+    if(prefix.length() > s.length()) {
+        return false;
+    }
+    for(std::string::size_type i=0; i<prefix.size(); i++) {
+        if(s[i] != prefix[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
 /**
  * Read an entire line from a file into a buffer. Lines may
  * be delimited with '\n', '\r', '\n\r', or '\r\n'. The delimiter
@@ -724,11 +736,11 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
     int i;
 #ifdef G_OS_WIN32
     const char *L_flag = (msvc_syntax ? "/libpath:" : "-L");
-    const char *l_flag = (msvc_syntax ? "" : "-l");
+    const std::string l_flag = (msvc_syntax ? "" : "-l");
     const char *lib_suffix = (msvc_syntax ? ".lib" : "");
 #else
     const char *L_flag = "-L";
-    const char *l_flag = "-l";
+    const std::string l_flag = "-l";
     const char *lib_suffix = "";
 #endif
 
@@ -737,29 +749,28 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
         Flag flag;
         auto tmp = trim_string(argv[i]);
         std::string arg = strdup_escape_shell(tmp);
-        const char *p;
-        p = arg.data();
+        std::string::size_type p = 0;
 
-        if(p[0] == '-' && p[1] == 'l' &&
+        if(arg[p] == '-' && arg[p+1] == 'l' &&
         /* -lib: is used by the C# compiler for libs; it's not an -l
          flag. */
-        (strncmp(p, "-lib:", 5) != 0)) {
+        !string_starts_with(arg.substr(p, std::string::npos), "-lib:")) {
             p += 2;
-            while(*p && isspace((guchar) *p))
+            while(p<arg.size() && isspace(arg[p]))
                 ++p;
 
             flag.type = LIBS_l;
-            flag.arg = g_strconcat(l_flag, p, lib_suffix, NULL);
+            flag.arg = l_flag + arg.substr(p, std::string::npos) + lib_suffix;
             pkg->libs.push_back(flag);
-        } else if(p[0] == '-' && p[1] == 'L') {
+        } else if(arg[p] == '-' && arg[p+1] == 'L') {
             p += 2;
-            while(*p && isspace((guchar) *p))
+            while(p<arg.length() && isspace(arg[p]))
                 ++p;
 
             flag.type = LIBS_L;
-            flag.arg = g_strconcat(L_flag, p, NULL);
+            flag.arg = L_flag + arg.substr(p, std::string::npos);
             pkg->libs.push_back(flag);
-        } else if((strcmp("-framework", p) == 0 || strcmp("-Wl,-framework", p) == 0) && i + 1 < argc) {
+        } else if((arg.substr(p, std::string::npos) == "-framework" || arg.substr(p, std::string::npos) == "-Wl,-framework") && (i + 1 < argc)) {
             /* Mac OS X has a -framework Foo which is really one option,
              * so we join those to avoid having -framework Foo
              * -framework Bar being changed into -framework Foo Bar
