@@ -732,8 +732,8 @@ static std::string strdup_escape_shell(const std::string &s) {
     return r;
 }
 
-static void _do_parse_libs(Package *pkg, int argc, char **argv) {
-    int i;
+static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
+    std::string::size_type i = 0;
 #ifdef G_OS_WIN32
     const char *L_flag = (msvc_syntax ? "/libpath:" : "-L");
     const std::string l_flag = (msvc_syntax ? "" : "-l");
@@ -744,10 +744,9 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
     const char *lib_suffix = "";
 #endif
 
-    i = 0;
-    while(i < argc) {
+    while(i < args.size()) {
         Flag flag;
-        auto tmp = trim_string(argv[i]);
+        auto tmp = trim_string(args[i]);
         std::string arg = strdup_escape_shell(tmp);
         std::string::size_type p = 0;
 
@@ -770,13 +769,13 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
             flag.type = LIBS_L;
             flag.arg = L_flag + arg.substr(p, std::string::npos);
             pkg->libs.push_back(flag);
-        } else if((arg.substr(p, std::string::npos) == "-framework" || arg.substr(p, std::string::npos) == "-Wl,-framework") && (i + 1 < argc)) {
+        } else if((arg.substr(p, std::string::npos) == "-framework" || arg.substr(p, std::string::npos) == "-Wl,-framework") && (i + 1 < args.size())) {
             /* Mac OS X has a -framework Foo which is really one option,
              * so we join those to avoid having -framework Foo
              * -framework Bar being changed into -framework Foo Bar
              * later
              */
-            auto tmp = trim_string(argv[i + 1]);
+            auto tmp = trim_string(args[i + 1]);
 
             auto framework = strdup_escape_shell(tmp);
             flag.type = LIBS_OTHER;
@@ -798,9 +797,351 @@ static void _do_parse_libs(Package *pkg, int argc, char **argv) {
 
 }
 
+#if 0
+/*
+ * This is take from Glib internals.
+ */
+static inline void
+ensure_token (GString **token)
+{
+  if (*token == NULL)
+    *token = g_string_new (NULL);
+}
+
+static void
+delimit_token (GString **token,
+               GSList **retval)
+{
+  if (*token == NULL)
+    return;
+
+  *retval = g_slist_prepend (*retval, g_string_free (*token, FALSE));
+
+  *token = NULL;
+}
+
+static GSList*
+tokenize_command_line (const gchar *command_line,
+                       GError **error)
+{
+  gchar current_quote;
+  const gchar *p;
+  GString *current_token = NULL;
+  GSList *retval = NULL;
+  gboolean quoted;
+
+  current_quote = '\0';
+  quoted = FALSE;
+  p = command_line;
+
+  while (*p)
+    {
+      if (current_quote == '\\')
+        {
+          if (*p == '\n')
+            {
+              /* we append nothing; backslash-newline become nothing */
+            }
+          else
+            {
+              /* we append the backslash and the current char,
+               * to be interpreted later after tokenization
+               */
+              ensure_token (&current_token);
+              g_string_append_c (current_token, '\\');
+              g_string_append_c (current_token, *p);
+            }
+
+          current_quote = '\0';
+        }
+      else if (current_quote == '#')
+        {
+          /* Discard up to and including next newline */
+          while (*p && *p != '\n')
+            ++p;
+
+          current_quote = '\0';
+
+          if (*p == '\0')
+            break;
+        }
+      else if (current_quote)
+        {
+          if (*p == current_quote &&
+              /* check that it isn't an escaped double quote */
+              !(current_quote == '"' && quoted))
+            {
+              /* close the quote */
+              current_quote = '\0';
+            }
+
+          /* Everything inside quotes, and the close quote,
+           * gets appended literally.
+           */
+
+          ensure_token (&current_token);
+          g_string_append_c (current_token, *p);
+        }
+      else
+        {
+          switch (*p)
+            {
+            case '\n':
+              delimit_token (&current_token, &retval);
+              break;
+
+            case ' ':
+            case '\t':
+              /* If the current token contains the previous char, delimit
+               * the current token. A nonzero length
+               * token should always contain the previous char.
+               */
+              if (current_token &&
+                  current_token->len > 0)
+                {
+                  delimit_token (&current_token, &retval);
+                }
+
+              /* discard all unquoted blanks (don't add them to a token) */
+              break;
+
+
+              /* single/double quotes are appended to the token,
+               * escapes are maybe appended next time through the loop,
+               * comment chars are never appended.
+               */
+
+            case '\'':
+            case '"':
+              ensure_token (&current_token);
+              g_string_append_c (current_token, *p);
+
+              /* FALL THRU */
+            case '\\':
+              current_quote = *p;
+              break;
+
+            case '#':
+              if (p == command_line)
+            { /* '#' was the first char */
+                  current_quote = *p;
+                  break;
+                }
+              switch(*(p-1))
+                {
+                  case ' ':
+                  case '\n':
+                  case '\0':
+                    current_quote = *p;
+                    break;
+                  default:
+                    ensure_token (&current_token);
+                    g_string_append_c (current_token, *p);
+            break;
+                }
+              break;
+
+            default:
+              /* Combines rules 4) and 6) - if we have a token, append to it,
+               * otherwise create a new token.
+               */
+              ensure_token (&current_token);
+              g_string_append_c (current_token, *p);
+              break;
+            }
+        }
+
+      /* We need to count consecutive backslashes mod 2,
+       * to detect escaped doublequotes.
+       */
+      if (*p != '\\')
+    quoted = FALSE;
+      else
+    quoted = !quoted;
+
+      ++p;
+    }
+
+  delimit_token (&current_token, &retval);
+
+  if (current_quote)
+    {
+      if (current_quote == '\\')
+        throw "Text ended just after a “\\” character. (The text was “%s”)";
+//                     command_line);
+      else
+         throw "Text ended before matching quote was found for %c."
+                       " (The text was “%s”)";
+//                     current_quote, command_line);
+
+      goto error;
+    }
+
+  if (retval == NULL)
+    {
+      throw "Text was empty (or contained only whitespace)";
+
+      goto error;
+    }
+
+  /* we appended backward */
+  retval = g_slist_reverse (retval);
+
+  return retval;
+
+ error:
+  g_assert (error == NULL || *error != NULL);
+
+  g_slist_free_full (retval, g_free);
+
+  return NULL;
+}
+
+gboolean
+g_shell_parse_argv2 (const gchar *command_line,
+                    gint        *argcp,
+                    gchar     ***argvp,
+                    GError     **error)
+{
+  /* Code based on poptParseArgvString() from libpopt */
+  gint argc = 0;
+  gchar **argv = NULL;
+  GSList *tokens = NULL;
+  gint i;
+  GSList *tmp_list;
+
+  g_return_val_if_fail (command_line != NULL, FALSE);
+
+  tokens = tokenize_command_line (command_line, error);
+  if (tokens == NULL)
+    return FALSE;
+
+  /* Because we can't have introduced any new blank space into the
+   * tokens (we didn't do any new expansions), we don't need to
+   * perform field splitting. If we were going to honor IFS or do any
+   * expansions, we would have to do field splitting on each word
+   * here. Also, if we were going to do any expansion we would need to
+   * remove any zero-length words that didn't contain quotes
+   * originally; but since there's no expansion we know all words have
+   * nonzero length, unless they contain quotes.
+   *
+   * So, we simply remove quotes, and don't do any field splitting or
+   * empty word removal, since we know there was no way to introduce
+   * such things.
+   */
+
+  argc = g_slist_length (tokens);
+  argv = g_new0 (gchar*, argc + 1);
+  i = 0;
+  tmp_list = tokens;
+  while (tmp_list)
+    {
+      argv[i] = g_shell_unquote (static_cast<const char*>(tmp_list->data), error);
+
+      /* Since we already checked that quotes matched up in the
+       * tokenizer, this shouldn't be possible to reach I guess.
+       */
+      if (argv[i] == NULL)
+        goto failed;
+
+      tmp_list = g_slist_next (tmp_list);
+      ++i;
+    }
+
+  g_slist_free_full (tokens, g_free);
+
+  if (argcp)
+    *argcp = argc;
+
+  if (argvp)
+    *argvp = argv;
+  else
+    g_strfreev (argv);
+
+  return TRUE;
+
+ failed:
+
+  g_assert (error == NULL || *error != NULL);
+  g_strfreev (argv);
+  g_slist_free_full (tokens, g_free);
+
+  return FALSE;
+}
+#endif
+static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
+    std::vector<std::string> res;
+    for(int i=0; i<argc; ++i) {
+        res.push_back(argv[i]);
+    }
+    return res;
+}
+
+#if 0
+static std::vector<std::string> split_arg_string(const std::string &trimmed) {
+    int argc;
+    char **argv = nullptr;
+    GError *error = nullptr;
+    if(!g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
+        throw "Something broke";
+    }
+    return c_arr_to_cpp(argc, argv);
+}
+
+enum QuoteState {
+    PLAIN,
+    SINGLE,
+    DOUBLE,
+};
+
+static std::vector<std::string> split_arg_string(const std::string &trimmed) {
+    std::vector<std::string> args;
+
+    std::string current;
+    QuoteState s = PLAIN;
+    for(std::string::size_type i=0; i<trimmed.size(); ++i) {
+        switch(s) {
+        case PLAIN:
+            switch(trimmed[i]) {
+            case ' ' : if(!current.empty()) { args.push_back(current); current.clear(); } break;
+            case '"' : s = DOUBLE; break;
+            case '\'': s = SINGLE; break;
+            case '\\' : if(i+1<trimmed.size()) {
+                ++i;
+                if(trimmed[i] == '\'') {
+                    s = SINGLE;
+                } else if(trimmed[i] == '"') {
+                    s = DOUBLE;
+                } else if(trimmed[i] == ' ') {
+                    current.push_back(trimmed[i]);
+                } else {
+                    current.push_back('\'');
+                    current.push_back(trimmed[i]);
+                }
+            } else {
+                current.push_back('\'');
+            } break;
+            default : current.push_back(trimmed[i]); break;
+            }
+            break;
+        case DOUBLE:
+            switch(trimmed[i]) {
+                default : break;
+            }
+            break;
+        case SINGLE:
+            switch(trimmed[i]) {
+                default : break;
+            }
+            break;
+        }
+    }
+//    args.push_back(trimmed.substr(start, end));
+    return args;
+}
+#endif
 static void parse_libs(Package *pkg, const std::string &str, const std::string &path) {
     /* Strip out -l and -L flags, put them in a separate list. */
-
     char **argv = NULL;
     int argc = 0;
     GError *error = NULL;
@@ -814,9 +1155,8 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-
     if(!trimmed.empty() && !g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
-        verbose_error("Couldn't parse Libs field into an argument vector: %s\n", error ? error->message : "unknown");
+        verbose_error("Couldn't parse Libs field into an argument vector: %s\n", error ? error->message : "unknown");        verbose_error("Couldn't parse Libs field into an argument vector\n");
         if(parse_strict)
             exit(1);
         else {
@@ -824,7 +1164,9 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
         }
     }
 
-    _do_parse_libs(pkg, argc, argv);
+    auto args = c_arr_to_cpp(argc, argv);
+
+    _do_parse_libs(pkg, args);
 
     g_strfreev(argv);
     pkg->libs_num++;
@@ -842,7 +1184,6 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
      Generally, if include another library's headers in your own, it's
      a public dependency and not a private one.
      */
-
     char **argv = NULL;
     int argc = 0;
     GError *error = NULL;
@@ -856,7 +1197,6 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-
     if(!trimmed.empty() && !g_shell_parse_argv(trimmed.c_str(), &argc, &argv, &error)) {
         verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
                 error ? error->message : "unknown");
@@ -867,10 +1207,10 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
         }
     }
 
-    _do_parse_libs(pkg, argc, argv);
+    auto args = c_arr_to_cpp(argc, argv);
+    _do_parse_libs(pkg, args);
 
     g_strfreev(argv);
-
     pkg->libs_private_num++;
 }
 
