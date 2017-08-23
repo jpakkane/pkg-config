@@ -31,7 +31,7 @@
 #include <sys/wait.h>
 #endif
 #include <sys/types.h>
-
+#include<algorithm>
 #include<glib.h>
 
 bool parse_strict = true;
@@ -41,6 +41,24 @@ const char *prefix_variable = "prefix";
 #ifdef _WIN32
 bool msvc_syntax = false;
 #endif
+
+static std::string get_basename(const std::string &s) {
+    const char separator = '/';
+    auto loc = s.rfind(separator);
+    if(loc == std::string::npos) {
+        return ".";
+    }
+    return s.substr(loc+1, std::string::npos);
+}
+
+static std::string get_dirname(const std::string &s) {
+    const char separator = '/';
+    auto loc = s.rfind(separator);
+    if(loc == std::string::npos) {
+        return ".";
+    }
+    return s.substr(0, loc);
+}
 
 /**
  * Read an entire line from a file into a buffer. Lines may
@@ -1046,46 +1064,36 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
             /* This is the prefix variable. Try to guesstimate a value for it
              * for this package from the location of the .pc file.
              */
-            char *base;
             bool is_pkgconfigdir;
 
-            base = g_path_get_basename(pkg->pcfiledir.c_str());
-            is_pkgconfigdir = g_ascii_strcasecmp(base, "pkgconfig") == 0;
-            g_free(base);
+            auto base = get_basename(pkg->pcfiledir);
+            std::transform(base.begin(), base.end(), base.begin(), ::tolower);
+            is_pkgconfigdir = (base == "pkgconfig");
             if(is_pkgconfigdir) {
                 /* It ends in pkgconfig. Good. */
-                char *q;
-                char *prefix;
 
                 /* Keep track of the original prefix value. */
                 pkg->orig_prefix = str.substr(p, std::string::npos);
 
                 /* Get grandparent directory for new prefix. */
-                q = g_path_get_dirname(pkg->pcfiledir.c_str());
-                prefix = g_path_get_dirname(q);
-                g_free(q);
+                auto prefix = get_dirname(get_dirname(pkg->pcfiledir));
 
                 /* Turn backslashes into slashes or
                  * g_shell_parse_argv() will eat them when ${prefix}
                  * has been expanded in parse_libs().
                  */
-                q = prefix;
-                while(*q) {
-                    if(*q == '\\')
-                        *q = '/';
-                    q++;
+                for(std::string::size_type i=0; i<prefix.size(); i++) {
+                    if(prefix[i] == '\\')
+                        prefix[i] = '/';
                 }
 
                 /* Now escape the special characters so that there's no danger
                  * of arguments that include the prefix getting split.
                  */
-                q = prefix;
                 std::string prefix_ = strdup_escape_shell(prefix);
-                g_free(q);
 
-                varname = g_strdup(tag.c_str());
-                debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag, prefix_.c_str());
-                pkg->vars[varname] = prefix_;
+                debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag.c_str(), prefix_.c_str());
+                pkg->vars[tag] = prefix_;
                 goto cleanup;
             }
         } else if(define_prefix && !pkg->orig_prefix.empty() &&
