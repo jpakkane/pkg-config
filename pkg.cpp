@@ -24,6 +24,7 @@
 #include "rpmvercmp.h"
 #include<glib.h>
 
+#include <cassert>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
@@ -358,7 +359,7 @@ flag_list_to_string(const std::vector<Flag> &flags) {
                 auto space_loc = tmpstr.find(' ');
 
                 /* Ensure this has a separate arg */
-                g_assert(space_loc != std::string::npos && space_loc < tmpstr.length()-1);
+                assert(space_loc != std::string::npos && space_loc < tmpstr.length()-1);
                 str += tmpstr.substr(0, space_loc + 1);
                 str += pcsysrootdir;
                 str += tmpstr.substr(space_loc + 1);
@@ -566,7 +567,7 @@ static void verify_package(Package *pkg) {
      * can remove them.
      */
 
-    search_path = g_getenv("PKG_CONFIG_SYSTEM_INCLUDE_PATH");
+    search_path = getenv("PKG_CONFIG_SYSTEM_INCLUDE_PATH");
 
     if(search_path == NULL) {
         search_path = PKG_CONFIG_SYSTEM_INCLUDE_PATH;
@@ -580,7 +581,7 @@ static void verify_package(Package *pkg) {
     include_envvars = gcc_include_envvars;
 #endif
     for(var = include_envvars; *var != NULL; var++) {
-        search_path = g_getenv(*var);
+        search_path = getenv(*var);
         if(search_path != NULL)
             add_env_variable_to_list(system_directories, search_path);
     }
@@ -610,7 +611,7 @@ static void verify_package(Package *pkg) {
             for(const auto &system_dir_iter : system_directories) {
                 if(strcmp(system_dir_iter.c_str(), &flag.arg[offset]) == 0) {
                     debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (char *) flag.arg.c_str());
-                    if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == NULL) {
+                    if(getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == nullptr) {
                         debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg->key.c_str());
                         discard_this = true;
                         break;
@@ -627,7 +628,7 @@ static void verify_package(Package *pkg) {
 
     system_directories.clear();
 
-    search_path = g_getenv("PKG_CONFIG_SYSTEM_LIBRARY_PATH");
+    search_path = getenv("PKG_CONFIG_SYSTEM_LIBRARY_PATH");
 
     if(search_path == NULL) {
         search_path = PKG_CONFIG_SYSTEM_LIBRARY_PATH;
@@ -655,7 +656,7 @@ static void verify_package(Package *pkg) {
                 is_system = true;
             if(is_system) {
                 debug_spew("Package %s has -L %s in Libs\n", pkg->key.c_str(), system_libpath);
-                if(g_getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
+                if(getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
                     discard_this = true;
                     debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg->key.c_str());
                     break;
@@ -769,7 +770,7 @@ package_get_var(Package *pkg, const std::string &var) {
      */
     if(pkg->key.c_str()) {
         std::string env_var = var_to_env_var(pkg->key.c_str(), var.c_str());
-        const char *env_var_content = g_getenv(env_var.c_str());
+        const char *env_var_content = getenv(env_var.c_str());
         if(env_var_content) {
             debug_spew("Overriding variable '%s' from environment\n", var);
             return std::string(env_var_content);
