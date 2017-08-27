@@ -22,6 +22,7 @@
 #include "config.h"
 
 #include<quoter.h>
+#include<utils.h>
 
 #include<cassert>
 #include "parse.h"
@@ -44,37 +45,6 @@ const char *prefix_variable = "prefix";
 bool msvc_syntax = false;
 #endif
 
-#define IS_DIR_SEPARATOR(c) (c == '/')
-
-static std::string get_basename(const std::string &s) {
-    const char separator = '/';
-    auto loc = s.rfind(separator);
-    if(loc == std::string::npos) {
-        return ".";
-    }
-    return s.substr(loc+1, std::string::npos);
-}
-
-static std::string get_dirname(const std::string &s) {
-    const char separator = '/';
-    auto loc = s.rfind(separator);
-    if(loc == std::string::npos) {
-        return ".";
-    }
-    return s.substr(0, loc);
-}
-
-bool string_starts_with(const std::string &s, const std::string prefix) {
-    if(prefix.length() > s.length()) {
-        return false;
-    }
-    for(std::string::size_type i=0; i<prefix.size(); i++) {
-        if(s[i] != prefix[i]) {
-            return false;
-        }
-    }
-    return true;
-}
 
 /**
  * Read an entire line from a file into a buffer. Lines may

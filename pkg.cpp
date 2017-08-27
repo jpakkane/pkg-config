@@ -18,7 +18,7 @@
  */
 
 #include "config.h"
-
+#include "utils.h"
 #include "pkg.h"
 #include "parse.h"
 #include "rpmvercmp.h"
@@ -41,8 +41,6 @@
 #include <sstream>
 #include<unordered_set>
 #include<memory>
-
-#define DIR_SEPARATOR '/'
 
 static void verify_package(Package *pkg);
 
@@ -247,7 +245,7 @@ internal_get_package(const std::string &name, bool warn) {
         key = name;
     else {
         /* need to strip package name out of the filename */
-        key = g_path_get_basename(name.c_str());
+        key = get_basename(name);
         key[strlen(key.c_str()) - EXT_LEN] = '\0';
     }
 
