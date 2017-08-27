@@ -23,6 +23,7 @@
 
 #include<quoter.h>
 
+#include<cassert>
 #include "parse.h"
 #include <stdio.h>
 #include <errno.h>
@@ -42,6 +43,8 @@ const char *prefix_variable = "prefix";
 #ifdef _WIN32
 bool msvc_syntax = false;
 #endif
+
+#define IS_DIR_SEPARATOR(c) (c == '/')
 
 static std::string get_basename(const std::string &s) {
     const char separator = '/';
@@ -466,7 +469,7 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
             ver.version = version;
         }
 
-        g_assert(!ver.name.empty());
+        assert(!ver.name.empty());
         retval.push_back(ver);
     }
 
@@ -670,7 +673,7 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
             ver.version = number;
         }
 
-        g_assert(!ver.name.empty());
+        assert(!ver.name.empty());
         retval.push_back(ver);
     }
 
@@ -735,7 +738,7 @@ static std::string strdup_escape_shell(const std::string &s) {
 
 static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
     std::string::size_type i = 0;
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     const char *L_flag = (msvc_syntax ? "/libpath:" : "-L");
     const std::string l_flag = (msvc_syntax ? "" : "-l");
     const char *lib_suffix = (msvc_syntax ? ".lib" : "");
@@ -1114,7 +1117,7 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
             }
         } else if(define_prefix && !pkg->orig_prefix.empty() &&
                 strncmp(str.data()+p, pkg->orig_prefix.c_str(), pkg->orig_prefix.length()) == 0 &&
-                G_IS_DIR_SEPARATOR (str[p+pkg->orig_prefix.length()])) {
+                IS_DIR_SEPARATOR (str[p+pkg->orig_prefix.length()])) {
             std::string oldstr = str;
 
             auto lookup = pkg->vars.find(prefix_variable);
@@ -1166,7 +1169,7 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
     pkg.key = key;
 
     if(!path.empty()) {
-        pkg.pcfiledir = g_dirname(path.c_str());
+        pkg.pcfiledir = get_dirname(path);
     } else {
         debug_spew("No pcfiledir determined for package\n");
         pkg.pcfiledir = "???????";

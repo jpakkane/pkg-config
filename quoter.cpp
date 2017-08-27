@@ -190,7 +190,7 @@ tokenize_command_line(const gchar *command_line, GError **error) {
     return NULL;
 }
 
-gboolean g_shell_parse_argv2(const gchar *command_line, gint *argcp, gchar ***argvp, GError **error) {
+bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp, GError **error) {
     /* Code based on poptParseArgvString() from libpopt */
     gint argc = 0;
     gchar **argv = NULL;
