@@ -130,7 +130,7 @@ extern bool define_prefix;
 /* The name of the variable that acts as prefix, unless it is "prefix" */
 extern const char *prefix_variable;
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 /* If true, output flags in MSVC syntax. */
 extern bool msvc_syntax;
 #endif

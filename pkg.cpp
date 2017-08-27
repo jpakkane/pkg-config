@@ -69,7 +69,7 @@ void add_search_dirs(const std::string &path_, const char separator) {
     }
 }
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 /* Guard against .pc file being installed with UPPER CASE name */
 # define FOLD(x) tolower(x)
 # define FOLDCMP(a, b) g_ascii_strcasecmp (a, b)
@@ -475,7 +475,7 @@ add_env_variable_to_list(std::vector<std::string> &list, const std::string &env)
 static const char *gcc_include_envvars[] = { "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH",
 NULL };
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
 /* MSVC include path environment variables. See
  * https://msdn.microsoft.com/en-us/library/73f9s62w.aspx. */
 static const char *msvc_include_envvars[] = {
@@ -569,7 +569,7 @@ static void verify_package(Package *pkg) {
 
     add_env_variable_to_list(system_directories, search_path);
 
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     include_envvars = msvc_syntax ? msvc_include_envvars : gcc_include_envvars;
 #else
     include_envvars = gcc_include_envvars;

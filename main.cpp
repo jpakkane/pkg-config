@@ -246,7 +246,7 @@ void print_list_data(const char *data, gpointer user_data) {
 }
 
 static void init_pc_path(void) {
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     char *instdir, *lpath, *shpath;
 
     instdir = g_win32_get_package_installation_directory_of_module (NULL);
@@ -388,7 +388,7 @@ static const GOptionEntry options_table[] = { { "version", 0, G_OPTION_FLAG_NO_A
                         "file found with a guesstimated value based on the location of the .pc "
                         "file", NULL }, { "prefix-variable", 0, 0, G_OPTION_ARG_STRING, &prefix_variable,
                 "set the name of the variable that pkg-config automatically sets", "PREFIX" },
-#ifdef G_OS_WIN32
+#ifdef _WIN32
         {   "msvc-syntax", 0, 0, G_OPTION_ARG_NONE, &msvc_syntax,
             "output -l and -L flags for the Microsoft compiler (cl)", NULL},
 #endif
