@@ -111,7 +111,7 @@ void verbose_error(const char *format, ...) {
 
 }
 
-static bool define_variable_cb(const char *opt, const char *arg, gpointer data, GError **error) {
+static bool define_variable_cb(const char *opt, const char *arg, void* data) {
     std::string input(arg);
     std::string::size_type p=0;
     while(p<input.size() && isspace(input[p]))
@@ -138,7 +138,7 @@ static bool define_variable_cb(const char *opt, const char *arg, gpointer data, 
     return true;
 }
 
-static bool output_opt_cb(const char *opt, const char *arg, gpointer data, GError **error) {
+static bool output_opt_cb(const char *opt, const char *arg, void */*data*/) {
     static bool vercmp_opt_set = false;
 
     /* only allow one output mode, with a few exceptions */
@@ -275,7 +275,7 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
     bool success = true;
 
     auto reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
-    if(reqs.empty()) {
+    if(reqs.empty() && !cmdline.empty()) {
         fprintf(stderr, "Must specify package names on the command line\n");
         fflush(stderr);
         return false;
@@ -330,59 +330,132 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
     return success;
 }
 
-static const GOptionEntry options_table[] = {
-        { "version",                   0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output version of pkg-config", NULL },
-        { "modversion",                0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output version for package", NULL },
-        { "atleast-pkgconfig-version", 0, 0, G_OPTION_ARG_STRING, &required_pkgconfig_version, "require given version of pkg-config", "VERSION" },
-        { "libs",                      0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output all linker flags", NULL },
-        { "static",                    0, 0, G_OPTION_ARG_NONE, &want_static_lib_list, "output linker flags for static linking", NULL },
-        { "short-errors",              0, 0, G_OPTION_ARG_NONE, &want_short_errors, "print short errors", NULL },
-        {"libs-only-l",                0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output -l flags", NULL },
-        { "libs-only-other",           0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output other libs (e.g. -pthread)", NULL },
-        { "libs-only-L",               0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output -L flags", NULL },
-        { "cflags",                    0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output all pre-processor and compiler flags", NULL },
-        { "cflags-only-I",             0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output -I flags", NULL },
-        { "cflags-only-other",         0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output cflags not covered by the cflags-only-I option", NULL },
-        { "variable",                  0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "get the value of variable named NAME", "NAME" },
-        { "define-variable",           0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&define_variable_cb), "set variable NAME to VALUE", "NAME=VALUE" },
-        { "exists",                    0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module(s) exist", NULL },
-        { "print-variables",           0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output list of variables defined by the module", NULL },
-        { "uninstalled",               0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the uninstalled version of one or more module(s) or their dependencies will be used", NULL },
-        { "atleast-version",           0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module is at least version VERSION", "VERSION" },
-        { "exact-version",             0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module is at exactly version VERSION", "VERSION" },
-        { "max-version",               0, 0, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module is at no newer than version VERSION", "VERSION" },
-        { "list-all",                  0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "list all known packages", NULL },
-        { "debug",                     0, 0, G_OPTION_ARG_NONE, &want_debug_spew, "show verbose debug information", NULL },
-        { "print-errors",              0, 0, G_OPTION_ARG_NONE, &want_verbose_errors, "show verbose information about missing or conflicting packages "
-                        "(default unless --exists or --atleast/exact/max-version given on the "
-                        "command line)", NULL },
-        { "silence-errors",            0, 0, G_OPTION_ARG_NONE, &want_silence_errors, "be silent about errors (default when --exists or "
-                        "--atleast/exact/max-version given on the command line)", NULL },
-        { "errors-to-stdout",          0, 0, G_OPTION_ARG_NONE, &want_stdout_errors, "print errors from --print-errors to stdout not stderr", NULL },
-        { "print-provides",            0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
-                "print which packages the package provides", NULL },
-        { "print-requires", 0, G_OPTION_FLAG_NO_ARG,
-                G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
-                "print which packages the package requires", NULL },
-        { "print-requires-private",    0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb),
-                "print which packages the package requires for static "
-                        "linking", NULL },
-        { "validate",                  0, G_OPTION_FLAG_NO_ARG, G_OPTION_ARG_CALLBACK,
-                reinterpret_cast<void*>(&output_opt_cb), "validate a package's .pc file", NULL },
-        { "define-prefix",             0, 0, G_OPTION_ARG_NONE, &define_prefix,
-                "try to override the value of prefix for each .pc file found with a "
-                        "guesstimated value based on the location of the .pc file", NULL },
-        { "dont-define-prefix",        0, G_OPTION_FLAG_REVERSE, G_OPTION_ARG_NONE, &define_prefix,
-                "don't try to override the value of prefix for each .pc "
-                        "file found with a guesstimated value based on the location of the .pc "
-                        "file", NULL },
-        { "prefix-variable",           0, 0, G_OPTION_ARG_STRING, &prefix_variable,
-                "set the name of the variable that pkg-config automatically sets", "PREFIX" },
-#ifdef _WIN32
-        {   "msvc-syntax",             0, 0, G_OPTION_ARG_NONE, &msvc_syntax, "output -l and -L flags for the Microsoft compiler (cl)", NULL},
-#endif
-        { NULL, 0, 0, G_OPTION_ARG_NONE, NULL, NULL, NULL }
+#define OPTION_FLAG_NO_ARG 1
+#define OPTION_FLAG_REVERSE 2
+
+enum OptionArg {
+    OPTION_ARG_NONE,
+    OPTION_ARG_CALLBACK,
+    OPTION_ARG_STRING,
 };
+
+struct OptionEntry {
+  const char *long_name;
+  char        short_name;
+  int         flags;
+
+  OptionArg   arg;
+  void*     arg_data;
+
+  const char *description;
+  const char *arg_description;
+};
+
+typedef bool (*opt_cb)(const char *, const char *, void *);
+
+static std::array<OptionEntry, 32> options_table{{
+        { "version",                   0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output version of pkg-config", NULL },
+        { "modversion",                0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output version for package", NULL },
+        { "atleast-pkgconfig-version", 0, 0,                  OPTION_ARG_STRING,   &required_pkgconfig_version,             "require given version of pkg-config", "VERSION" },
+        { "libs",                      0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output all linker flags", NULL },
+        { "static",                    0, 0,                  OPTION_ARG_NONE,     &want_static_lib_list,                   "output linker flags for static linking", NULL },
+        { "short-errors",              0, 0,                  OPTION_ARG_NONE,     &want_short_errors,                      "print short errors", NULL },
+        { "libs-only-l",               0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output -l flags", NULL },
+        { "libs-only-other",           0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output other libs (e.g. -pthread)", NULL },
+        { "libs-only-L",               0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output -L flags", NULL },
+        { "cflags",                    0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output all pre-processor and compiler flags", NULL },
+        { "cflags-only-I",             0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output -I flags", NULL },
+        { "cflags-only-other",         0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output cflags not covered by the cflags-only-I option", NULL },
+        { "variable",                  0, 0,                  OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "get the value of variable named NAME", "NAME" },
+        { "define-variable",           0, 0,                  OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&define_variable_cb), "set variable NAME to VALUE", "NAME=VALUE" },
+        { "exists",                    0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module(s) exist", NULL },
+        { "print-variables",           0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output list of variables defined by the module", NULL },
+        { "uninstalled",               0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the uninstalled version of one or more module(s) or their dependencies will be used", NULL },
+        { "atleast-version",           0, 0,                  OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module is at least version VERSION", "VERSION" },
+        { "exact-version",             0, 0,                  OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module is at exactly version VERSION", "VERSION" },
+        { "max-version",               0, 0,                  OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "return 0 if the module is at no newer than version VERSION", "VERSION" },
+        { "list-all",                  0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "list all known packages", NULL },
+        { "debug",                     0, 0,                  OPTION_ARG_NONE,     &want_debug_spew,                        "show verbose debug information", NULL },
+        { "print-errors",              0, 0,                  OPTION_ARG_NONE,     &want_verbose_errors,                    "show verbose information about missing or conflicting packages (default unless --exists or --atleast/exact/max-version given on the command line)", NULL },
+        { "silence-errors",            0, 0,                  OPTION_ARG_NONE,     &want_silence_errors,                    "be silent about errors (default when --exists or --atleast/exact/max-version given on the command line)", NULL },
+        { "errors-to-stdout",          0, 0,                  OPTION_ARG_NONE,     &want_stdout_errors,                     "print errors from --print-errors to stdout not stderr", NULL },
+        { "print-provides",            0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "print which packages the package provides", NULL },
+        { "print-requires",            0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "print which packages the package requires", NULL },
+        { "print-requires-private",    0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "print which packages the package requires for static linking", NULL },
+        { "validate",                  0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "validate a package's .pc file", NULL },
+        { "define-prefix",             0, 0,                  OPTION_ARG_NONE,     &define_prefix,                          "try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", NULL },
+        { "dont-define-prefix",        0, OPTION_FLAG_REVERSE, OPTION_ARG_NONE,    &define_prefix,                          "don't try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", NULL },
+        { "prefix-variable",           0, 0,                  OPTION_ARG_STRING,   &prefix_variable,                        "set the name of the variable that pkg-config automatically sets", "PREFIX" },
+#ifdef _WIN32
+        {   "msvc-syntax",             0, 0,                  OPTION_ARG_NONE,     &msvc_syntax,                            "output -l and -L flags for the Microsoft compiler (cl)", NULL},
+#endif
+}};
+
+void print_help() {
+    printf("Printing help is not implemented yet.\n");
+    exit(0);
+}
+
+std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
+    std::vector<const char*> remaining;
+    std::string work;
+    for(int i=1; i<argc; ++i) { // skip program name
+        const char *current = argv[i];
+        if(strcmp(current, "-h") == 0 || strcmp(current, "--help") == 0) {
+            print_help();
+        }
+        if(strlen(current) < 3) {
+            remaining.push_back(current);
+            continue;
+        }
+        work = &(current[2]);
+        auto equal_sign = work.find('=');
+        std::string command, argument;
+        if(equal_sign != std::string::npos) {
+            command = work.substr(0, equal_sign);
+            argument = work.substr(equal_sign+1, std::string::npos);
+        } else {
+            command = work;
+        }
+        bool match_found = false;
+        for(const auto &opt : options_table) {
+            if(command == opt.long_name) {
+                match_found = true;
+                if(opt.arg == OPTION_ARG_STRING) {
+                    if(argument.empty()) {
+                        argument = argv[++i];
+                    }
+                    const char **ptr = (const char**)(opt.arg_data);
+                    *ptr = strdup(argument.c_str()); // FIXME
+                } else if(opt.arg == OPTION_ARG_NONE) {
+                    *static_cast<bool*>(opt.arg_data) = !(opt.flags & OPTION_FLAG_REVERSE);
+                } else if(opt.arg == OPTION_ARG_CALLBACK) {
+                    std::string optionstr = "--" + command;
+                    if(!(opt.flags & OPTION_FLAG_NO_ARG)) {
+                        if(argument.empty()) {
+                            argument = argv[++i];
+                        }
+                    }
+                    opt_cb cb = (opt_cb) (opt.arg_data);
+                    (*cb)(optionstr.c_str(), argument.c_str(), nullptr);
+                } else {
+                    throw "Unknown option type.";
+                }
+                break;
+            }
+        }
+        if(!match_found) {
+            if(current[0] == '-') {
+                fprintf(stderr, "Unknown option %s\n", current);
+                exit(1);
+            } else {
+                remaining.push_back(current);
+            }
+        }
+
+    }
+    return remaining;
+}
 
 int main_(int argc, char **argv) {
     std::string str;
@@ -391,8 +464,6 @@ int main_(int argc, char **argv) {
     char *pcbuilddir;
     bool need_newline;
     FILE *log = NULL;
-    GError *error = NULL;
-    GOptionContext *opt_context;
 
     /* This is here so that we get debug spew from the start,
      * during arg parsing
@@ -445,13 +516,15 @@ int main_(int argc, char **argv) {
     }
 
     /* Parse options */
+    std::vector<const char*> remaining = parse_cmd_args(argc, const_cast<const char**>(argv));
+    /*
     opt_context = g_option_context_new(NULL);
     g_option_context_add_main_entries(opt_context, options_table, NULL);
     if(!g_option_context_parse(opt_context, &argc, &argv, &error)) {
         fprintf(stderr, "%s\n", error->message);
         return 1;
     }
-
+*/
     /* If no output option was set, then --exists is the default. */
     if(!output_opt_set) {
         debug_spew("no output option set, defaulting to --exists\n");
@@ -528,15 +601,10 @@ int main_(int argc, char **argv) {
     }
 
     /* Collect packages from remaining args */
-    while(argc > 1) {
-        argc--;
-        argv++;
-
-        str += *argv;
+    for(const auto &s : remaining) {
+        str += s;
         str += " ";
     }
-
-    g_option_context_free(opt_context);
 
     while(!str.empty() && isspace(str.front())) {
         str.erase(0, 1);
