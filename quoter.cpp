@@ -15,12 +15,168 @@
  */
 
 
-
 #include<quoter.h>
 /*
  * The contents of this file are taken from Glib internals to
  * avoid an external dependency.
  */
+
+static gboolean unquote_string_inplace(gchar* str, gchar** end) {
+    gchar* dest;
+    gchar* s;
+    gchar quote_char;
+
+    g_return_val_if_fail(end != NULL, FALSE);
+    g_return_val_if_fail(str != NULL, FALSE);
+
+    dest = s = str;
+
+    quote_char = *s;
+
+    if(!(*s == '"' || *s == '\'')) {
+        throw "Quoted text doesn’t begin with a quotation mark";
+        *end = str;
+        return FALSE;
+    }
+
+    /* Skip the initial quote mark */
+    ++s;
+
+    if(quote_char == '"') {
+        while(*s) {
+            g_assert(s > dest); /* loop invariant */
+
+            switch (*s){
+            case '"':
+                /* End of the string, return now */
+                *dest = '\0';
+                ++s;
+                *end = s;
+                return TRUE;
+                break;
+
+            case '\\':
+                /* Possible escaped quote or \ */
+                ++s;
+                switch (*s){
+                case '"':
+                case '\\':
+                case '`':
+                case '$':
+                case '\n':
+                    *dest = *s;
+                    ++s;
+                    ++dest;
+                    break;
+
+                default:
+                    /* not an escaped char */
+                    *dest = '\\';
+                    ++dest;
+                    /* ++s already done. */
+                    break;
+                }
+                break;
+
+            default:
+                *dest = *s;
+                ++dest;
+                ++s;
+                break;
+            }
+
+            g_assert(s > dest); /* loop invariant */
+        }
+    } else {
+        while(*s) {
+            g_assert(s > dest); /* loop invariant */
+
+            if(*s == '\'') {
+                /* End of the string, return now */
+                *dest = '\0';
+                ++s;
+                *end = s;
+                return TRUE;
+            } else {
+                *dest = *s;
+                ++dest;
+                ++s;
+            }
+
+            g_assert(s > dest); /* loop invariant */
+        }
+    }
+
+    /* If we reach here this means the close quote was never encountered */
+
+    *dest = '\0';
+
+    throw "Unmatched quotation mark in command line or other shell-quoted text";
+    *end = s;
+    return FALSE;
+}
+
+gchar*
+g_shell_unquote(const gchar *quoted_string) {
+    gchar *unquoted;
+    gchar *end;
+    gchar *start;
+    GString *retval;
+
+    g_return_val_if_fail(quoted_string != NULL, NULL);
+
+    unquoted = g_strdup(quoted_string);
+
+    start = unquoted;
+    end = unquoted;
+    retval = g_string_new(NULL);
+
+    /* The loop allows cases such as
+     * "foo"blah blah'bar'woo foo"baz"la la la\'\''foo'
+     */
+    while(*start) {
+        /* Append all non-quoted chars, honoring backslash escape
+         */
+
+        while(*start && !(*start == '"' || *start == '\'')) {
+            if(*start == '\\') {
+                /* all characters can get escaped by backslash,
+                 * except newline, which is removed if it follows
+                 * a backslash outside of quotes
+                 */
+
+                ++start;
+                if(*start) {
+                    if(*start != '\n')
+                        g_string_append_c(retval, *start);
+                    ++start;
+                }
+            } else {
+                g_string_append_c(retval, *start);
+                ++start;
+            }
+        }
+
+        if(*start) {
+            if(!unquote_string_inplace(start, &end)) {
+                goto error;
+            } else {
+                g_string_append(retval, start);
+                start = end;
+            }
+        }
+    }
+
+    g_free(unquoted);
+    return g_string_free(retval, FALSE);
+
+    error:
+
+    g_free(unquoted);
+    g_string_free(retval, TRUE);
+    return NULL;
+}
+
 static void ensure_token(GString **token) {
     if(*token == NULL)
         *token = g_string_new(NULL);
@@ -36,7 +192,7 @@ static void delimit_token(GString **token, GSList **retval) {
 }
 
 static GSList*
-tokenize_command_line(const gchar *command_line, GError **error) {
+tokenize_command_line(const gchar *command_line) {
     gchar current_quote;
     const gchar *p;
     GString *current_token = NULL;
@@ -183,14 +339,13 @@ tokenize_command_line(const gchar *command_line, GError **error) {
     return retval;
 
     error:
-    g_assert(error == NULL || *error != NULL);
 
     g_slist_free_full(retval, g_free);
 
     return NULL;
 }
 
-bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp, GError **error) {
+bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
     /* Code based on poptParseArgvString() from libpopt */
     gint argc = 0;
     gchar **argv = NULL;
@@ -200,7 +355,7 @@ bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp, GE
 
     g_return_val_if_fail(command_line != NULL, FALSE);
 
-    tokens = tokenize_command_line(command_line, error);
+    tokens = tokenize_command_line(command_line);
     if(tokens == NULL)
         return FALSE;
 
@@ -223,7 +378,7 @@ bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp, GE
     i = 0;
     tmp_list = tokens;
     while(tmp_list) {
-        argv[i] = g_shell_unquote(static_cast<const char*>(tmp_list->data), error);
+        argv[i] = g_shell_unquote(static_cast<const char*>(tmp_list->data));
 
         /* Since we already checked that quotes matched up in the
          * tokenizer, this shouldn't be possible to reach I guess.
@@ -249,7 +404,6 @@ bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp, GE
 
     failed:
 
-    g_assert(error == NULL || *error != NULL);
     g_strfreev(argv);
     g_slist_free_full(tokens, g_free);
 

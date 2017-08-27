@@ -784,7 +784,6 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     /* Strip out -l and -L flags, put them in a separate list. */
     char **argv = NULL;
     int argc = 0;
-    GError *error = NULL;
 
     if(pkg->libs_num > 0) {
         verbose_error("Libs field occurs twice in '%s'\n", path);
@@ -795,8 +794,8 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv, &error)) {
-        verbose_error("Couldn't parse Libs field into an argument vector: %s\n", error ? error->message : "unknown");        verbose_error("Couldn't parse Libs field into an argument vector\n");
+    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv)) {
+        verbose_error("Couldn't parse Libs field into an argument vector: %s\n", "unknown");
         if(parse_strict)
             exit(1);
         else {
@@ -826,7 +825,6 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
      */
     char **argv = NULL;
     int argc = 0;
-    GError *error = NULL;
 
     if(pkg->libs_private_num > 0) {
         verbose_error("Libs.private field occurs twice in '%s'\n", path);
@@ -837,9 +835,9 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv, &error)) {
+    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv)) {
         verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
-                error ? error->message : "unknown");
+                "unknown");
         if(parse_strict)
             exit(1);
         else {

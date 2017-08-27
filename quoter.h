@@ -20,4 +20,4 @@
 
 #include<glib.h>
 
-bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp, GError **error);
+bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp);

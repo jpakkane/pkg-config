@@ -35,7 +35,6 @@ pkgconfig = executable('pkg-config',
   'quoter.cpp',
   'utils.cpp',
   'main.cpp',
-  cpp_args : '-DHAVE_CONFIG_H=1',
   dependencies : glib_dep,
   install : true)
 
