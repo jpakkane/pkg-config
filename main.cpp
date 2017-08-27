@@ -394,7 +394,7 @@ static const GOptionEntry options_table[] = { { "version", 0, G_OPTION_FLAG_NO_A
 #endif
         { NULL, 0, 0, G_OPTION_ARG_NONE, NULL, NULL, NULL } };
 
-int main(int argc, char **argv) {
+int main_(int argc, char **argv) {
     std::string str;
     std::vector<Package > package_list;
     char *search_path;
@@ -673,4 +673,13 @@ int main(int argc, char **argv) {
         printf("\n");
 
     return 0;
+}
+
+int main(int argc, char **argv) {
+    try {
+        return main_(argc, argv);
+    } catch(const char *msg) {
+        fprintf(stderr, "%s", msg);
+        return 1;
+    }
 }

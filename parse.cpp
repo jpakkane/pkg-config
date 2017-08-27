@@ -220,7 +220,7 @@ static void parse_description(Package *pkg, const std::string &str, const std::s
     pkg->description = trim_and_sub(pkg, str, path);
 }
 
-#define MODULE_SEPARATOR(c) ((c) == ',' || isspace ((guchar)(c)))
+#define MODULE_SEPARATOR(c) ((c) == ',' || isspace ((c)))
 #define OPERATOR_CHAR(c) ((c) == '<' || (c) == '>' || (c) == '!' || (c) == '=')
 
 /* A module list is a list of modules with optional version specification,
@@ -263,10 +263,10 @@ split_module_list(const std::string &str, const std::string &path) {
             break;
 
         case IN_MODULE_NAME:
-            if(isspace((guchar) str[p])) {
+            if(isspace( str[p])) {
                 /* Need to look ahead to determine next state */
                 auto s = p;
-                while(s < str.size() && isspace((guchar) str[s]))
+                while(s < str.size() && isspace( str[s]))
                     ++s;
 
                 if(s == str.size())
@@ -285,7 +285,7 @@ split_module_list(const std::string &str, const std::string &path) {
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
-            if(isspace((guchar) str[p]))
+            if(isspace( str[p]))
                 ; /* no change */
             else if(OPERATOR_CHAR(str[p]))
                 state = IN_OPERATOR;
@@ -299,7 +299,7 @@ split_module_list(const std::string &str, const std::string &path) {
             break;
 
         case AFTER_OPERATOR:
-            if(!isspace((guchar) str[p]))
+            if(!isspace( str[p]))
                 state = IN_MODULE_VERSION;
             break;
 
@@ -362,7 +362,7 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
 
         start = p;
 
-        while(p<str.size() && !isspace((guchar) str[p]))
+        while(p<str.size() && !isspace( str[p]))
             ++p;
 
         std::string package_name = str.substr(start, p-start);
@@ -382,12 +382,12 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
 
         start = p;
 
-        while(p<str.size() && !isspace((guchar) str[p])) {
+        while(p<str.size() && !isspace( str[p])) {
             ++p;
         }
 
         std::string comparison = str.substr(start, p-start);
-        while(p<str.size() && isspace((guchar) str[p])) {
+        while(p<str.size() && isspace( str[p])) {
             ++p;
         }
 
