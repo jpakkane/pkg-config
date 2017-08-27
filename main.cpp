@@ -19,6 +19,7 @@
 
 #include "config.h"
 
+#include "utils.h"
 #include "pkg.h"
 #include "parse.h"
 
@@ -260,7 +261,7 @@ static void init_pc_path(void) {
 
     lpath = g_build_filename (instdir, "lib", "pkgconfig", NULL);
     shpath = g_build_filename (instdir, "share", "pkgconfig", NULL);
-    pkg_config_pc_path = g_strconcat (lpath, G_SEARCHPATH_SEPARATOR_S, shpath,
+    pkg_config_pc_path = g_strconcat (lpath, SEARCHPATH_SEPARATOR_S, shpath,
             NULL);
     g_free (instdir);
     g_free (lpath);
@@ -425,12 +426,12 @@ int main(int argc, char **argv) {
 
     search_path = getenv("PKG_CONFIG_PATH");
     if(search_path) {
-        add_search_dirs(search_path, G_SEARCHPATH_SEPARATOR);
+        add_search_dirs(search_path, SEARCHPATH_SEPARATOR);
     }
     if(getenv("PKG_CONFIG_LIBDIR") != NULL) {
-        add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), G_SEARCHPATH_SEPARATOR);
+        add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), SEARCHPATH_SEPARATOR);
     } else {
-        add_search_dirs(pkg_config_pc_path, G_SEARCHPATH_SEPARATOR);
+        add_search_dirs(pkg_config_pc_path, SEARCHPATH_SEPARATOR);
     }
 
     pcsysrootdir = getenv("PKG_CONFIG_SYSROOT_DIR");

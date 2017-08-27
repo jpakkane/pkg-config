@@ -244,9 +244,9 @@ internal_get_package(const std::string &name, bool warn) {
     if(key.empty())
         key = name;
     else {
-        /* need to strip package name out of the filename */
-        key = get_basename(name);
-        key[strlen(key.c_str()) - EXT_LEN] = '\0';
+        /* need to extract package name out of the full filename path */
+        key = get_basename(name.c_str());
+        key = key.substr(0, key.length() - EXT_LEN);
     }
 
     debug_spew("Reading '%s' from file '%s'\n", name.c_str(), location.c_str());
@@ -463,14 +463,10 @@ fill_list(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool in
 
 static void
 add_env_variable_to_list(std::vector<std::string> &list, const std::string &env) {
-    char **values;
-    gint i;
-
-    values = g_strsplit(env.c_str(), G_SEARCHPATH_SEPARATOR_S, 0);
-    for(i = 0; values[i] != NULL; i++) {
-        list.push_back(values[i]);
+    auto values = split_string(env, SEARCHPATH_SEPARATOR);
+    for(auto &&i : values) {
+        list.emplace_back(i);
     }
-    g_strfreev(values);
 }
 
 /* Well known compiler include path environment variables. These are

@@ -552,7 +552,7 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
     std::vector<std::string> split;
     std::vector<RequiredVersion> retval;
 
-    split = split_module_list2(str.c_str(), path);
+    split = split_module_list2(str, path);
 
     for(const auto &iter : split) {
         RequiredVersion ver;

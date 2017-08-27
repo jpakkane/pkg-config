@@ -20,6 +20,9 @@
  */
 
 #include<utils.h>
+#include<sstream>
+#include<istream>
+#include<iterator>
 
 std::string get_basename(const std::string &s) {
     const char separator = '/';
@@ -49,4 +52,23 @@ bool string_starts_with(const std::string &s, const std::string prefix) {
         }
     }
     return true;
+}
+
+std::vector<std::string> split_whitespace(const std::string &s) {
+    std::istringstream buffer(s);
+    std::vector<std::string> ret{std::istream_iterator<std::string>(buffer),
+                                     std::istream_iterator<std::string>()};
+    return ret;
+
+}
+
+std::vector<std::string> split_string(const std::string &s, const char separator) {
+    std::stringstream istream(s);
+    std::string line;
+    std::vector<std::string> result;
+
+    if(std::getline(istream, line, separator)) {
+        result.emplace_back(std::move(line));
+    }
+    return result;
 }

@@ -22,13 +22,32 @@
 #pragma once
 
 #include<string>
+#include<vector>
+
+#ifdef _WIN32
+
+#define DIR_SEPARATOR '\\'
+#define DIR_SEPARATOR_S "\\"
+#define IS_DIR_SEPARATOR(c) ((c) == G_DIR_SEPARATOR || (c) == '/')
+#define SEARCHPATH_SEPARATOR ';'
+#define SEARCHPATH_SEPARATOR_S ";"
+
+#else
 
 #define DIR_SEPARATOR '/'
-#define IS_DIR_SEPARATOR(c) (c == DIR_SEPARATOR)
+#define DIR_SEPARATOR_S "/"
+#define IS_DIR_SEPARATOR(c) ((c) == G_DIR_SEPARATOR)
+#define SEARCHPATH_SEPARATOR ':'
+#define SEARCHPATH_SEPARATOR_S ":"
 
+#endif
 
 std::string get_basename(const std::string &s);
 
 std::string get_dirname(const std::string &s);
 
 bool string_starts_with(const std::string &s, const std::string prefix);
+
+std::vector<std::string> split_whitespace(const std::string &s);
+
+std::vector<std::string> split_string(const std::string &s, const char separator);
