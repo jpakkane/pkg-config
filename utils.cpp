@@ -72,3 +72,19 @@ std::vector<std::string> split_string(const std::string &s, const char separator
     }
     return result;
 }
+
+static bool is_whitespace(const char c) {
+    return c == ' ' || c == '\n' || c == '\t' || c == '\r';
+}
+
+std::string strip_whitespace(const std::string &s) {
+    std::string::size_type i=0;
+    while(i<s.length() && is_whitespace(s[i])) {
+        i++;
+    }
+    std::string result = s.substr(i, std::string::npos);
+    while(!s.empty() && is_whitespace(result.back())) {
+        result.pop_back();
+    }
+    return result;
+}

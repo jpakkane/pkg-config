@@ -51,3 +51,6 @@ bool string_starts_with(const std::string &s, const std::string prefix);
 std::vector<std::string> split_whitespace(const std::string &s);
 
 std::vector<std::string> split_string(const std::string &s, const char separator);
+
+std::string strip_whitespace(const std::string &s);
+
