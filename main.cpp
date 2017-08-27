@@ -111,34 +111,29 @@ void verbose_error(const char *format, ...) {
 }
 
 static bool define_variable_cb(const char *opt, const char *arg, gpointer data, GError **error) {
-    char *varname;
-    char *varval;
-    char *tmp;
+    std::string input(arg);
+    std::string::size_type p=0;
+    while(p<input.size() && isspace(input[p]))
+        ++p;
 
-    tmp = g_strdup(arg);
+    const std::string::size_type name_start = p;
+    while(p<input.size() && input[p] != '=' && input[p] != ' ')
+        ++p;
 
-    varname = tmp;
-    while(*varname && isspace((guchar) *varname))
-        ++varname;
-
-    varval = varname;
-    while(*varval && *varval != '=' && *varval != ' ')
-        ++varval;
-
-    while(*varval && (*varval == '=' || *varval == ' ')) {
-        *varval = '\0';
-        ++varval;
+    auto varname = input.substr(name_start, p-name_start);
+    while(p<input.size() && (input[p] == '=' || input[p] == ' ')) {
+        ++p;
     }
 
-    if(*varval == '\0') {
+    if(p == input.size()) {
         fprintf(stderr, "--define-variable argument does not have a value "
                 "for the variable\n");
         exit(1);
     }
 
+    auto varval = input.substr(p, std::string::npos);
     define_global_variable(varname, varval);
 
-    g_free(tmp);
     return true;
 }
 
