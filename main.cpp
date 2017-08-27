@@ -22,6 +22,8 @@
 #include "pkg.h"
 #include "parse.h"
 
+#include<cassert>
+
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -94,27 +96,18 @@ void debug_spew(const char *format, ...) {
 
 void verbose_error(const char *format, ...) {
     va_list args;
-    char *str;
-    FILE* stream;
+    FILE* stream = want_stdout_errors ? stdout : stderr;
 
-    g_return_if_fail(format != NULL);
+    assert(format);
 
     if(!want_verbose_errors)
         return;
 
     va_start(args, format);
-    str = g_strdup_vprintf(format, args);
+    vfprintf(stream, format, args);
     va_end(args);
-
-    if(want_stdout_errors)
-        stream = stdout;
-    else
-        stream = stderr;
-
-    fputs(str, stream);
     fflush(stream);
 
-    g_free(str);
 }
 
 static bool define_variable_cb(const char *opt, const char *arg, gpointer data, GError **error) {
