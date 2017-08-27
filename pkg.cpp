@@ -25,6 +25,7 @@
 #include<glib.h>
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <string.h>
 #include <errno.h>
 #include <stdio.h>
@@ -39,6 +40,8 @@
 #include <sstream>
 #include<unordered_set>
 #include<memory>
+
+#define DIR_SEPARATOR '/'
 
 static void verify_package(Package *pkg);
 
@@ -102,6 +105,14 @@ bool name_ends_in_uninstalled(const std::string &str) {
         return false;
 }
 
+static bool is_regular_file(const std::string &fname) {
+    struct stat sb;
+    if(stat(fname.c_str(), &sb) < 0) {
+        return false;
+    }
+    return S_ISREG(sb.st_mode);
+}
+
 static Package
 internal_get_package(const std::string &name, bool warn);
 
@@ -114,10 +125,10 @@ static void scan_dir(const std::string &dirname) {
      */
     std::string dirname_copy = dirname;
 
-    if(dirname_copy.length() > 1 && dirname_copy.back() == G_DIR_SEPARATOR) {
+    if(dirname_copy.length() > 1 && dirname_copy.back() == DIR_SEPARATOR) {
         dirname_copy.pop_back();
     }
-#ifdef G_OS_WIN32
+#ifdef _WIN32
     for(size_t i=0; i<dirname_copy.length(); ++i)
     if dirname_copy[i] == '\\')
         dirname_copy[i] = '/';
@@ -212,10 +223,10 @@ internal_get_package(const std::string &name, bool warn) {
         for(const auto &dir : search_dirs) {
             path_position++;
             location = dir;
-            location += G_DIR_SEPARATOR;
+            location += DIR_SEPARATOR;
             location += name;
             location += ".pc";
-            if(g_file_test(location.c_str(), G_FILE_TEST_IS_REGULAR))
+            if(is_regular_file(location.c_str()))
                 break;
             location.clear();
         }
