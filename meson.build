@@ -6,8 +6,6 @@ project('pkg-config', 'cpp',
 py3_mod = import('python3')
 py3_exe = py3_mod.find_python()
 
-glib_dep = dependency('glib-2.0')
-
 cdata = configuration_data()
 
 cdata.set_quoted('VERSION', meson.project_version())
@@ -35,7 +33,6 @@ pkgconfig = executable('pkg-config',
   'quoter.cpp',
   'utils.cpp',
   'main.cpp',
-  dependencies : glib_dep,
   install : true)
 
 subdir('check')

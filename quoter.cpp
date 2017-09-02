@@ -16,7 +16,6 @@
 
 
 #include<quoter.h>
-#include<glib.h>
 #include<cstring>
 #include<cassert>
 
@@ -154,8 +153,8 @@ static void delimit_token(std::string &token, std::vector<std::string> &retval) 
 
 static std::vector<std::string>
 tokenize_command_line(const char *command_line) {
-    gchar current_quote;
-    const gchar *p;
+    char current_quote;
+    const char *p;
     std::string current_token;
     std::vector<std::string> retval;
     bool quoted;
