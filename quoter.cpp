@@ -16,6 +16,7 @@
 
 
 #include<quoter.h>
+#include<cstring>
 
 static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
     std::vector<std::string> res;
@@ -187,30 +188,23 @@ g_shell_unquote(const gchar *quoted_string) {
     return NULL;
 }
 
-static void ensure_token(GString **token) {
-    if(*token == NULL)
-        *token = g_string_new(NULL);
-}
-
-static void delimit_token(GString **token, GSList **retval) {
-    if(*token == NULL)
+static void delimit_token(std::string &token, std::vector<std::string> &retval) {
+    if(token.empty())
         return;
 
-    *retval = g_slist_prepend(*retval, g_string_free(*token, FALSE));
-
-    *token = NULL;
+    retval.emplace_back(std::move(token));
 }
 
-static GSList*
-tokenize_command_line(const gchar *command_line) {
+static std::vector<std::string>
+tokenize_command_line(const char *command_line) {
     gchar current_quote;
     const gchar *p;
-    GString *current_token = NULL;
-    GSList *retval = NULL;
-    gboolean quoted;
+    std::string current_token;
+    std::vector<std::string> retval;
+    bool quoted;
 
     current_quote = '\0';
-    quoted = FALSE;
+    quoted = false;
     p = command_line;
 
     while(*p) {
@@ -221,9 +215,8 @@ tokenize_command_line(const gchar *command_line) {
                 /* we append the backslash and the current char,
                  * to be interpreted later after tokenization
                  */
-                ensure_token(&current_token);
-                g_string_append_c(current_token, '\\');
-                g_string_append_c(current_token, *p);
+                current_token += '\\';
+                current_token += *p;
             }
 
             current_quote = '\0';
@@ -248,12 +241,11 @@ tokenize_command_line(const gchar *command_line) {
              * gets appended literally.
              */
 
-            ensure_token(&current_token);
-            g_string_append_c(current_token, *p);
+            current_token += *p;
         } else {
             switch (*p){
             case '\n':
-                delimit_token(&current_token, &retval);
+                delimit_token(current_token, retval);
                 break;
 
             case ' ':
@@ -262,8 +254,8 @@ tokenize_command_line(const gchar *command_line) {
                  * the current token. A nonzero length
                  * token should always contain the previous char.
                  */
-                if(current_token && current_token->len > 0) {
-                    delimit_token(&current_token, &retval);
+                if(!current_token.empty()) {
+                    delimit_token(current_token, retval);
                 }
 
                 /* discard all unquoted blanks (don't add them to a token) */
@@ -276,8 +268,7 @@ tokenize_command_line(const gchar *command_line) {
 
             case '\'':
             case '"':
-                ensure_token(&current_token);
-                g_string_append_c(current_token, *p);
+                current_token += *p;
 
                 /* FALL THRU */
             case '\\':
@@ -296,8 +287,7 @@ tokenize_command_line(const gchar *command_line) {
                     current_quote = *p;
                     break;
                 default:
-                    ensure_token(&current_token);
-                    g_string_append_c(current_token, *p);
+                    current_token += *p;
                     break;
                 }
                 break;
@@ -306,8 +296,7 @@ tokenize_command_line(const gchar *command_line) {
                 /* Combines rules 4) and 6) - if we have a token, append to it,
                  * otherwise create a new token.
                  */
-                ensure_token(&current_token);
-                g_string_append_c(current_token, *p);
+                current_token += *p;
                 break;
             }
         }
@@ -316,14 +305,14 @@ tokenize_command_line(const gchar *command_line) {
          * to detect escaped doublequotes.
          */
         if(*p != '\\')
-            quoted = FALSE;
+            quoted = false;
         else
             quoted = !quoted;
 
         ++p;
     }
 
-    delimit_token(&current_token, &retval);
+    delimit_token(current_token, retval);
 
     if(current_quote) {
         if(current_quote == '\\')
@@ -337,36 +326,27 @@ tokenize_command_line(const gchar *command_line) {
         goto error;
     }
 
-    if(retval == NULL) {
+    if(retval.empty() && strlen(command_line) > 0) {
         throw "Text was empty (or contained only whitespace)";
-
-        goto error;
     }
-
-    /* we appended backward */
-    retval = g_slist_reverse(retval);
 
     return retval;
 
     error:
 
-    g_slist_free_full(retval, g_free);
-
-    return NULL;
+    return std::vector<std::string>{};
 }
 
 std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
     /* Code based on poptParseArgvString() from libpopt */
-    GSList *tokens = NULL;
-    GSList *tmp_list;
     std::vector<std::string> args;
 
     if(command_line == NULL) {
         throw "Null passed to argv";
     }
 
-    tokens = tokenize_command_line(command_line);
-    if(tokens == NULL)
+    auto tokens = tokenize_command_line(command_line);
+    if(tokens.empty())
         return std::vector<std::string>{};
 
     /* Because we can't have introduced any new blank space into the
@@ -383,9 +363,8 @@ std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argc
      * such things.
      */
 
-    tmp_list = tokens;
-    while(tmp_list) {
-        args.push_back(g_shell_unquote(static_cast<const char*>(tmp_list->data)));
+    for(const auto &t : tokens) {
+        args.push_back(g_shell_unquote(t.c_str()));
 
         /* Since we already checked that quotes matched up in the
          * tokenizer, this shouldn't be possible to reach I guess.
@@ -393,7 +372,6 @@ std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argc
         if(args.back().empty())
             throw "Should not be reached";
 
-        tmp_list = g_slist_next(tmp_list);
     }
 
 
