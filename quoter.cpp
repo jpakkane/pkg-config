@@ -16,8 +16,18 @@
 
 
 #include<quoter.h>
+
+static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
+    std::vector<std::string> res;
+    for(int i=0; i<argc; ++i) {
+        res.push_back(argv[i]);
+    }
+    return res;
+}
+
+
 /*
- * The contents of this file are taken from Glib internals to
+ * The remaining contents of this file are taken from Glib internals to
  * avoid an external dependency.
  */
 
@@ -345,7 +355,7 @@ tokenize_command_line(const gchar *command_line) {
     return NULL;
 }
 
-bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
+std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
     /* Code based on poptParseArgvString() from libpopt */
     gint argc = 0;
     gchar **argv = NULL;
@@ -353,11 +363,13 @@ bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
     gint i;
     GSList *tmp_list;
 
-    g_return_val_if_fail(command_line != NULL, FALSE);
+    if(command_line == NULL) {
+        throw "Null passed to argv";
+    }
 
     tokens = tokenize_command_line(command_line);
     if(tokens == NULL)
-        return FALSE;
+        return std::vector<std::string>{};
 
     /* Because we can't have introduced any new blank space into the
      * tokens (we didn't do any new expansions), we don't need to
@@ -384,7 +396,7 @@ bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
          * tokenizer, this shouldn't be possible to reach I guess.
          */
         if(argv[i] == NULL)
-            goto failed;
+            throw "Should not be reached";
 
         tmp_list = g_slist_next(tmp_list);
         ++i;
@@ -400,12 +412,10 @@ bool g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
     else
         g_strfreev(argv);
 
-    return TRUE;
-
-    failed:
+    auto args = c_arr_to_cpp(*argcp, *argvp);
 
     g_strfreev(argv);
-    g_slist_free_full(tokens, g_free);
 
-    return FALSE;
+    return args;
+
 }

@@ -772,14 +772,6 @@ static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
 }
 
 
-static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
-    std::vector<std::string> res;
-    for(int i=0; i<argc; ++i) {
-        res.push_back(argv[i]);
-    }
-    return res;
-}
-
 static void parse_libs(Package *pkg, const std::string &str, const std::string &path) {
     /* Strip out -l and -L flags, put them in a separate list. */
     char **argv = NULL;
@@ -794,20 +786,21 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv)) {
-        verbose_error("Couldn't parse Libs field into an argument vector: %s\n", "unknown");
-        if(parse_strict)
+    std::vector<std::string> args;
+    if(!trimmed.empty()) {
+        args = g_shell_parse_argv2(trimmed.c_str(), &argc, &argv);
+        if(args.empty()) {
+            verbose_error("Couldn't parse Libs field into an argument vector: %s\n", "unknown");
+            if(parse_strict)
             exit(1);
-        else {
-            return;
+            else {
+                return;
+            }
         }
     }
 
-    auto args = c_arr_to_cpp(argc, argv);
-
     _do_parse_libs(pkg, args);
 
-    g_strfreev(argv);
     pkg->libs_num++;
 }
 
@@ -835,20 +828,22 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    if(!trimmed.empty() && !g_shell_parse_argv2(trimmed.c_str(), &argc, &argv)) {
-        verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
-                "unknown");
-        if(parse_strict)
-            exit(1);
-        else {
-            return;
+    std::vector<std::string> args;
+    if(!trimmed.empty()) {
+        args = g_shell_parse_argv2(trimmed.c_str(), &argc, &argv);
+        if(args.empty()) {
+            verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
+                    "unknown");
+            if(parse_strict)
+                exit(1);
+            else {
+                return;
+            }
         }
     }
 
-    auto args = c_arr_to_cpp(argc, argv);
     _do_parse_libs(pkg, args);
 
-    g_strfreev(argv);
     pkg->libs_private_num++;
 }
 
