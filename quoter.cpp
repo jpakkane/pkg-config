@@ -16,7 +16,6 @@
 
 
 #include<quoter.h>
-#include<cstring>
 #include<cassert>
 
 
@@ -152,41 +151,40 @@ static void delimit_token(std::string &token, std::vector<std::string> &retval) 
 }
 
 static std::vector<std::string>
-tokenize_command_line(const char *command_line) {
+tokenize_command_line(const std::string &command_line) {
     char current_quote;
-    const char *p;
+    std::string::size_type p = 0;
     std::string current_token;
     std::vector<std::string> retval;
     bool quoted;
 
     current_quote = '\0';
     quoted = false;
-    p = command_line;
 
-    while(*p) {
+    while(p < command_line.size()) {
         if(current_quote == '\\') {
-            if(*p == '\n') {
+            if(command_line[p] == '\n') {
                 /* we append nothing; backslash-newline become nothing */
             } else {
                 /* we append the backslash and the current char,
                  * to be interpreted later after tokenization
                  */
                 current_token += '\\';
-                current_token += *p;
+                current_token += command_line[p];
             }
 
             current_quote = '\0';
         } else if(current_quote == '#') {
             /* Discard up to and including next newline */
-            while(*p && *p != '\n')
+            while(p < command_line.size() && command_line[p] != '\n')
                 ++p;
 
             current_quote = '\0';
 
-            if(*p == '\0')
+            if(p == command_line.size())
                 break;
         } else if(current_quote) {
-            if(*p == current_quote &&
+            if(command_line[p] == current_quote &&
             /* check that it isn't an escaped double quote */
             !(current_quote == '"' && quoted)) {
                 /* close the quote */
@@ -197,9 +195,9 @@ tokenize_command_line(const char *command_line) {
              * gets appended literally.
              */
 
-            current_token += *p;
+            current_token += command_line[p];
         } else {
-            switch (*p){
+            switch (command_line[p]){
             case '\n':
                 delimit_token(current_token, retval);
                 break;
@@ -224,26 +222,26 @@ tokenize_command_line(const char *command_line) {
 
             case '\'':
             case '"':
-                current_token += *p;
+                current_token += command_line[p];
 
                 /* FALL THRU */
             case '\\':
-                current_quote = *p;
+                current_quote = command_line[p];
                 break;
 
             case '#':
-                if(p == command_line) { /* '#' was the first char */
-                    current_quote = *p;
+                if(p == 0) { /* '#' was the first char */
+                    current_quote = command_line[p];
                     break;
                 }
-                switch (*(p - 1)){
+                switch (command_line[p - 1]){
                 case ' ':
                 case '\n':
                 case '\0':
-                    current_quote = *p;
+                    current_quote = command_line[p];
                     break;
                 default:
-                    current_token += *p;
+                    current_token += command_line[p];
                     break;
                 }
                 break;
@@ -252,7 +250,7 @@ tokenize_command_line(const char *command_line) {
                 /* Combines rules 4) and 6) - if we have a token, append to it,
                  * otherwise create a new token.
                  */
-                current_token += *p;
+                current_token += command_line[p];
                 break;
             }
         }
@@ -260,7 +258,7 @@ tokenize_command_line(const char *command_line) {
         /* We need to count consecutive backslashes mod 2,
          * to detect escaped doublequotes.
          */
-        if(*p != '\\')
+        if(command_line[p] != '\\')
             quoted = false;
         else
             quoted = !quoted;
@@ -282,7 +280,7 @@ tokenize_command_line(const char *command_line) {
         goto error;
     }
 
-    if(retval.empty() && strlen(command_line) > 0) {
+    if(retval.empty() && !command_line.empty()) {
         throw "Text was empty (or contained only whitespace)";
     }
 
