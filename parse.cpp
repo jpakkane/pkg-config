@@ -774,8 +774,6 @@ static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
 
 static void parse_libs(Package *pkg, const std::string &str, const std::string &path) {
     /* Strip out -l and -L flags, put them in a separate list. */
-    char **argv = NULL;
-    int argc = 0;
 
     if(pkg->libs_num > 0) {
         verbose_error("Libs field occurs twice in '%s'\n", path);
@@ -788,7 +786,7 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     auto trimmed = trim_and_sub(pkg, str, path);
     std::vector<std::string> args;
     if(!trimmed.empty()) {
-        args = g_shell_parse_argv2(trimmed.c_str(), &argc, &argv);
+        args = parse_shell_commandline(trimmed.c_str());
         if(args.empty()) {
             verbose_error("Couldn't parse Libs field into an argument vector: %s\n", "unknown");
             if(parse_strict)
@@ -816,8 +814,6 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
      Generally, if include another library's headers in your own, it's
      a public dependency and not a private one.
      */
-    char **argv = NULL;
-    int argc = 0;
 
     if(pkg->libs_private_num > 0) {
         verbose_error("Libs.private field occurs twice in '%s'\n", path);
@@ -830,7 +826,7 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     auto trimmed = trim_and_sub(pkg, str, path);
     std::vector<std::string> args;
     if(!trimmed.empty()) {
-        args = g_shell_parse_argv2(trimmed.c_str(), &argc, &argv);
+        args = parse_shell_commandline(trimmed.c_str());
         if(args.empty()) {
             verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
                     "unknown");
@@ -912,7 +908,7 @@ static void parse_cflags(Package *pkg, const std::string &str, const std::string
     auto trimmed = trim_and_sub(pkg, str, path);
 
     auto argv = parse_shell_string(trimmed);
-    if(!trimmed.empty() && FALSE) {
+    if(!trimmed.empty() && false) {
         verbose_error("Couldn't parse Cflags field into an argument vector: %s\n", "unknown");
         if(parse_strict)
             exit(1);

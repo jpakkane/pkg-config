@@ -18,8 +18,7 @@
 
 #pragma once
 
-#include<glib.h>
 #include<vector>
 #include<string>
 
-std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp);
+std::vector<std::string> parse_shell_commandline(const char *command_line);

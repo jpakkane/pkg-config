@@ -16,15 +16,8 @@
 
 
 #include<quoter.h>
+#include<glib.h>
 #include<cstring>
-
-static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
-    std::vector<std::string> res;
-    for(int i=0; i<argc; ++i) {
-        res.push_back(argv[i]);
-    }
-    return res;
-}
 
 
 /*
@@ -32,7 +25,7 @@ static std::vector<std::string> c_arr_to_cpp(int argc, char **argv) {
  * avoid an external dependency.
  */
 
-static gboolean unquote_string_inplace(gchar* str, gchar** end) {
+static bool unquote_string_inplace(gchar* str, gchar** end) {
     gchar* dest;
     gchar* s;
     gchar quote_char;
@@ -127,8 +120,7 @@ static gboolean unquote_string_inplace(gchar* str, gchar** end) {
     return FALSE;
 }
 
-gchar*
-g_shell_unquote(const gchar *quoted_string) {
+static char* shell_unquote(const gchar *quoted_string) {
     gchar *unquoted;
     gchar *end;
     gchar *start;
@@ -337,7 +329,7 @@ tokenize_command_line(const char *command_line) {
     return std::vector<std::string>{};
 }
 
-std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
+std::vector<std::string> parse_shell_commandline(const char *command_line) {
     /* Code based on poptParseArgvString() from libpopt */
     std::vector<std::string> args;
 
@@ -364,7 +356,7 @@ std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argc
      */
 
     for(const auto &t : tokens) {
-        args.push_back(g_shell_unquote(t.c_str()));
+        args.push_back(shell_unquote(t.c_str()));
 
         /* Since we already checked that quotes matched up in the
          * tokenizer, this shouldn't be possible to reach I guess.
