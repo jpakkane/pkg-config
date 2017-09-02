@@ -21,4 +21,4 @@
 #include<vector>
 #include<string>
 
-std::vector<std::string> parse_shell_commandline(const char *command_line);
+std::vector<std::string> parse_shell_commandline(const std::string &command_line);

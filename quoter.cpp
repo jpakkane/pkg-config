@@ -291,12 +291,12 @@ tokenize_command_line(const std::string &command_line) {
     return std::vector<std::string>{};
 }
 
-std::vector<std::string> parse_shell_commandline(const char *command_line) {
+std::vector<std::string> parse_shell_commandline(const std::string &command_line) {
     /* Code based on poptParseArgvString() from libpopt */
     std::vector<std::string> args;
 
-    if(command_line == NULL) {
-        throw "Null passed to argv";
+    if(command_line.empty()) {
+        return args;
     }
 
     auto tokens = tokenize_command_line(command_line);

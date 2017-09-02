@@ -786,7 +786,7 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     auto trimmed = trim_and_sub(pkg, str, path);
     std::vector<std::string> args;
     if(!trimmed.empty()) {
-        args = parse_shell_commandline(trimmed.c_str());
+        args = parse_shell_commandline(trimmed);
         if(args.empty()) {
             verbose_error("Couldn't parse Libs field into an argument vector: %s\n", "unknown");
             if(parse_strict)
@@ -826,7 +826,7 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     auto trimmed = trim_and_sub(pkg, str, path);
     std::vector<std::string> args;
     if(!trimmed.empty()) {
-        args = parse_shell_commandline(trimmed.c_str());
+        args = parse_shell_commandline(trimmed);
         if(args.empty()) {
             verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
                     "unknown");

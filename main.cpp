@@ -515,14 +515,7 @@ int main_(int argc, char **argv) {
 
     /* Parse options */
     std::vector<const char*> remaining = parse_cmd_args(argc, const_cast<const char**>(argv));
-    /*
-    opt_context = g_option_context_new(NULL);
-    g_option_context_add_main_entries(opt_context, options_table, NULL);
-    if(!g_option_context_parse(opt_context, &argc, &argv, &error)) {
-        fprintf(stderr, "%s\n", error->message);
-        return 1;
-    }
-*/
+
     /* If no output option was set, then --exists is the default. */
     if(!output_opt_set) {
         debug_spew("no output option set, defaulting to --exists\n");
@@ -566,7 +559,7 @@ int main_(int argc, char **argv) {
     /* honor Requires.private if any Cflags are requested or any static
      * libs are requested */
 
-    if(pkg_flags & CFLAGS_ANY || want_requires_private || want_exists
+    if((pkg_flags & CFLAGS_ANY) || want_requires_private || want_exists
             || (want_static_lib_list && (pkg_flags & LIBS_ANY)))
         enable_requires_private();
 
