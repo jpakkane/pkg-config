@@ -18,6 +18,7 @@
 #include<quoter.h>
 #include<glib.h>
 #include<cstring>
+#include<cassert>
 
 
 /*
@@ -25,159 +26,123 @@
  * avoid an external dependency.
  */
 
-static bool unquote_string_inplace(gchar* str, gchar** end) {
-    gchar* dest;
-    gchar* s;
-    gchar quote_char;
+static std::string unquote_string(const std::string &str, std::string::size_type &s) {
+    std::string dest;
+    dest.reserve(str.size()-s);
+    char quote_char;
 
-    g_return_val_if_fail(end != NULL, FALSE);
-    g_return_val_if_fail(str != NULL, FALSE);
+    quote_char = str[s];
 
-    dest = s = str;
-
-    quote_char = *s;
-
-    if(!(*s == '"' || *s == '\'')) {
+    if(!(str[s] == '"' || str[s] == '\'')) {
         throw "Quoted text doesn’t begin with a quotation mark";
-        *end = str;
-        return FALSE;
     }
 
     /* Skip the initial quote mark */
     ++s;
 
     if(quote_char == '"') {
-        while(*s) {
-            g_assert(s > dest); /* loop invariant */
+        while(s<str.size()) {
+            assert(s > dest.size()); /* loop invariant */
 
-            switch (*s){
+            switch (str[s]){
             case '"':
                 /* End of the string, return now */
-                *dest = '\0';
                 ++s;
-                *end = s;
-                return TRUE;
-                break;
+                return dest;
 
             case '\\':
                 /* Possible escaped quote or \ */
                 ++s;
-                switch (*s){
+                switch (str[s]){
                 case '"':
                 case '\\':
                 case '`':
                 case '$':
                 case '\n':
-                    *dest = *s;
+                    dest += str[s];
                     ++s;
-                    ++dest;
                     break;
 
                 default:
                     /* not an escaped char */
-                    *dest = '\\';
-                    ++dest;
+                    dest += '\\';
                     /* ++s already done. */
                     break;
                 }
                 break;
 
             default:
-                *dest = *s;
-                ++dest;
+                dest += str[s];
                 ++s;
                 break;
             }
 
-            g_assert(s > dest); /* loop invariant */
+            assert(s > dest.size()); /* loop invariant */
         }
     } else {
-        while(*s) {
-            g_assert(s > dest); /* loop invariant */
+        while(s<str.size()) {
+            assert(s > dest.size()); /* loop invariant */
 
-            if(*s == '\'') {
+            if(str[s] == '\'') {
                 /* End of the string, return now */
-                *dest = '\0';
                 ++s;
-                *end = s;
-                return TRUE;
+                return dest;
             } else {
-                *dest = *s;
-                ++dest;
+                dest += str[s];
                 ++s;
             }
 
-            g_assert(s > dest); /* loop invariant */
+            assert(s > dest.size()); /* loop invariant */
         }
     }
 
     /* If we reach here this means the close quote was never encountered */
 
-    *dest = '\0';
-
     throw "Unmatched quotation mark in command line or other shell-quoted text";
-    *end = s;
-    return FALSE;
 }
 
-static char* shell_unquote(const gchar *quoted_string) {
-    gchar *unquoted;
-    gchar *end;
-    gchar *start;
-    GString *retval;
+static std::string shell_unquote(const std::string &quoted_string) {
+    std::string::size_type start;
+    std::string retval;
 
-    g_return_val_if_fail(quoted_string != NULL, NULL);
+    auto unquoted = quoted_string;
 
-    unquoted = g_strdup(quoted_string);
-
-    start = unquoted;
-    end = unquoted;
-    retval = g_string_new(NULL);
+    start = 0;
 
     /* The loop allows cases such as
      * "foo"blah blah'bar'woo foo"baz"la la la\'\''foo'
      */
-    while(*start) {
+    while(start<quoted_string.size()) {
         /* Append all non-quoted chars, honoring backslash escape
          */
 
-        while(*start && !(*start == '"' || *start == '\'')) {
-            if(*start == '\\') {
+        while(start<quoted_string.size() && !(quoted_string[start] == '"' || quoted_string[start] == '\'')) {
+            if(quoted_string[start ]== '\\') {
                 /* all characters can get escaped by backslash,
                  * except newline, which is removed if it follows
                  * a backslash outside of quotes
                  */
 
                 ++start;
-                if(*start) {
-                    if(*start != '\n')
-                        g_string_append_c(retval, *start);
+                if(start<quoted_string.size()) {
+                    if(quoted_string[start] != '\n')
+                        retval += quoted_string[start];
                     ++start;
                 }
             } else {
-                g_string_append_c(retval, *start);
+                retval += quoted_string[start];
                 ++start;
             }
         }
 
-        if(*start) {
-            if(!unquote_string_inplace(start, &end)) {
-                goto error;
-            } else {
-                g_string_append(retval, start);
-                start = end;
-            }
+        if(start<quoted_string.size()) {
+            auto uq = unquote_string(quoted_string, start);
+            retval += uq;
         }
     }
 
-    g_free(unquoted);
-    return g_string_free(retval, FALSE);
+    return retval;
 
-    error:
-
-    g_free(unquoted);
-    g_string_free(retval, TRUE);
-    return NULL;
 }
 
 static void delimit_token(std::string &token, std::vector<std::string> &retval) {
@@ -356,7 +321,7 @@ std::vector<std::string> parse_shell_commandline(const char *command_line) {
      */
 
     for(const auto &t : tokens) {
-        args.push_back(shell_unquote(t.c_str()));
+        args.push_back(shell_unquote(t));
 
         /* Since we already checked that quotes matched up in the
          * tokenizer, this shouldn't be possible to reach I guess.
