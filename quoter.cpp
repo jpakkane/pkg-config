@@ -357,11 +357,9 @@ tokenize_command_line(const gchar *command_line) {
 
 std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argcp, char ***argvp) {
     /* Code based on poptParseArgvString() from libpopt */
-    gint argc = 0;
-    gchar **argv = NULL;
     GSList *tokens = NULL;
-    gint i;
     GSList *tmp_list;
+    std::vector<std::string> args;
 
     if(command_line == NULL) {
         throw "Null passed to argv";
@@ -385,36 +383,19 @@ std::vector<std::string> g_shell_parse_argv2(const char *command_line, int *argc
      * such things.
      */
 
-    argc = g_slist_length(tokens);
-    argv = g_new0(gchar*, argc + 1);
-    i = 0;
     tmp_list = tokens;
     while(tmp_list) {
-        argv[i] = g_shell_unquote(static_cast<const char*>(tmp_list->data));
+        args.push_back(g_shell_unquote(static_cast<const char*>(tmp_list->data)));
 
         /* Since we already checked that quotes matched up in the
          * tokenizer, this shouldn't be possible to reach I guess.
          */
-        if(argv[i] == NULL)
+        if(args.back().empty())
             throw "Should not be reached";
 
         tmp_list = g_slist_next(tmp_list);
-        ++i;
     }
 
-    g_slist_free_full(tokens, g_free);
-
-    if(argcp)
-        *argcp = argc;
-
-    if(argvp)
-        *argvp = argv;
-    else
-        g_strfreev(argv);
-
-    auto args = c_arr_to_cpp(*argcp, *argvp);
-
-    g_strfreev(argv);
 
     return args;
 
