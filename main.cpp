@@ -29,6 +29,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdio.h>
+#include <cstdarg>
 
 #include<algorithm>
 
@@ -37,8 +38,6 @@
 #include <windows.h>
 #undef STRICT
 #endif
-
-#include<glib.h>
 
 char *pcsysrootdir = NULL;
 const char *pkg_config_pc_path = NULL;
@@ -72,27 +71,26 @@ extern std::unordered_map<std::string, Package> packages;
 
 void debug_spew(const char *format, ...) {
     va_list args;
-    char *str;
     FILE* stream;
 
-    g_return_if_fail(format != NULL);
+    if(!format) {
+        throw "NULL format string given to debug_spew.";
+    }
 
     if(!want_debug_spew)
         return;
-
-    va_start(args, format);
-    str = g_strdup_vprintf(format, args);
-    va_end(args);
 
     if(want_stdout_errors)
         stream = stdout;
     else
         stream = stderr;
 
-    fputs(str, stream);
+    va_start(args, format);
+    vfprintf(stream, format, args);
+    va_end(args);
+
     fflush(stream);
 
-    g_free(str);
 }
 
 void verbose_error(const char *format, ...) {
@@ -241,7 +239,7 @@ static bool pkg_uninstalled(const Package &pkg) {
     return false;
 }
 
-void print_list_data(const char *data, gpointer user_data) {
+void print_list_data(const char *data, void * user_data) {
     printf("%s\n", data);
 }
 
