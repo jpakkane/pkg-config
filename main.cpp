@@ -39,8 +39,8 @@
 #undef STRICT
 #endif
 
-char *pcsysrootdir = NULL;
-const char *pkg_config_pc_path = NULL;
+std::string pcsysrootdir;
+std::string pkg_config_pc_path;
 
 static bool want_my_version = false;
 static bool want_version = false;
@@ -58,7 +58,7 @@ static bool want_validate = false;
 static std::string required_atleast_version;
 static std::string required_exact_version;
 static std::string required_max_version;
-static char *required_pkgconfig_version = nullptr;
+static std::string required_pkgconfig_version;
 static bool want_silence_errors = false;
 static bool want_variable_list = false;
 static bool want_debug_spew = false;
@@ -423,8 +423,8 @@ std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
                     if(argument.empty()) {
                         argument = argv[++i];
                     }
-                    const char **ptr = (const char**)(opt.arg_data);
-                    *ptr = strdup(argument.c_str()); // FIXME
+                    std::string *ptr = (std::string*)(opt.arg_data);
+                    *ptr = argument.c_str();
                 } else if(opt.arg == OPTION_ARG_NONE) {
                     *static_cast<bool*>(opt.arg_data) = !(opt.flags & OPTION_FLAG_REVERSE);
                 } else if(opt.arg == OPTION_ARG_CALLBACK) {
@@ -457,7 +457,7 @@ std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
 
 int main_(int argc, char **argv) {
     std::string str;
-    std::vector<Package > package_list;
+    std::vector<Package> package_list;
     char *search_path;
     char *pcbuilddir;
     bool need_newline;
@@ -475,7 +475,7 @@ int main_(int argc, char **argv) {
 
     /* Get the built-in search path */
     init_pc_path();
-    if(pkg_config_pc_path == NULL) {
+    if(pkg_config_pc_path.empty()) {
         /* Even when we override the built-in search path, we still use it later
          * to add pc_path to the virtual pkg-config package.
          */
@@ -493,8 +493,9 @@ int main_(int argc, char **argv) {
         add_search_dirs(pkg_config_pc_path, SEARCHPATH_SEPARATOR);
     }
 
-    pcsysrootdir = getenv("PKG_CONFIG_SYSROOT_DIR");
-    if(pcsysrootdir) {
+    auto val = getenv("PKG_CONFIG_SYSROOT_DIR");
+    if(val) {
+        pcsysrootdir = val;
         define_global_variable("pc_sysrootdir", pcsysrootdir);
     } else {
         define_global_variable("pc_sysrootdir", "/");
@@ -577,7 +578,7 @@ int main_(int argc, char **argv) {
         return 0;
     }
 
-    if(required_pkgconfig_version) {
+    if(!required_pkgconfig_version.empty()) {
         if(compare_versions(VERSION, required_pkgconfig_version) >= 0)
             return 0;
         else

@@ -39,7 +39,7 @@
 
 bool parse_strict = true;
 bool define_prefix = ENABLE_DEFINE_PREFIX;
-const char *prefix_variable = "prefix";
+std::string prefix_variable = "prefix";
 
 #ifdef _WIN32
 bool msvc_syntax = false;

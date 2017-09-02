@@ -114,12 +114,12 @@ void disable_requires_private(void);
 /* If true, do not automatically prefer uninstalled versions */
 extern bool disable_uninstalled;
 
-extern char *pcsysrootdir;
+extern std::string pcsysrootdir;
 
 /* pkg-config default search path. On Windows the current pkg-config install
  * directory is used. Otherwise, the build-time defined PKG_CONFIG_PC_PATH.
  */
-extern const char *pkg_config_pc_path;
+extern std::string pkg_config_pc_path;
 
 /* Exit on parse errors if true. */
 extern bool parse_strict;
@@ -128,7 +128,7 @@ extern bool parse_strict;
 extern bool define_prefix;
 
 /* The name of the variable that acts as prefix, unless it is "prefix" */
-extern const char *prefix_variable;
+extern std::string prefix_variable;
 
 #ifdef _WIN32
 /* If true, output flags in MSVC syntax. */

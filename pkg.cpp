@@ -350,7 +350,7 @@ flag_list_to_string(const std::vector<Flag> &flags) {
     for(const auto &flag : flags) {
         const std::string &tmpstr = flag.arg;
 
-        if(pcsysrootdir != NULL && (flag.type & (CFLAGS_I | LIBS_L))) {
+        if(!pcsysrootdir.empty() && (flag.type & (CFLAGS_I | LIBS_L))) {
             /* Handle non-I Cflags like -isystem */
             if((flag.type & CFLAGS_I) && strncmp(tmpstr.c_str(), "-I", 2) != 0) {
                 auto space_loc = tmpstr.find(' ');
