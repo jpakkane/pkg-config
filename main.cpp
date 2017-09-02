@@ -663,12 +663,11 @@ int main_(int argc, char **argv) {
 
     if(want_provides) {
         for(const auto &pkg : package_list) {
-            const char *key;
-            key = pkg.key.c_str();
-            while(*key == '/')
-                key++;
-            if(strlen(key) > 0)
-                printf("%s = %s\n", key, pkg.version.c_str());
+            auto key = pkg.key;
+            while(!key.empty() && key.front() == '/')
+                key.erase(key.begin());
+            if(!key.empty())
+                printf("%s = %s\n", key.c_str(), pkg.version.c_str());
         }
     }
 

@@ -713,9 +713,9 @@ static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
     const std::string l_flag = (msvc_syntax ? "" : "-l");
     const char *lib_suffix = (msvc_syntax ? ".lib" : "");
 #else
-    const char *L_flag = "-L";
+    const std::string L_flag = "-L";
     const std::string l_flag = "-l";
-    const char *lib_suffix = "";
+    const std::string lib_suffix = "";
 #endif
 
     while(i < args.size()) {
