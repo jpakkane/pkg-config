@@ -242,7 +242,7 @@ static bool pkg_uninstalled(const Package &pkg) {
 }
 
 void print_list_data(const char *data, gpointer user_data) {
-    g_print("%s\n", data);
+    printf("%s\n", data);
 }
 
 static void init_pc_path(void) {

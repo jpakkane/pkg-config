@@ -22,8 +22,7 @@
 #include "pkg.h"
 #include "parse.h"
 #include "rpmvercmp.h"
-#include<glib.h>
-
+#
 #include <cassert>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -582,7 +581,7 @@ static void verify_package(Package *pkg) {
 
     std::vector<Flag> filtered;
     for(const auto &flag : pkg->cflags) {
-        gint offset = 0;
+        int offset = 0;
 
         if(!(flag.type & CFLAGS_I)) {
             filtered.push_back(flag);
@@ -604,7 +603,7 @@ static void verify_package(Package *pkg) {
 
             for(const auto &system_dir_iter : system_directories) {
                 if(strcmp(system_dir_iter.c_str(), &flag.arg[offset]) == 0) {
-                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), (char *) flag.arg.c_str());
+                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), flag.arg.c_str());
                     if(getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == nullptr) {
                         debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg->key.c_str());
                         discard_this = true;

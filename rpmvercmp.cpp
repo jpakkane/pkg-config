@@ -16,15 +16,14 @@
 
 #include "rpmvercmp.h"
 
-#include <glib.h>
 #include <string.h>
 #include <ctype.h>
 
 /* macros to help code look more like upstream */
 #define rstreq(a, b)	(strcmp(a, b) == 0)
-#define risalnum(c)	isalnum((guchar)(c))
-#define risdigit(c)	isdigit((guchar)(c))
-#define risalpha(c)	isalpha((guchar)(c))
+#define risalnum(c)	isalnum((unsigned char)(c))
+#define risdigit(c)	isdigit((unsigned char)(c))
+#define risalpha(c)	isalpha((unsigned char)(c))
 
 /* compare alpha and numeric segments of two versions */
 /* return 1: a is newer than b */
