@@ -32,6 +32,7 @@
 #include <cstdarg>
 
 #include<algorithm>
+#include<array>
 
 #ifdef _WIN32
 #define STRICT

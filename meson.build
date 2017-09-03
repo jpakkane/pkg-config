@@ -3,6 +3,8 @@ project('pkg-config', 'cpp',
   version: '0.29.2',
   license: 'GPLv2+')
 
+cpp = meson.get_compiler('cpp')
+
 py3_mod = import('python3')
 py3_exe = py3_mod.find_python()
 
@@ -26,6 +28,14 @@ cdata.set('abs_top_srcdir', meson.current_source_dir())
 configure_file(output : 'config.h',
   configuration : cdata)
 
+if cpp.get_id() == 'clang'
+  cpp_args = '-stdlib=libc++'
+  link_args = '-stdlib=libc++'
+else
+  cpp_args = []
+  link_args = []
+endif
+
 pkgconfig = executable('pkg-config',
   'pkg.cpp',
   'parse.cpp',
@@ -33,6 +43,8 @@ pkgconfig = executable('pkg-config',
   'quoter.cpp',
   'utils.cpp',
   'main.cpp',
+  cpp_args : cpp_args,
+  link_args : link_args,
   install : true)
 
 subdir('check')
