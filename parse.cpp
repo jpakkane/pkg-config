@@ -168,7 +168,7 @@ trim_and_sub(Package *pkg, const std::string &str, const std::string &path) {
             varval = package_get_var(pkg, varname);
 
             if(varval.empty()) {
-                verbose_error("Variable '%s' not defined in '%s'\n", varname, path);
+                verbose_error("Variable '%s' not defined in '%s'\n", varname.c_str(), path.c_str());
                 if(parse_strict)
                     exit(1);
             }
@@ -186,7 +186,7 @@ trim_and_sub(Package *pkg, const std::string &str, const std::string &path) {
 
 static void parse_name(Package *pkg, std::string &str, const std::string &path) {
     if(!pkg->name.empty()) {
-        verbose_error("Name field occurs twice in '%s'\n", path);
+        verbose_error("Name field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -198,7 +198,7 @@ static void parse_name(Package *pkg, std::string &str, const std::string &path) 
 
 static void parse_version(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->version.empty()) {
-        verbose_error("Version field occurs twice in '%s'\n", path);
+        verbose_error("Version field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -210,7 +210,7 @@ static void parse_version(Package *pkg, const std::string &str, const std::strin
 
 static void parse_description(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->description.empty()) {
-        verbose_error("Description field occurs twice in '%s'\n", path);
+        verbose_error("Description field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -371,7 +371,7 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
         }
 
         if(package_name.empty()) {
-            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
+            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path.c_str());
             if(parse_strict)
                 exit(1);
             else
@@ -406,7 +406,7 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
                 ver.comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after "
-                        "package name '%s' in file '%s'\n", comparison.c_str(), ver.name.c_str(), path);
+                        "package name '%s' in file '%s'\n", comparison.c_str(), ver.name.c_str(), path.c_str());
                 if(parse_strict)
                     exit(1);
                 else
@@ -426,7 +426,7 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
 
         if(ver.comparison != ALWAYS_MATCH && version.empty()) {
             verbose_error("Comparison operator but no version after package "
-                    "name '%s' in file '%s'\n", ver.name.c_str(), path);
+                    "name '%s' in file '%s'\n", ver.name.c_str(), path.c_str());
             if(parse_strict)
                 exit(1);
             else {
@@ -576,7 +576,7 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
         }
 
         if(name.empty()) {
-            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
+            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path.c_str());
             if(parse_strict)
                 exit(1);
             else
@@ -652,7 +652,7 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
 
 static void parse_requires(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->requires.empty()) {
-        verbose_error("Requires field occurs twice in '%s'\n", path);
+        verbose_error("Requires field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -667,7 +667,7 @@ static void parse_requires_private(Package *pkg, const std::string &str, const s
     std::string trimmed;
 
     if(!pkg->requires_private.empty()) {
-        verbose_error("Requires.private field occurs twice in '%s'\n", path);
+        verbose_error("Requires.private field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -681,7 +681,7 @@ static void parse_requires_private(Package *pkg, const std::string &str, const s
 static void parse_conflicts(Package *pkg, const std::string &str, const std::string &path) {
 
     if(!pkg->conflicts.empty()) {
-        verbose_error("Conflicts field occurs twice in '%s'\n", path);
+        verbose_error("Conflicts field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -776,7 +776,7 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     /* Strip out -l and -L flags, put them in a separate list. */
 
     if(pkg->libs_num > 0) {
-        verbose_error("Libs field occurs twice in '%s'\n", path);
+        verbose_error("Libs field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -816,7 +816,7 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
      */
 
     if(pkg->libs_private_num > 0) {
-        verbose_error("Libs.private field occurs twice in '%s'\n", path);
+        verbose_error("Libs.private field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -898,7 +898,7 @@ static void parse_cflags(Package *pkg, const std::string &str, const std::string
     /* Strip out -I flags, put them in a separate list. */
 
     if(!pkg->cflags.empty()) {
-        verbose_error("Cflags field occurs twice in '%s'\n", path);
+        verbose_error("Cflags field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -955,7 +955,7 @@ static void parse_cflags(Package *pkg, const std::string &str, const std::string
 
 static void parse_url(Package *pkg, const std::string &str, const std::string &path) {
     if(!pkg->url.empty()) {
-        verbose_error("URL field occurs twice in '%s'\n", path);
+        verbose_error("URL field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
         else
@@ -969,7 +969,7 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
         bool ignore_private_libs, bool ignore_requires_private) {
     std::string::size_type p;
 
-    debug_spew("  line>%s\n", untrimmed);
+    debug_spew("  line>%s\n", untrimmed.c_str());
 
     auto str = trim_string(untrimmed);
 
@@ -1030,7 +1030,7 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
              * versions of pkg-config.  We do make a note of them in the
              * debug spew though, in order to help catch mistakes in .pc
              * files. */
-            debug_spew("Unknown keyword '%s' in '%s'\n", tag, path);
+            debug_spew("Unknown keyword '%s' in '%s'\n", tag.c_str(), path.c_str());
         }
     } else if(str[p] == '=') {
 
@@ -1099,7 +1099,7 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
         auto remainder = str.substr(p, std::string::npos);
         auto varval = trim_and_sub(pkg, remainder, path);
 
-        debug_spew(" Variable declaration, '%s' has value '%s'\n", tag.c_str(), varval);
+        debug_spew(" Variable declaration, '%s' has value '%s'\n", tag.c_str(), varval.c_str());
         pkg->vars[tag] = varval;
 
     }
@@ -1118,12 +1118,12 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
     f = fopen(path.c_str(), "r");
 
     if(f == NULL) {
-        verbose_error("Failed to open '%s': %s\n", path, strerror(errno));
+        verbose_error("Failed to open '%s': %s\n", path.c_str(), strerror(errno));
 
         return Package();
     }
 
-    debug_spew("Parsing package file '%s'\n", path);
+    debug_spew("Parsing package file '%s'\n", path.c_str());
 
     pkg.key = key;
 
@@ -1146,7 +1146,7 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
     }
 
     if(!one_line)
-        verbose_error("Package file '%s' appears to be empty\n", path);
+        verbose_error("Package file '%s' appears to be empty\n", path.c_str());
     fclose(f);
 
     //pkg->libs = g_list_reverse(pkg->libs);

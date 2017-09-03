@@ -202,7 +202,7 @@ internal_get_package(const std::string &name, bool warn) {
 
     /* treat "name" as a filename if it ends in .pc and exists */
     if(ends_in_dotpc(name.c_str())) {
-        debug_spew("Considering '%s' to be a filename rather than a package name\n", name);
+        debug_spew("Considering '%s' to be a filename rather than a package name\n", name.c_str());
         location = name;
         key = name;
     } else {
@@ -255,7 +255,7 @@ internal_get_package(const std::string &name, bool warn) {
         pkg.uninstalled = true;
 
     if(pkg.empty()) {
-        debug_spew("Failed to parse '%s'\n", location);
+        debug_spew("Failed to parse '%s'\n", location.c_str());
         return Package();
     }
 
@@ -524,7 +524,7 @@ static void verify_package(Package *pkg) {
             auto &ver = v_find->second;
             if(!version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
                 verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req.key.c_str(),
-                        comparison_to_str(ver.comparison), ver.version.c_str(), req.key.c_str(), req.version.c_str());
+                        comparison_to_str(ver.comparison).c_str(), ver.version.c_str(), req.key.c_str(), req.version.c_str());
                 if(!req.url.empty())
                     verbose_error("You may find new versions of %s at %s\n", req.name.c_str(), req.url.c_str());
 
@@ -548,7 +548,7 @@ static void verify_package(Package *pkg) {
             if(strcmp(ver.name.c_str(), req.key.c_str()) == 0 && version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
                 verbose_error("Version %s of %s creates a conflict.\n"
                         "(%s %s %s conflicts with %s %s)\n", req.version.c_str(), req.key.c_str(), ver.name.c_str(),
-                        comparison_to_str(ver.comparison), ver.version.empty() ? ver.version.c_str() : "(any)", ver.owner->key.c_str(),
+                        comparison_to_str(ver.comparison).c_str(), ver.version.empty() ? ver.version.c_str() : "(any)", ver.owner->key.c_str(),
                         ver.owner->version.c_str());
 
                 exit(1);
@@ -720,7 +720,7 @@ packages_get_flags(std::vector<Package> &pkgs, FlagType flags) {
 void define_global_variable(const std::string &varname, const std::string &varval) {
 
     if(globals.find(varname) != globals.end()) {
-        verbose_error("Variable '%s' defined twice globally\n", varname);
+        verbose_error("Variable '%s' defined twice globally\n", varname.c_str());
         exit(1);
     }
 
@@ -765,7 +765,7 @@ package_get_var(Package *pkg, const std::string &var) {
         std::string env_var = var_to_env_var(pkg->key.c_str(), var.c_str());
         const char *env_var_content = getenv(env_var.c_str());
         if(env_var_content) {
-            debug_spew("Overriding variable '%s' from environment\n", var);
+            debug_spew("Overriding variable '%s' from environment\n", var.c_str());
             return std::string(env_var_content);
         }
     }
