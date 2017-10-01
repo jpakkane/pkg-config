@@ -1,4 +1,4 @@
-project('pkg-config', 'cpp',
+project('pkg-config', 'cpp', 	'd',
   default_options: 'cpp_std=c++14',
   version: '0.29.2',
   license: 'GPLv2+')
@@ -36,16 +36,18 @@ else
   link_args = []
 endif
 
-pkgconfig = executable('pkg-config',
-  'pkg.cpp',
-  'parse.cpp',
-  'rpmvercmp.cpp',
-  'quoter.cpp',
-  'utils.cpp',
-  'main.cpp',
-  cpp_args : cpp_args,
-  link_args : link_args,
-  install : true)
+#pkgconfig = executable('pkg-config',
+#  'pkg.cpp',
+#  'parse.cpp',
+#  'rpmvercmp.cpp',
+#  'quoter.cpp',
+#  'utils.cpp',
+#  'main.cpp',
+#  cpp_args : cpp_args,
+#  link_args : link_args,
+#  install : true)
+#
+#subdir('check')
 
-subdir('check')
+pkgconfig = static_library('utils', 'utils.d')
 

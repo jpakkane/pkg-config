@@ -11,7 +11,7 @@
 *.gcov
 INSTALL
 
-/build
+/build*
 __pycache__
 
 /.project

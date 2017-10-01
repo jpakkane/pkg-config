@@ -19,38 +19,34 @@
  * 02111-1307, USA.
  */
 
-#pragma once
+module utils;
 
-#include<string>
-#include<vector>
+import std.path;
+import std.array;
+import std.algorithm;
+import std.string;
 
-#ifdef _WIN32
+string get_basename(const string s) {
+    return s.baseName;
+}
 
-#define DIR_SEPARATOR '\\'
-#define DIR_SEPARATOR_S "\\"
-#define IS_DIR_SEPARATOR(c) ((c) == G_DIR_SEPARATOR || (c) == '/')
-#define SEARCHPATH_SEPARATOR ';'
-#define SEARCHPATH_SEPARATOR_S ";"
+string get_dirname(const string s) {
+    return s.dirName;
+}
 
-#else
+bool string_starts_with(const string s, const string prefix) {
+    return s.startsWith(prefix);
+}
 
-#define DIR_SEPARATOR '/'
-#define DIR_SEPARATOR_S "/"
-#define IS_DIR_SEPARATOR(c) ((c) == DIR_SEPARATOR)
-#define SEARCHPATH_SEPARATOR ':'
-#define SEARCHPATH_SEPARATOR_S ":"
+string[] split_whitespace(const string s) {
+    return s.split();
 
-#endif
+}
 
-std::string get_basename(const std::string &s);
+string[] split_string(const string s, const char separator) {
+    return s.split(separator);
+}
 
-std::string get_dirname(const std::string &s);
-
-bool string_starts_with(const std::string &s, const std::string prefix);
-
-std::vector<std::string> split_whitespace(const std::string &s);
-
-std::vector<std::string> split_string(const std::string &s, const char separator);
-
-std::string strip_whitespace(const std::string &s);
-
+string strip_whitespace(const string s) {
+    return chomp(s);
+}
