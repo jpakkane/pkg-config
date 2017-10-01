@@ -17,69 +17,112 @@
  * 02111-1307, USA.
  */
 
-#include "config.h"
-#include "utils.h"
-#include "pkg.h"
-#include "parse.h"
-#include "rpmvercmp.h"
-#
-#include <cassert>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <string.h>
-#include <errno.h>
-#include <stdio.h>
-#ifdef HAVE_UNISTD_H
-#include <unistd.h>
-#endif
-#include <stdlib.h>
-#include <ctype.h>
-#include<dirent.h>
+module pkg;
 
-#include<algorithm>
-#include <sstream>
-#include<unordered_set>
-#include<memory>
+import utils : get_basename;
+
+import core.stdc.ctype;
+import core.stdc.string;
+
+immutable char DIR_SEPARATOR = '/';
+
+immutable int LIBS_l =       (1 << 0);
+immutable int LIBS_L =       (1 << 1);
+immutable int LIBS_OTHER =   (1 << 2);
+immutable int CFLAGS_I =     (1 << 3);
+immutable int CFLAGS_OTHER = (1 << 4);
+
+immutable int LIBS_ANY =    (LIBS_l | LIBS_L | LIBS_OTHER);
+immutable int CFLAGS_ANY =  (CFLAGS_I | CFLAGS_OTHER);
+immutable int FLAGS_ANY =   (LIBS_ANY | CFLAGS_ANY);
+
+enum ComparisonType {
+    LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL, GREATER_THAN_EQUAL, EQUAL, NOT_EQUAL, ALWAYS_MATCH
+}
+
+struct Flag {
+    FlagType type;
+    string arg;
+}
+
+struct RequiredVersion {
+    string name;
+    ComparisonType comparison; // default initialised to LESS_THAN
+    string version_;
+    Package *owner = nullptr;
+}
+
+class Package {
+    string key; /* filename name */
+    string name; /* human-readable name */
+    string version_;
+    string description;
+    string url;
+    string pcfiledir; /* directory it was loaded from */
+    RequiredVersion[] requires_entries;
+    string[] requires;
+    RequiredVersion[] requires_private_entries;
+    string[] requires_private;
+    Flag[] libs;
+    Flag[] cflags;
+    string[string] vars;
+    RequiredVersion[string] required_versions; /* hash from name to RequiredVersion */
+    RequiredVersion[] conflicts; /* list of RequiredVersion */
+    bool uninstalled = false; /* used the -uninstalled file */
+    int path_position = 0; /* used to order packages by position in path of their .pc file, lower number means earlier in path */
+    int libs_num = 0; /* Number of times the "Libs" header has been seen */
+    int libs_private_num = 0; /* Number of times the "Libs.private" header has been seen */
+    string orig_prefix; /* original prefix value before redefinition */
+
+//    bool operator==(const Package &other) const { return key == other.key; }
+    bool empty() const { return key.length == 0; }
+};
+
 
 static void verify_package(Package *pkg);
 
-std::unordered_map<std::string, Package> packages;
-static std::unordered_map<std::string, std::string> globals;
-static std::vector<std::string> search_dirs;
+Package[string] packages;
+string[string] globals;
+string[] search_dirs;
 
 bool disable_uninstalled = false;
 bool ignore_requires = false;
 bool ignore_requires_private = true;
 bool ignore_private_libs = true;
 
-void add_search_dir(const std::string &path) {
+void add_search_dir(const string path) {
     search_dirs.push_back(path);
 }
 
-void add_search_dirs(const std::string &path_, const char separator) {
-    std::string path(path_);
-    std::stringstream ss;
-    ss.str(path);
-    std::string item;
-
-    while(std::getline(ss, item, separator)) {
-        debug_spew("Adding directory '%s' from PKG_CONFIG_PATH\n", item.c_str());
+void add_search_dirs(const string path_, const char separator) {
+    foreach(item; path_.split(separator)) {
+        debug_spew("Adding directory '%s' from PKG_CONFIG_PATH\n", item);
         add_search_dir(item);
     }
 }
 
+/*
 #ifdef _WIN32
-/* Guard against .pc file being installed with UPPER CASE name */
+// Guard against .pc file being installed with UPPER CASE name 
 # define FOLD(x) tolower(x)
 # define FOLDCMP(a, b) g_ascii_strcasecmp (a, b)
 #else
 # define FOLD(x) (x)
 # define FOLDCMP(a, b) strcmp (a, b)
 #endif
+*/
 
-#define EXT_LEN 3
+char FOLD(char c) {
+    return tolower(c);
+}
 
-static bool ends_in_dotpc(const std::string &str) {
+int FOLDCMP(string a, string b) {
+    return strcmp(a, b);
+}
+
+immutable int EXT_LEN=3;
+
+static bool ends_in_dotpc(const string str) {
     const auto len = str.length();
 
     if(len > EXT_LEN && str[len - 3] == '.' &&
@@ -91,9 +134,9 @@ static bool ends_in_dotpc(const std::string &str) {
 }
 
 /* strlen ("-uninstalled") */
-#define UNINSTALLED_LEN 12
+immutable int UNINSTALLED_LEN=12;
 
-bool name_ends_in_uninstalled(const std::string &str) {
+bool name_ends_in_uninstalled(const string str) {
     auto len = str.length();
 
     if(len > UNINSTALLED_LEN &&
@@ -103,65 +146,49 @@ bool name_ends_in_uninstalled(const std::string &str) {
         return false;
 }
 
-static bool is_regular_file(const std::string &fname) {
-    struct stat sb;
-    if(stat(fname.c_str(), &sb) < 0) {
-        return false;
-    }
-    return S_ISREG(sb.st_mode);
+bool is_regular_file(const string fname) {
+    import std.file;
+    return isFile(fname);
 }
-
-static Package
-internal_get_package(const std::string &name, bool warn);
 
 /* Look for .pc files in the given directory and add them into
  * locations, ignoring duplicates
  */
-static void scan_dir(const std::string &dirname) {
+void scan_dir(const string dirname) {
+    import std.file;
     /* Use a copy of dirname cause Win32 opendir doesn't like
      * superfluous trailing (back)slashes in the directory name.
      */
-    std::string dirname_copy = dirname;
+    string dirname_copy = dirname;
 
-    if(dirname_copy.length() > 1 && dirname_copy.back() == DIR_SEPARATOR) {
+    if(dirname_copy.length > 1 && dirname_copy.back() == DIR_SEPARATOR) {
         dirname_copy.pop_back();
     }
+/*
 #ifdef _WIN32
     for(size_t i=0; i<dirname_copy.length(); ++i)
     if dirname_copy[i] == '\\')
         dirname_copy[i] = '/';
 #endif
-    std::vector<std::string> entries;
-    std::unique_ptr<DIR, int(*)(DIR*)> dirholder(opendir(dirname_copy.c_str()), closedir);
-    auto dir = dirholder.get();
-
-    if(!dir) {
-        debug_spew("Cannot open directory '%s' in package search path: %s\n", dirname.c_str(), strerror(errno));
-        return;
-    }
-    struct dirent *de;
-    std::string basename;
-
-    debug_spew("Scanning directory '%s'\n", dirname.c_str());
-
-    while((de = readdir(dir))) {
-        if(de->d_name[0] == '.')
+*/
+    string[] entries;
+    foreach(string de; dirEntries(dirname_copy)) {
+        if(de == '.')
             continue;
-        std::string path(dirname);
+        string path(dirname);
         if(path.back() != '/') {
             path.push_back('/');
         }
-        path += de->d_name;
+        path += de;
         internal_get_package(path, false);
     }
 }
 
-static Package
-add_virtual_pkgconfig_package(void) {
+Package add_virtual_pkgconfig_package() {
     Package pkg;
 
     pkg.key = "pkg-config";
-    pkg.version = VERSION;
+    pkg.version_ = VERSION;
     pkg.name = "pkg-config";
     pkg.description = "pkg-config is a system for managing compile/link flags for libraries";
     pkg.url = "http://pkg-config.freedesktop.org/";
@@ -177,9 +204,9 @@ add_virtual_pkgconfig_package(void) {
 void package_init(bool want_list) {
 
     if(want_list)
-        std::for_each(search_dirs.begin(), search_dirs.end(), [] (const std::string &dir) {
+        foreach(dir; search_dirs) {
             scan_dir(dir);
-        });
+        }
     else
         /* Should not add virtual pkgconfig package when listing to be
          * compatible with old code that only listed packages from real
@@ -187,16 +214,13 @@ void package_init(bool want_list) {
         add_virtual_pkgconfig_package();
 }
 
-static Package
-internal_get_package(const std::string &name, bool warn) {
+Package internal_get_package(const string name, bool warn) {
     Package pkg;
-    std::string key, location;
-    unsigned int path_position = 0;
+    string key, location;
+    uint path_position = 0;
 
-    auto res = packages.find(name);
-
-    if(res != packages.end())
-        return res->second;
+    if(name in packages)
+        return packages[name];
 
     debug_spew("Looking for package '%s'\n", name.c_str());
 
@@ -208,7 +232,7 @@ internal_get_package(const std::string &name, bool warn) {
     } else {
         /* See if we should auto-prefer the uninstalled version */
         if(!disable_uninstalled && !name_ends_in_uninstalled(name.c_str())) {
-            std::string un = name + "-uninstalled";
+            string un = name + "-uninstalled";
 
             pkg = internal_get_package(un, false);
 
@@ -218,7 +242,7 @@ internal_get_package(const std::string &name, bool warn) {
             }
         }
 
-        for(const auto &dir : search_dirs) {
+        foreach(dir; search_dirs) {
             path_position++;
             location = dir;
             location += DIR_SEPARATOR;
@@ -244,14 +268,14 @@ internal_get_package(const std::string &name, bool warn) {
         key = name;
     else {
         /* need to extract package name out of the full filename path */
-        key = get_basename(name.c_str());
+        key = get_basename(name);
         key = key.substr(0, key.length() - EXT_LEN);
     }
 
     debug_spew("Reading '%s' from file '%s'\n", name.c_str(), location.c_str());
     pkg = parse_package_file(key, location, ignore_requires, ignore_private_libs, ignore_requires_private);
 
-    if(!pkg.empty() && location.find("uninstalled.pc") != std::string::npos)
+    if(!pkg.empty() && location.indexOf("uninstalled.pc") >= 0)
         pkg.uninstalled = true;
 
     if(pkg.empty()) {
@@ -265,10 +289,10 @@ internal_get_package(const std::string &name, bool warn) {
 
     debug_spew("Adding '%s' to list of known packages\n", pkg.key.c_str());
     packages[pkg.key] = pkg;
-    auto &added_pkg = packages[pkg.key];
+    auto added_pkg = packages[pkg.key];
 
     /* pull in Requires packages */
-    for(const auto &ver : added_pkg.requires_entries) {
+    foreach(ver; added_pkg.requires_entries) {
         debug_spew("Searching for '%s' requirement '%s'\n", added_pkg.key.c_str(), ver.name.c_str());
         auto req = internal_get_package(ver.name.c_str(), warn);
         if(req.empty()) {
@@ -281,7 +305,7 @@ internal_get_package(const std::string &name, bool warn) {
     }
 
     /* pull in Requires.private packages */
-    for(const auto &ver : added_pkg.requires_private_entries) {
+    foreach(ver; added_pkg.requires_private_entries) {
         debug_spew("Searching for '%s' private requirement '%s'\n", added_pkg.key.c_str(), ver.name.c_str());
         auto req = internal_get_package(ver.name.c_str(), warn);
         if(req.empty()) {
@@ -293,73 +317,68 @@ internal_get_package(const std::string &name, bool warn) {
         added_pkg.requires_private.push_back(req.key);
     }
 
-    std::reverse(added_pkg.requires_private.begin(), added_pkg.requires_private.end());
+    import std.algorithm : reverse;
+    added_pkg.reverse();
     /* make requires_private include a copy of the public requires too */
-    added_pkg.requires_private.insert(added_pkg.requires_private.begin(),
-            added_pkg.requires.rbegin(),
-            added_pkg.requires.rend());
+    added_pkg.requires_private ~= added_pkg.requires;
 
-//    pkg->requires = g_list_reverse(pkg->requires);
-//    pkg->requires_private_ = g_list_reverse(pkg->requires_private_);
+//    pkg.requires = g_list_reverse(pkg.requires);
+//    pkg.requires_private_ = g_list_reverse(pkg.requires_private_);
 
-    verify_package(&added_pkg);
+    verify_package(added_pkg);
 
     return added_pkg;
 }
 
-Package
-get_package(const std::string &name) {
+Package get_package(const string name) {
     return internal_get_package(name, true);
 }
 
-Package
-get_package_quiet(const std::string &name) {
+Package get_package_quiet(const string name) {
     return internal_get_package(name, false);
 }
 
 /* Strip consecutive duplicate arguments in the flag list. */
-static std::vector<Flag>
-flag_list_strip_duplicates(const std::vector<Flag> &list) {
-    std::vector<Flag> result;
+static Flag[] flag_list_strip_duplicates(const Flag[] list) {
+    Flag[] result;
 
     if(list.empty()) {
         return result;
     }
-    result.push_back(list.front());
+    result ~= list[0];
     /* Start at the 2nd element of the list so we don't have to check for an
      * existing previous element. */
     for(size_t i=1; i<list.size(); ++i) {
-        const Flag &cur = list[i];
-        const Flag &prev = list[i-1];
+        const Flag cur = list[i];
+        const Flag prev = list[i-1];
 
         if(cur.type == prev.type && cur.arg == prev.arg) {
             /* Remove the duplicate flag from the list and move to the last
              * element to prepare for the next iteration. */
         } else {
-            result.push_back(cur);
+            result ~= cur;
         }
     }
 
     return result;
 }
 
-static std::string
-flag_list_to_string(const std::vector<Flag> &flags) {
-    std::string str;
+static string flag_list_to_string(const Flag[] flags) {
+    string str;
 
-    for(const auto &flag : flags) {
-        const std::string &tmpstr = flag.arg;
+    foreach(flag; flags) {
+        const string tmpstr = flag.arg;
 
         if(!pcsysrootdir.empty() && (flag.type & (CFLAGS_I | LIBS_L))) {
             /* Handle non-I Cflags like -isystem */
             if((flag.type & CFLAGS_I) && strncmp(tmpstr.c_str(), "-I", 2) != 0) {
-                auto space_loc = tmpstr.find(' ');
+                auto space_loc = tmpstr.indexOf(' ');
 
                 /* Ensure this has a separate arg */
-                assert(space_loc != std::string::npos && space_loc < tmpstr.length()-1);
-                str += tmpstr.substr(0, space_loc + 1);
+                assert(space_loc >= 0 && space_loc < tmpstr.length()-1);
+                str += tmpstr[0 .. space_loc + 1];
                 str += pcsysrootdir;
-                str += tmpstr.substr(space_loc + 1);
+                str += tmpstr[space_loc .. 1];
             } else {
                 str += '-';
                 str += tmpstr[1];
@@ -375,11 +394,11 @@ flag_list_to_string(const std::vector<Flag> &flags) {
     return str;
 }
 
-static void spew_package_list(const std::string &name, const std::vector<std::string> &list) {
-    debug_spew(" %s:", name.c_str());
+static void spew_package_list(string name, const string[] list) {
+    debug_spew(" %s:", name);
 
-    for(const auto &i : list) {
-        debug_spew(" %s", i.c_str());
+    foreach(i; list) {
+        debug_spew(" %s", i);
     }
     debug_spew("\n");
 }
@@ -392,40 +411,42 @@ static void spew_package_list(const std::string &name, const std::vector<std::st
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(const Package &pkg, bool include_private, std::unordered_set<std::string> &visited, std::vector<std::string> &listp) {
+static void recursive_fill_list(const Package pkg, bool include_private, bool[string] visited, string[] listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
      * we can skip it. Additionally, this allows circular requires loops to be
      * broken.
      */
-    auto found = visited.find(pkg.key);
-    if(found != visited.end()) {
+    if(pkg.key in visited) {
         debug_spew("Package %s already in requires chain, skipping\n", pkg.key.c_str());
         return;
     }
     /* record this package in the dependency chain */
-    visited.insert(pkg.key);
+    visited[pkg.key] = true;
 
     /* Start from the end of the required package list to maintain order since
      * the recursive list is built by prepending. */
-    auto &tmp = include_private ? pkg.requires_private : pkg.requires;
-    for(auto &p_name : tmp) {
+    auto tmp = include_private ? pkg.requires_private : pkg.requires;
+    foreach(p_name; tmp) {
         auto p = packages[p_name];
         recursive_fill_list(p, include_private, visited, listp);
     }
-    listp.insert(listp.begin(), pkg.key);
+    string[] tmp;
+    tmp ~= pkg.key;
+    tmp ~= listp;
+    listp = tmp;
 }
 
 /* merge the flags from the individual packages */
-static std::vector<Flag>
-merge_flag_lists(const std::vector<std::string> &pkgs, FlagType type) {
-    std::vector<Flag> merged;
+static Flag[]
+merge_flag_lists(const string[] pkgs, FlagType type) {
+    Flag[] merged;
     /* keep track of the last element to avoid traversing the whole list */
-    for(const auto &pkey : pkgs) {
-        auto &i = packages[pkey];
-        std::vector<Flag> &flags = (type & LIBS_ANY) ? i.libs : i.cflags;
-        for(const auto &f : flags) {
+    foreach(pkey; pkgs) {
+        auto i = packages[pkey];
+        Flag[] flags = (type & LIBS_ANY) ? i.libs : i.cflags;
+        foreach(f; flags) {
             if(f.type & type) {
                 merged.push_back(f);
             }
@@ -435,23 +456,22 @@ merge_flag_lists(const std::vector<std::string> &pkgs, FlagType type) {
     return merged;
 }
 
-static std::vector<Flag>
-fill_list(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool include_private) {
-    std::vector<std::string> expanded;
-    std::vector<Flag> flags;
-    std::unordered_set<std::string> visited;
+static Flag[]
+fill_list(Package[] pkgs, FlagType type, bool in_path_order, bool include_private) {
+    string[] expanded;
+    Flag[] flags;
+    bool[string] visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
-    for(auto tmp = pkgs->rbegin(); tmp != pkgs->rend(); ++tmp)
+    foreach(tmp; pkgs)
         recursive_fill_list(*tmp, include_private, visited, expanded);
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
         spew_package_list("original", expanded);
-        std::stable_sort(expanded.begin(), expanded.end(), [] (const std::string &pa, const std::string &pb) {
-            return packages[pa].path_position < packages[pb].path_position;
-        });
+        alias myComp = (pa, pb) => packages[pa].path_position < packages[pb].path_position;
+        expanded.sort!(myComp, SwapStrategy.stable);
         spew_package_list("  sorted", expanded);
     }
 
@@ -461,72 +481,70 @@ fill_list(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool in
 }
 
 static void
-add_env_variable_to_list(std::vector<std::string> &list, const std::string &env) {
+add_env_variable_to_list(string[] list, const string env) {
     auto values = split_string(env, SEARCHPATH_SEPARATOR);
-    for(auto &&i : values) {
-        list.emplace_back(i);
-    }
+    list ~= values;
 }
 
 /* Well known compiler include path environment variables. These are
  * used to find additional system include paths to remove. See
  * https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html. */
-static const char *gcc_include_envvars[] = { "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH",
-NULL };
-
+static string[] gcc_include_envvars = { "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH" };
+/*
 #ifdef _WIN32
-/* MSVC include path environment variables. See
- * https://msdn.microsoft.com/en-us/library/73f9s62w.aspx. */
+// MSVC include path environment variables. See
+// https://msdn.microsoft.com/en-us/library/73f9s62w.aspx.
 static const char *msvc_include_envvars[] = {
     "INCLUDE",
     NULL
 };
 #endif
-
-static void verify_package(Package *pkg) {
-    std::vector<std::string> requires;
-    std::vector<RequiredVersion> conflicts;
-    std::vector<std::string> system_directories;
-    std::unordered_set<std::string> visited;
+*/
+static void verify_package(Package pkg) {
+    import core.stdc.stdlib;
+    string[] requires;
+    RequiredVersion[] conflicts;
+    string[] system_directories;
+    bool[string] visited;
     const char *search_path;
     const char **include_envvars;
     const char **var;
 
     /* Be sure we have the required fields */
 
-    if(pkg->key.empty()) {
+    if(pkg.key.empty()) {
         fprintf(stderr, "Internal pkg-config error, package with no key, please file a bug report\n");
         exit(1);
     }
 
-    if(pkg->name.empty()) {
-        verbose_error("Package '%s' has no Name: field\n", pkg->key.c_str());
+    if(pkg.name.empty()) {
+        verbose_error("Package '%s' has no Name: field\n", pkg.key.c_str());
         exit(1);
     }
 
-    if(pkg->version.empty()) {
-        verbose_error("Package '%s' has no Version: field\n", pkg->key.c_str());
+    if(pkg.version_.empty()) {
+        verbose_error("Package '%s' has no Version: field\n", pkg.key.c_str());
         exit(1);
     }
 
-    if(pkg->description.empty()) {
-        verbose_error("Package '%s' has no Description: field\n", pkg->key.c_str());
+    if(pkg.description.empty()) {
+        verbose_error("Package '%s' has no Description: field\n", pkg.key.c_str());
         exit(1);
     }
 
     /* Make sure we have the right version for all requirements */
 
-    for(const auto &req_name : pkg->requires_private) {
-        auto &req = packages[req_name];
-        auto v_find = pkg->required_versions.find(req.key);
+    foreach(req_name; pkg.requires_private) {
+        auto req = packages[req_name];
+        auto v_find = pkg.required_versions.find(req.key);
 
-        if(v_find != pkg->required_versions.end()) {
-            auto &ver = v_find->second;
-            if(!version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
-                verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg->key.c_str(), req.key.c_str(),
-                        comparison_to_str(ver.comparison).c_str(), ver.version.c_str(), req.key.c_str(), req.version.c_str());
+        if(req.key in pkg.required_versions) {
+            auto ver = pkg.required_versions[req.key];
+            if(!version_test(ver.comparison, req.version_, ver.version_)) {
+                verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg.key, req.key,
+                        comparison_to_str(ver.comparison), ver.version, req.key, req.version);
                 if(!req.url.empty())
-                    verbose_error("You may find new versions of %s at %s\n", req.name.c_str(), req.url.c_str());
+                    verbose_error("You may find new versions of %s at %s\n", req.name, req.url);
 
                 exit(1);
             }
@@ -537,21 +555,21 @@ static void verify_package(Package *pkg) {
     /* Make sure we didn't drag in any conflicts via Requires
      * (inefficient algorithm, who cares)
      */
-    recursive_fill_list(*pkg, true, visited, requires);
-    conflicts = pkg->conflicts;
+    recursive_fill_list(pkg, true, visited, requires);
+    conflicts = pkg.conflicts;
 
-    for(const auto &req_name : requires) {
-        Package &req = packages[req_name];
+    foreach(req_name; requires) {
+        Package req = packages[req_name];
 
-        for(const auto & ver : req.conflicts) {
+        foreach(ver; req.conflicts) {
 
-            if(strcmp(ver.name.c_str(), req.key.c_str()) == 0 && version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
+            if(ver.name == req.key && version_test(ver.comparison, req.version_, ver.version_)) {
                 verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req.version.c_str(), req.key.c_str(), ver.name.c_str(),
-                        comparison_to_str(ver.comparison).c_str(), ver.version.empty() ? ver.version.c_str() : "(any)", ver.owner->key.c_str(),
-                        ver.owner->version.c_str());
+                        "(%s %s %s conflicts with %s %s)\n", req.version, req.key, ver.name,
+                        comparison_to_str(ver.comparison), ver.version.empty() ? ver.version_ : "(any)", ver.owner.key,
+                        ver.owner.version_);
 
-                exit(1);
+                throw new Exception("1");
             }
         }
     }
@@ -568,19 +586,19 @@ static void verify_package(Package *pkg) {
 
     add_env_variable_to_list(system_directories, search_path);
 
-#ifdef _WIN32
-    include_envvars = msvc_syntax ? msvc_include_envvars : gcc_include_envvars;
-#else
+//#ifdef _WIN32
+//    include_envvars = msvc_syntax ? msvc_include_envvars : gcc_include_envvars;
+//#else
     include_envvars = gcc_include_envvars;
-#endif
-    for(var = include_envvars; *var != NULL; var++) {
-        search_path = getenv(*var);
+//#endif
+    foreach(var; include_envvars) {
+        search_path = getenv(var.ptr);
         if(search_path != NULL)
             add_env_variable_to_list(system_directories, search_path);
     }
 
-    std::vector<Flag> filtered;
-    for(const auto &flag : pkg->cflags) {
+    Flag[] filtered;
+    foreach(flag; pkg.cflags) {
         int offset = 0;
 
         if(!(flag.type & CFLAGS_I)) {
@@ -601,11 +619,12 @@ static void verify_package(Package *pkg) {
                 continue;
             }
 
-            for(const auto &system_dir_iter : system_directories) {
-                if(strcmp(system_dir_iter.c_str(), &flag.arg[offset]) == 0) {
-                    debug_spew("Package %s has %s in Cflags\n", pkg->key.c_str(), flag.arg.c_str());
-                    if(getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == nullptr) {
-                        debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg->key.c_str());
+            foreach(system_dir_iter; system_directories) {
+                auto tmp = flag[offset .. flag.length];
+                if(system_dir_iter == tmp) {
+                    debug_spew("Package %s has %s in Cflags\n", pkg.key, flag.arg);
+                    if(getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == null) {
+                        debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg.key.c_str());
                         discard_this = true;
                         break;
                     }
@@ -616,7 +635,7 @@ static void verify_package(Package *pkg) {
             filtered.push_back(flag);
         }
     }
-    pkg->cflags.swap(filtered);
+    pkg.cflags.swap(filtered);
 
 
     system_directories.clear();
@@ -630,7 +649,7 @@ static void verify_package(Package *pkg) {
     add_env_variable_to_list(system_directories, search_path);
 
     filtered.clear();
-    for(const auto &flag : pkg->libs) {
+    for(const auto &flag : pkg.libs) {
 
         if(!(flag.type & LIBS_L)) {
             filtered.push_back(flag);
@@ -648,10 +667,10 @@ static void verify_package(Package *pkg) {
             else if(strncmp(linker_arg, "-L", 2) == 0 && strcmp(linker_arg + 2, system_libpath) == 0)
                 is_system = true;
             if(is_system) {
-                debug_spew("Package %s has -L %s in Libs\n", pkg->key.c_str(), system_libpath);
+                debug_spew("Package %s has -L %s in Libs\n", pkg.key, system_libpath);
                 if(getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
                     discard_this = true;
-                    debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg->key.c_str());
+                    debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg.key);
                     break;
                 }
             }
@@ -661,7 +680,7 @@ static void verify_package(Package *pkg) {
         }
     }
 
-    pkg->libs.swap(filtered);
+    pkg.libs.swap(filtered);
 }
 
 /* Create a merged list of required packages and retrieve the flags from them.
@@ -671,10 +690,10 @@ static void verify_package(Package *pkg) {
  * most dependent to least dependent and stripping from the end of the list.
  * The former is done for -I/-L flags, and the latter for all others.
  */
-static std::string
-get_multi_merged(std::vector<Package> *pkgs, FlagType type, bool in_path_order, bool include_private) {
-    std::vector<Flag> list;
-    std::string retval;
+static string
+get_multi_merged(Package[] pkgs, FlagType type, bool in_path_order, bool include_private) {
+    Flag[] list;
+    string retval;
 
     list = fill_list(pkgs, type, in_path_order, include_private);
     list = flag_list_strip_duplicates(list);
@@ -683,29 +702,29 @@ get_multi_merged(std::vector<Package> *pkgs, FlagType type, bool in_path_order, 
     return retval;
 }
 
-std::string
-packages_get_flags(std::vector<Package> &pkgs, FlagType flags) {
-    std::string str, cur;
+string
+packages_get_flags(Package[] pkgs, FlagType flags) {
+    string str, cur;
 
     /* sort packages in path order for -L/-I, dependency order otherwise */
     if(flags & CFLAGS_OTHER) {
         cur = get_multi_merged(&pkgs, CFLAGS_OTHER, false, true);
-        debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur.c_str());
+        debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur);
         str += cur;
     }
     if(flags & CFLAGS_I) {
         cur = get_multi_merged(&pkgs, CFLAGS_I, true, true);
-        debug_spew("adding CFLAGS_I string \"%s\"\n", cur.c_str());
+        debug_spew("adding CFLAGS_I string \"%s\"\n", cur);
         str += cur;
     }
     if(flags & LIBS_L) {
         cur = get_multi_merged(&pkgs, LIBS_L, true, !ignore_private_libs);
-        debug_spew("adding LIBS_L string \"%s\"\n", cur.c_str());
+        debug_spew("adding LIBS_L string \"%s\"\n", cur);
         str += cur;
     }
     if(flags & (LIBS_OTHER | LIBS_l)) {
         cur = get_multi_merged(&pkgs, flags & (LIBS_OTHER | LIBS_l), false, !ignore_private_libs);
-        debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur.c_str());
+        debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur);
         str += cur;
     }
 
@@ -713,25 +732,25 @@ packages_get_flags(std::vector<Package> &pkgs, FlagType flags) {
     if(!str.empty() && str.back() == ' ')
         str.pop_back();
 
-    debug_spew("returning flags string \"%s\"\n", str.c_str());
+    debug_spew("returning flags string \"%s\"\n", str);
     return str;
 }
 
-void define_global_variable(const std::string &varname, const std::string &varval) {
+void define_global_variable(const string varname, const string varval) {
 
     if(globals.find(varname) != globals.end()) {
-        verbose_error("Variable '%s' defined twice globally\n", varname.c_str());
+        verbose_error("Variable '%s' defined twice globally\n", varname);
         exit(1);
     }
 
     globals[varname] = varval;
 
-    debug_spew("Global variable definition '%s' = '%s'\n", varname.c_str(), varval.c_str());
+    debug_spew("Global variable definition '%s' = '%s'\n", varname, varval);
 }
 
-std::string
-var_to_env_var(const std::string &pkg, const std::string &var) {
-    std::string new_("PKG_CONFIG_");
+string
+var_to_env_var(const string pkg, const string var) {
+    string new_("PKG_CONFIG_");
     new_ += pkg;
     new_ += "_";
     new_ += var;
@@ -751,39 +770,40 @@ var_to_env_var(const std::string &pkg, const std::string &var) {
     return new_;
 }
 
-std::string
-package_get_var(Package *pkg, const std::string &var) {
-    std::string varval;
-    auto lookup = globals.find(var);
-    if(lookup != globals.end())
-        varval = lookup->second;
+string
+package_get_var(Package pkg, const string var) {
+    import core.stdc.stdlib;
+    string varval;
 
+    if(lookup in globals.end()) {
+        varval = globals[lookup];
+    }
     /* Allow overriding specific variables using an environment variable of the
      * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
      */
-    if(pkg->key.c_str()) {
-        std::string env_var = var_to_env_var(pkg->key.c_str(), var.c_str());
-        const char *env_var_content = getenv(env_var.c_str());
+    if(!pkg.key.empty()) {
+        string env_var = var_to_env_var(pkg.key, var);
+        string env_var_content = getenv(env_var);
         if(env_var_content) {
-            debug_spew("Overriding variable '%s' from environment\n", var.c_str());
-            return std::string(env_var_content);
+            debug_spew("Overriding variable '%s' from environment\n", var);
+            return string(env_var_content);
         }
     }
 
     if(varval.empty()) {
-        auto res = pkg->vars.find(var);
-        if(res != pkg->vars.end())
-            varval = res->second;
+        auto res = pkg.vars.find(var);
+        if(var in pkg.vars)
+            varval = pkg.vars[var];
     }
     return varval;
 }
 
-std::string
-packages_get_var(std::vector<Package> &pkgs, const std::string &varname) {
-    std::string str;
+string
+packages_get_var(Package[] pkgs, const string varname) {
+    string str;
 
-    for(auto &pkg : pkgs) {
-        auto var = parse_package_variable(&pkg, varname);
+    foreach(pkg; pkgs) {
+        auto var = parse_package_variable(pkg, varname);
         if(!var.empty()) {
             if(!str.empty())
                 str += ' ';
@@ -795,11 +815,12 @@ packages_get_var(std::vector<Package> &pkgs, const std::string &varname) {
     return str;
 }
 
-int compare_versions(const std::string &a, const std::string &b) {
+int compare_versions(const string &a, const string &b) {
+    import rpmvercmp;
     return rpmvercmp(a, b);
 }
 
-bool version_test(ComparisonType comparison, const std::string &a, const std::string &b) {
+bool version_test(ComparisonType comparison, const string a, const string b) {
     switch (comparison){
     case LESS_THAN:
         return compare_versions(a, b) < 0;
@@ -836,7 +857,7 @@ bool version_test(ComparisonType comparison, const std::string &a, const std::st
     return false;
 }
 
-std::string
+string
 comparison_to_str(ComparisonType comparison) {
     switch (comparison){
     case LESS_THAN:
@@ -874,21 +895,21 @@ comparison_to_str(ComparisonType comparison) {
     return "???";
 }
 
-void print_package_list(void) {
+void print_package_list() {
     size_t mlen = 0;
 
     ignore_requires = true;
     ignore_requires_private = true;
 
-    for(auto i = packages.begin(); i != packages.end(); ++i) {
-        mlen = std::max(mlen, i->first.length());
+    foreach(i; packages.byKey)
+        mlen = std::max(mlen, i.length());
     }
-    for(auto i = packages.begin(); i != packages.end(); ++i) {
-        std::string pad;
-        for(size_t counter=0; counter < mlen-i->first.size()+1; ++counter)
+    foreach(first, second; packages.byKeyValue) {
+        string pad;
+        for(size_t counter=0; counter < mlen - first.size()+1; ++counter)
             pad += " ";
-        printf("%s%s%s - %s\n", i->second.key.c_str(), pad.c_str(), i->second.name.c_str(),
-                i->second.description.c_str());
+        printf("%s%s%s - %s\n", second.key, pad, second.name,
+                second.description);
     }
 }
 
