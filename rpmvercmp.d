@@ -12,26 +12,18 @@
  * features and pkg-config does not require a C99 compiler yet.
  */
 
-#include "config.h"
+module rpmvercomp;
 
-#include "rpmvercmp.h"
-
-#include <string.h>
-#include <ctype.h>
-
-/* macros to help code look more like upstream */
-#define rstreq(a, b)	(strcmp(a, b) == 0)
-#define risalnum(c)	isalnum((unsigned char)(c))
-#define risdigit(c)	isdigit((unsigned char)(c))
-#define risalpha(c)	isalpha((unsigned char)(c))
+import core.stdc.ctype;
+import core.stdc.string;
 
 /* compare alpha and numeric segments of two versions */
 /* return 1: a is newer than b */
 /*        0: a and b are the same version */
 /*       -1: b is newer than a */
-int rpmvercmp(const std::string &a, const std::string &b) {
-    std::string::size_type str1, str2;
-    std::string::size_type one=0, two=0;
+int rpmvercmp(const string a, const string b) {
+    int str1, str2;
+    int one=0, two=0;
     int rc;
     int isnum;
 
@@ -40,14 +32,14 @@ int rpmvercmp(const std::string &a, const std::string &b) {
         return 0;
 
     /* loop through each version segment of str1 and str2 and compare them */
-    while(one<a.size() && two<b.size()) {
-        while(one<a.size() && !risalnum(a[one]))
+    while(one<a.length && two<b.length) {
+        while(one<a.length && !isalnum(a[one]))
             one++;
-        while(two<b.size() && !risalnum(b[two]))
+        while(two<b.length && !isalnum(b[two]))
             two++;
 
         /* If we ran to the end of either, we are finished with the loop */
-        if(!(one<a.size() && two<b.size()))
+        if(!(one<a.length && two<b.length))
             break;
 
         str1 = one;
@@ -56,16 +48,16 @@ int rpmvercmp(const std::string &a, const std::string &b) {
         /* grab first completely alpha or completely numeric segment */
         /* leave one and two pointing to the start of the alpha or numeric */
         /* segment and walk str1 and str2 to end of segment */
-        if(risdigit(a[str1])) {
-            while(str1<a.size() && risdigit(a[str1]))
+        if(isdigit(a[str1])) {
+            while(str1<a.length && isdigit(a[str1]))
                 str1++;
-            while(str2<b.size() && risdigit(b[str2]))
+            while(str2<b.length && isdigit(b[str2]))
                 str2++;
             isnum = 1;
         } else {
-            while(str1<a.size() && risalpha(a[str1]))
+            while(str1<a.length && isalpha(a[str1]))
                 str1++;
-            while(str2<b.size() && risalpha(b[str2]))
+            while(str2<b.length && isalpha(b[str2]))
                 str2++;
             isnum = 0;
         }
@@ -82,7 +74,7 @@ int rpmvercmp(const std::string &a, const std::string &b) {
         if(two == str2)
             return (isnum ? 1 : -1);
 
-        std::string dig1, dig2;
+        string dig1, dig2;
         if(isnum) {
             /* this used to be done by converting the digit segments */
             /* to ints using atoi() - it's changed because long  */
@@ -94,12 +86,12 @@ int rpmvercmp(const std::string &a, const std::string &b) {
             while(b[two] == '0')
                 two++;
 
-            dig1 = a.substr(one, str1-one);
-            dig2 = b.substr(two, str2-two);
+            dig1 = a[one .. str1-one];
+            dig2 = b[two .. str2-two];
             /* whichever number has more digits wins */
-            if(dig1.length() > dig2.length())
+            if(dig1.length > dig2.length)
                 return 1;
-            if(dig2.length() > dig1.length())
+            if(dig2.length > dig1.length)
                 return -1;
         }
 
@@ -107,7 +99,7 @@ int rpmvercmp(const std::string &a, const std::string &b) {
         /* segments are alpha or if they are numeric.  don't return  */
         /* if they are equal because there might be more segments to */
         /* compare */
-        rc = strcmp(dig1.c_str(), dig2.c_str());
+        rc = strcmp(dig1.ptr, dig2.ptr);
         if(rc)
             return (rc < 1 ? -1 : 1);
         /* restore character that was replaced by null above */
@@ -119,11 +111,11 @@ int rpmvercmp(const std::string &a, const std::string &b) {
     /* this catches the case where all numeric and alpha segments have */
     /* compared identically but the segment sepparating characters were */
     /* different */
-    if((one>=a.length()) && (two>=b.length()))
+    if((one>=a.length) && (two>=b.length))
         return 0;
 
     /* whichever version still has characters left over wins */
-    if(one>=a.length())
+    if(one>=a.length)
         return -1;
     else
         return 1;

@@ -49,5 +49,5 @@ endif
 #
 #subdir('check')
 
-pkgconfig = static_library('utils', 'utils.d')
+pkgconfig = static_library('utils', 'rpmvercmp.d', 'utils.d')
 
