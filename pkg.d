@@ -657,7 +657,7 @@ static void verify_package(Package pkg) {
         }
 
         bool discard_this = false;
-        for(auto &system_dir_iter : system_directories) {
+        foreach(system_dir_iter; system_directories) {
             bool is_system = false;
             const char *linker_arg = flag.arg.c_str();
             const char *system_libpath = system_dir_iter.c_str();
@@ -750,7 +750,7 @@ void define_global_variable(const string varname, const string varval) {
 
 string
 var_to_env_var(const string pkg, const string var) {
-    string new_("PKG_CONFIG_");
+    string new_ = "PKG_CONFIG_";
     new_ += pkg;
     new_ += "_";
     new_ += var;
@@ -907,9 +907,9 @@ void print_package_list() {
     }
     foreach(first, second; packages.byKeyValue) {
         string pad;
-        for(size_t counter=0; counter < mlen - first.size()+1; ++counter)
+        for(int counter=0; counter < mlen - first.size()+1; ++counter)
             pad += " ";
-        printf("%s%s%s - %s\n", second.key, pad, second.name,
+        writeln("%s%s%s - %s", second.key, pad, second.name,
                 second.description);
     }
 }

@@ -17,31 +17,10 @@
  * 02111-1307, USA.
  */
 
-#include "config.h"
+module main;
 
-#include "utils.h"
-#include "pkg.h"
-#include "parse.h"
-
-#include<cassert>
-
-#include <stdlib.h>
-#include <string.h>
-#include <ctype.h>
-#include <stdio.h>
-#include <cstdarg>
-
-#include<algorithm>
-#include<array>
-
-#ifdef _WIN32
-#define STRICT
-#include <windows.h>
-#undef STRICT
-#endif
-
-std::string pcsysrootdir;
-std::string pkg_config_pc_path;
+string pcsysrootdir;
+string pkg_config_pc_path;
 
 static bool want_my_version = false;
 static bool want_version = false;
@@ -50,16 +29,16 @@ static bool want_list = false;
 static bool want_static_lib_list = ENABLE_INDIRECT_DEPS;
 static bool want_short_errors = false;
 static bool want_uninstalled = false;
-static std::string variable_name;
+static string variable_name;
 static bool want_exists = false;
 static bool want_provides = false;
 static bool want_requires = false;
 static bool want_requires_private = false;
 static bool want_validate = false;
-static std::string required_atleast_version;
-static std::string required_exact_version;
-static std::string required_max_version;
-static std::string required_pkgconfig_version;
+static string required_atleast_version;
+static string required_exact_version;
+static string required_max_version;
+static string required_pkgconfig_version;
 static bool want_silence_errors = false;
 static bool want_variable_list = false;
 static bool want_debug_spew = false;
@@ -68,7 +47,7 @@ static bool want_stdout_errors = false;
 static bool output_opt_set = false;
 
 // FIXME, should be somewhere saner.
-extern std::unordered_map<std::string, Package> packages;
+//extern std::unordered_map<string, Package> packages;
 
 void debug_spew(const char *format, ...) {
     va_list args;
@@ -111,12 +90,12 @@ void verbose_error(const char *format, ...) {
 }
 
 static bool define_variable_cb(const char *opt, const char *arg, void* data) {
-    std::string input(arg);
-    std::string::size_type p=0;
+    string input(arg);
+    int p=0;
     while(p<input.size() && isspace(input[p]))
         ++p;
 
-    const std::string::size_type name_start = p;
+    const int name_start = p;
     while(p<input.size() && input[p] != '=' && input[p] != ' ')
         ++p;
 
@@ -131,7 +110,7 @@ static bool define_variable_cb(const char *opt, const char *arg, void* data) {
         exit(1);
     }
 
-    auto varval = input.substr(p, std::string::npos);
+    auto varval = input[p .. input.length];
     define_global_variable(varname, varval);
 
     return true;
@@ -146,21 +125,21 @@ static bool output_opt_cb(const char *opt, const char *arg, void */*data*/) {
 
         /* multiple flag options (--cflags --libs-only-l) allowed */
         if(pkg_flags != 0
-                && (strcmp(opt, "--libs") == 0 || strcmp(opt, "--libs-only-l") == 0
-                        || strcmp(opt, "--libs-only-other") == 0 || strcmp(opt, "--libs-only-L") == 0
-                        || strcmp(opt, "--cflags") == 0 || strcmp(opt, "--cflags-only-I") == 0
-                        || strcmp(opt, "--cflags-only-other") == 0))
+                && opt == "--libs" || opt == "--libs-only-l"
+                        || opt == "--libs-only-other" || opt == "--libs-only-L"
+                        || opt == "--cflags" || opt == "--cflags-only-I"
+                        || opt == "--cflags-only-other")
             bad_opt = false;
 
         /* --print-requires and --print-requires-private allowed */
-        if((want_requires && strcmp(opt, "--print-requires-private") == 0)
-                || (want_requires_private && strcmp(opt, "--print-requires") == 0))
+        if((want_requires && opt == "--print-requires-private")
+                || (want_requires_private && opt == "--print-requires"))
             bad_opt = false;
 
         /* --exists allowed with --atleast/exact/max-version */
         if(want_exists && !vercmp_opt_set
-                && (strcmp(opt, "--atleast-version") == 0 || strcmp(opt, "--exact-version") == 0
-                        || strcmp(opt, "--max-version") == 0))
+                && (opt == "--atleast-version" || opt == "--exact-version"
+                        || opt == "--max-version"))
             bad_opt = false;
 
         if(bad_opt) {
@@ -170,53 +149,53 @@ static bool output_opt_cb(const char *opt, const char *arg, void */*data*/) {
         }
     }
 
-    if(strcmp(opt, "--version") == 0)
+    if(opt == "--version")
         want_my_version = true;
-    else if(strcmp(opt, "--modversion") == 0)
+    else if(opt == "--modversion")
         want_version = true;
-    else if(strcmp(opt, "--libs") == 0)
+    else if(opt == "--libs")
         pkg_flags |= LIBS_ANY;
-    else if(strcmp(opt, "--libs-only-l") == 0)
+    else if(opt == "--libs-only-l")
         pkg_flags |= LIBS_l;
-    else if(strcmp(opt, "--libs-only-other") == 0)
+    else if(opt == "--libs-only-other")
         pkg_flags |= LIBS_OTHER;
-    else if(strcmp(opt, "--libs-only-L") == 0)
+    else if(opt == "--libs-only-L")
         pkg_flags |= LIBS_L;
-    else if(strcmp(opt, "--cflags") == 0)
+    else if(opt == "--cflags")
         pkg_flags |= CFLAGS_ANY;
-    else if(strcmp(opt, "--cflags-only-I") == 0)
+    else if(opt == "--cflags-only-I")
         pkg_flags |= CFLAGS_I;
-    else if(strcmp(opt, "--cflags-only-other") == 0)
+    else if(opt == "--cflags-only-other")
         pkg_flags |= CFLAGS_OTHER;
-    else if(strcmp(opt, "--variable") == 0)
+    else if(opt == "--variable")
         variable_name = arg;
-    else if(strcmp(opt, "--exists") == 0)
+    else if(opt == "--exists")
         want_exists = true;
-    else if(strcmp(opt, "--print-variables") == 0)
+    else if(opt == "--print-variables")
         want_variable_list = true;
-    else if(strcmp(opt, "--uninstalled") == 0)
+    else if(opt = "--uninstalled")
         want_uninstalled = true;
-    else if(strcmp(opt, "--atleast-version") == 0) {
+    else if(opt == "--atleast-version") {
         required_atleast_version = arg;
         want_exists = true;
         vercmp_opt_set = true;
-    } else if(strcmp(opt, "--exact-version") == 0) {
+    } else if(opt == "--exact-version") {
         required_exact_version = arg;
         want_exists = true;
         vercmp_opt_set = true;
-    } else if(strcmp(opt, "--max-version") == 0) {
+    } else if(opt == "--max-version") {
         required_max_version = arg;
         want_exists = true;
         vercmp_opt_set = true;
-    } else if(strcmp(opt, "--list-all") == 0)
+    } else if(opt == "--list-all")
         want_list = true;
-    else if(strcmp(opt, "--print-provides") == 0)
+    else if(opt == "--print-provides")
         want_provides = true;
-    else if(strcmp(opt, "--print-requires") == 0)
+    else if(opt == "--print-requires")
         want_requires = true;
-    else if(strcmp(opt, "--print-requires-private") == 0)
+    else if(opt == "--print-requires-private")
         want_requires_private = true;
-    else if(strcmp(opt, "--validate") == 0)
+    else if(opt == "--validate")
         want_validate = true;
     else
         return false;
@@ -225,13 +204,13 @@ static bool output_opt_cb(const char *opt, const char *arg, void */*data*/) {
     return true;
 }
 
-static bool pkg_uninstalled(const Package &pkg) {
+static bool pkg_uninstalled(const Package pkg) {
     /* See if > 0 pkgs were uninstalled */
 
     if(pkg.uninstalled)
         return true;
 
-    for(const std::string &pkg_name : pkg.requires) {
+    for(pkg_name; pkg.requires) {
         auto pkg = packages[pkg_name];
         if(pkg_uninstalled(pkg))
             return true;
@@ -245,15 +224,15 @@ void print_list_data(const char *data, void * user_data) {
 }
 
 static void init_pc_path(void) {
+/*
 #ifdef _WIN32
     char *instdir, *lpath, *shpath;
 
     instdir = g_win32_get_package_installation_directory_of_module (NULL);
     if (instdir == NULL)
     {
-        /* This only happens when GetModuleFilename() fails. If it does, that
-         * failure should be investigated and fixed.
-         */
+        // This only happens when GetModuleFilename() fails. If it does, that
+        // failure should be investigated and fixed.
         debug_spew ("g_win32_get_package_installation_directory_of_module failed\n");
         return;
     }
@@ -266,11 +245,14 @@ static void init_pc_path(void) {
     g_free (lpath);
     g_free (shpath);
 #else
+*/
     pkg_config_pc_path = PKG_CONFIG_PC_PATH;
+/*
 #endif
+*/
 }
 
-static bool process_package_args(const std::string &cmdline, std::vector<Package> *packages, FILE *log) {
+static bool process_package_args(const string cmdline, Package[] packages, FILE *log) {
     bool success = true;
 
     auto reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
@@ -280,19 +262,19 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
         return false;
     }
 
-    for(auto &ver : reqs) {
+    for(ver; reqs) {
         Package req;
 
         /* override requested versions with cmdline options */
         if(!required_exact_version.empty()) {
             ver.comparison = EQUAL;
-            ver.version = required_exact_version;
+            ver.version_ = required_exact_version;
         } else if(!required_atleast_version.empty()) {
             ver.comparison = GREATER_THAN_EQUAL;
-            ver.version = required_atleast_version;
+            ver.version_ = required_atleast_version;
         } else if(!required_max_version.empty()) {
             ver.comparison = LESS_THAN_EQUAL;
-            ver.version = required_max_version;
+            ver.version_ = required_max_version;
         }
 
         if(want_short_errors)
@@ -305,7 +287,7 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
                 fprintf(log, "%s NOT-FOUND\n", ver.name.c_str());
             else
                 fprintf(log, "%s %s %s\n", ver.name.c_str(), comparison_to_str(ver.comparison).c_str(),
-                        (ver.version.empty()) ? "(null)" : ver.version.c_str());
+                        (ver.version_.length==0) ? "(null)" : ver.version_.c_str());
         }
 
         if(req.empty()) {
@@ -314,23 +296,23 @@ static bool process_package_args(const std::string &cmdline, std::vector<Package
             continue;
         }
 
-        if(!version_test(ver.comparison, req.version.c_str(), ver.version.c_str())) {
+        if(!version_test(ver.comparison, req.version_, ver.version_)) {
             success = false;
             verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver.name.c_str(),
-                    comparison_to_str(ver.comparison).c_str(), ver.version.c_str(), req.name.c_str(), req.version.c_str());
+                    comparison_to_str(ver.comparison), ver.version_, req.name, req.version_);
             if(!req.url.empty())
-                verbose_error("You may find new versions of %s at %s\n", req.name.c_str(), req.url.c_str());
+                verbose_error("You may find new versions of %s at %s\n", req.name, req.url);
             continue;
         }
 
-        packages->push_back(req);
+        packages ~= req;
     }
 
     return success;
 }
 
-#define OPTION_FLAG_NO_ARG 1
-#define OPTION_FLAG_REVERSE 2
+immutable int OPTION_FLAG_NO_ARG=1;
+immutable int OPTION_FLAG_REVERSE=2;
 
 enum OptionArg {
     OPTION_ARG_NONE,
@@ -352,7 +334,7 @@ struct OptionEntry {
 
 typedef bool (*opt_cb)(const char *, const char *, void *);
 
-static std::array<OptionEntry, 32> options_table{{
+static OptionEntry[] options_table = {{
         { "version",                   0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output version of pkg-config", NULL },
         { "modversion",                0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, reinterpret_cast<void*>(&output_opt_cb), "output version for package", NULL },
         { "atleast-pkgconfig-version", 0, 0,                  OPTION_ARG_STRING,   &required_pkgconfig_version,             "require given version of pkg-config", "VERSION" },
@@ -385,9 +367,11 @@ static std::array<OptionEntry, 32> options_table{{
         { "define-prefix",             0, 0,                  OPTION_ARG_NONE,     &define_prefix,                          "try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", NULL },
         { "dont-define-prefix",        0, OPTION_FLAG_REVERSE, OPTION_ARG_NONE,    &define_prefix,                          "don't try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", NULL },
         { "prefix-variable",           0, 0,                  OPTION_ARG_STRING,   &prefix_variable,                        "set the name of the variable that pkg-config automatically sets", "PREFIX" },
+/*
 #ifdef _WIN32
         {   "msvc-syntax",             0, 0,                  OPTION_ARG_NONE,     &msvc_syntax,                            "output -l and -L flags for the Microsoft compiler (cl)", NULL},
 #endif
+*/
 }};
 
 void print_help() {
@@ -397,7 +381,7 @@ void print_help() {
 
 std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
     std::vector<const char*> remaining;
-    std::string work;
+    string work;
     for(int i=1; i<argc; ++i) { // skip program name
         const char *current = argv[i];
         if(strcmp(current, "-h") == 0 || strcmp(current, "--help") == 0) {
@@ -409,10 +393,10 @@ std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
         }
         work = &(current[2]);
         auto equal_sign = work.find('=');
-        std::string command, argument;
-        if(equal_sign != std::string::npos) {
+        string command, argument;
+        if(equal_sign != string::npos) {
             command = work.substr(0, equal_sign);
-            argument = work.substr(equal_sign+1, std::string::npos);
+            argument = work.substr(equal_sign+1, string::npos);
         } else {
             command = work;
         }
@@ -424,12 +408,12 @@ std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
                     if(argument.empty()) {
                         argument = argv[++i];
                     }
-                    std::string *ptr = (std::string*)(opt.arg_data);
+                    string *ptr = (string*)(opt.arg_data);
                     *ptr = argument.c_str();
                 } else if(opt.arg == OPTION_ARG_NONE) {
                     *static_cast<bool*>(opt.arg_data) = !(opt.flags & OPTION_FLAG_REVERSE);
                 } else if(opt.arg == OPTION_ARG_CALLBACK) {
-                    std::string optionstr = "--" + command;
+                    string optionstr = "--" + command;
                     if(!(opt.flags & OPTION_FLAG_NO_ARG)) {
                         if(argument.empty()) {
                             argument = argv[++i];
@@ -456,11 +440,12 @@ std::vector<const char*> parse_cmd_args(const int argc, const char **argv) {
     return remaining;
 }
 
-int main_(int argc, char **argv) {
-    std::string str;
-    std::vector<Package> package_list;
-    char *search_path;
-    char *pcbuilddir;
+int main(int argc, char **argv) {
+    import core.stdc.stdlib: getenv;
+    string str;
+    Package[] package_list;
+    string search_path;
+    string pcbuilddir;
     bool need_newline;
     FILE *log = NULL;
 
@@ -476,7 +461,7 @@ int main_(int argc, char **argv) {
 
     /* Get the built-in search path */
     init_pc_path();
-    if(pkg_config_pc_path.empty()) {
+    if(pkg_config_pc_path == "") {
         /* Even when we override the built-in search path, we still use it later
          * to add pc_path to the virtual pkg-config package.
          */
@@ -516,7 +501,7 @@ int main_(int argc, char **argv) {
     }
 
     /* Parse options */
-    std::vector<const char*> remaining = parse_cmd_args(argc, const_cast<const char**>(argv));
+    string[] remaining = parse_cmd_args(argc, argv);
 
     /* If no output option was set, then --exists is the default. */
     if(!output_opt_set) {
@@ -594,17 +579,12 @@ int main_(int argc, char **argv) {
     }
 
     /* Collect packages from remaining args */
-    for(const auto &s : remaining) {
+    foreach(s; remaining) {
         str += s;
         str += " ";
     }
 
-    while(!str.empty() && isspace(str.front())) {
-        str.erase(0, 1);
-    }
-    while(!str.empty() && isspace(str.back())) {
-        str.erase(str.size()-1, 1);
-    }
+    str = chomp(str);
 
     if(getenv("PKG_CONFIG_LOG") != NULL) {
         log = fopen(getenv("PKG_CONFIG_LOG"), "a");
@@ -627,19 +607,19 @@ int main_(int argc, char **argv) {
         return 0;
 
     if(want_variable_list) {
-        for(const auto &pkg : package_list) {
-            if(!pkg.vars.empty()) {
-                std::vector<std::string> keys;
-                for(const auto &i : pkg.vars) {
-                    keys.push_back(i.first);
+        foreach(pkg; package_list) {
+            if(pkg.vars.length != 0) {
+                string[] keys;
+                foreach(i; pkg.vars) {
+                    keys ~= i.first;
                 }
                 /* Sort variables for consistent output */
-                std::sort(keys.begin(), keys.end());
-                for(const auto &i : keys) {
-                    print_list_data(i.c_str(), NULL);
+                keys.sort();
+                foreach(i; keys) {
+                    print_list_data(i, NULL);
                 }
             }
-            if(!pkg.empty())
+            if(pkg.length == 0)
                 printf("\n");
         }
         need_newline = false;
@@ -647,7 +627,7 @@ int main_(int argc, char **argv) {
 
     if(want_uninstalled) {
         /* See if > 0 pkgs (including dependencies recursively) were uninstalled */
-        for(const auto &pkg : package_list) {
+        foreach(pkg; package_list) {
 
             if(pkg_uninstalled(pkg))
                 return 0;
@@ -657,49 +637,51 @@ int main_(int argc, char **argv) {
     }
 
     if(want_version) {
-        for(const auto &pkg : package_list) {
-            printf("%s\n", pkg.version.c_str());
+        foreach(pkg; package_list) {
+            writeln(pkg.version_);
         }
     }
 
     if(want_provides) {
-        for(const auto &pkg : package_list) {
+        foreach(pkg; package_list) {
             auto key = pkg.key;
-            while(!key.empty() && key.front() == '/')
-                key.erase(key.begin());
-            if(!key.empty())
-                printf("%s = %s\n", key.c_str(), pkg.version.c_str());
+            while(key.length > 0 && key[0] == '/') {
+                key = key[1 .. key.length];
+            }
+            if(key.length == 0)
+                writeln("%s = %s", key, pkg.version_);
         }
     }
 
     if(want_requires) {
-        for(const auto &pkg : package_list) {
+        foreach(pkg; package_list) {
             /* process Requires: */
-            for(const std::string &req_name : pkg.requires) {
+            foreach(req_name; pkg.requires) {
                 auto lookup = pkg.required_versions.find(req_name);
-                if(lookup == pkg.required_versions.end() || (lookup->second.comparison == ALWAYS_MATCH))
-                    printf("%s\n", req_name.c_str());
-                else
-                    printf("%s %s %s\n", req_name.c_str(),
-                            comparison_to_str(lookup->second.comparison).c_str(),
-                            lookup->second.version.c_str());
+                if(lookup == pkg.required_versions.end() || (lookup.second.comparison == ALWAYS_MATCH)) {
+                    writeln(req_name);
+                } else {
+                    writeln("%s %s %s", req_name,
+                            comparison_to_str(lookup.second.comparison),
+                            lookup.second.version_);
+                }
             }
         }
     }
     if(want_requires_private) {
-        for(const auto &pkg : package_list) {
+        foreach(pkg; package_list) {
             /* process Requires.private: */
-            for(const std::string req_name : pkg.requires_private) {
-                if(std::find(pkg.requires.begin(), pkg.requires.end(), req_name) != pkg.requires.end())
+            foreach(req_name; pkg.requires_private) {
+                if(req_name in pkg.requires) {
                     continue;
-
+                }
                 auto lookup = pkg.required_versions.find(req_name);
-                if((lookup == pkg.required_versions.end()) || (lookup->second.comparison == ALWAYS_MATCH))
-                    printf("%s\n", req_name.c_str());
+                if((lookup == pkg.required_versions.end()) || (lookup.second.comparison == ALWAYS_MATCH))
+                    writeln(req_name);
                 else
-                    printf("%s %s %s\n", req_name.c_str(),
-                            comparison_to_str(lookup->second.comparison).c_str(),
-                            lookup->second.version.c_str());
+                    writeln("%s %s %s", req_name,
+                            comparison_to_str(lookup.second.comparison),
+                            lookup.second.version_);
             }
         }
     }
@@ -707,29 +689,20 @@ int main_(int argc, char **argv) {
     /* Print all flags; then print a newline at the end. */
     need_newline = false;
 
-    if(!variable_name.empty()) {
+    if(variable_name.length > 0) {
         auto varname = packages_get_var(package_list, variable_name);
-        printf("%s", varname.c_str());
+        write(varname);
         need_newline = true;
     }
 
     if(pkg_flags != 0) {
-        std::string flags = packages_get_flags(package_list, pkg_flags);
-        printf("%s", flags.c_str());
+        string flags = packages_get_flags(package_list, pkg_flags);
+        write(flags);
         need_newline = true;
     }
 
     if(need_newline)
-        printf("\n");
+        writeln("");
 
     return 0;
-}
-
-int main(int argc, char **argv) {
-    try {
-        return main_(argc, argv);
-    } catch(const char *msg) {
-        fprintf(stderr, "%s", msg);
-        return 1;
-    }
 }
