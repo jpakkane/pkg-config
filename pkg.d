@@ -815,7 +815,7 @@ packages_get_var(Package[] pkgs, const string varname) {
     return str;
 }
 
-int compare_versions(const string &a, const string &b) {
+int compare_versions(const string a, const string b) {
     import rpmvercmp;
     return rpmvercmp(a, b);
 }
@@ -902,7 +902,8 @@ void print_package_list() {
     ignore_requires_private = true;
 
     foreach(i; packages.byKey)
-        mlen = std::max(mlen, i.length());
+        import std.algorithm.comparison : max;
+        mlen = max(mlen, i.length());
     }
     foreach(first, second; packages.byKeyValue) {
         string pad;

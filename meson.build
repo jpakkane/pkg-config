@@ -50,6 +50,7 @@ endif
 #subdir('check')
 
 pkgconfig = static_library('utils',
+  'parse.d',
   'pkg.d',
   'rpmvercmp.d',
   'quoter.d',

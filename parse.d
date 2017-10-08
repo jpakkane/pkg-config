@@ -19,32 +19,21 @@
  * 02111-1307, USA.
  */
 
-#include "config.h"
-
-#include<quoter.h>
-#include<utils.h>
-
-#include<cassert>
-#include "parse.h"
-#include <stdio.h>
-#include <errno.h>
-#include <string.h>
-#include <stdlib.h>
-#include <ctype.h>
-#ifdef HAVE_SYS_WAIT_H
-#include <sys/wait.h>
-#endif
-#include <sys/types.h>
-#include<algorithm>
+module parse;
+import pkg: Package;
+import std.file;
+import core.stdc.stdio;
+import core.stdc.ctype: isspace;
 
 bool parse_strict = true;
 bool define_prefix = ENABLE_DEFINE_PREFIX;
-std::string prefix_variable = "prefix";
+string prefix_variable = "prefix";
 
+/*
 #ifdef _WIN32
 bool msvc_syntax = false;
 #endif
-
+*/
 
 /**
  * Read an entire line from a file into a buffer. Lines may
@@ -57,7 +46,7 @@ bool msvc_syntax = false;
  * 
  * Return value: %false if the stream was already at an EOF character.
  **/
-static bool read_one_line(FILE *stream, std::string &str) {
+static bool read_one_line(_IO_FILE *stream, string str) {
     bool quoted = false;
     bool comment = false;
     int n_read = 0;
@@ -126,39 +115,31 @@ static bool read_one_line(FILE *stream, std::string &str) {
     return n_read > 0;
 }
 
-static std::string
-trim_string(const std::string &str) {
-    std::string res(str);
-
-    while(!res.empty() && isspace(res.front())) {
-        res.erase(0, 1);
-    }
-    while(!res.empty() && isspace(res.back())) {
-        res.erase(str.size()-1, 1);
-    }
-    return res;
+static string
+trim_string(const string str) {
+    return comp(str);
 }
 
-static std::string
-trim_and_sub(Package *pkg, const std::string &str, const std::string &path) {
-    std::string subst;
-    std::string::size_type p = 0;
+static string
+trim_and_sub(const Package pkg, const string str, const string path) {
+    string subst;
+    int p = 0;
 
     auto trimmed = trim_string(str);
 
-    while(p<trimmed.size()) {
+    while(p<trimmed.length) {
         if(str[p] == '$' && str[p+1] == '$') {
             /* escaped $ */
             subst += '$';
             p += 2;
         } else if(str[p] == '$' && str[p+1] == '{') {
             /* variable */
-            std::string varval;
+            string varval;
 
             auto var_start = p+2;
 
             /* Get up to close brace. */
-            while(p<str.size() && str[p] != '}')
+            while(p<str.length && str[p] != '}')
                 ++p;
 
             auto varname = str.substr(var_start, p-var_start);
@@ -167,7 +148,7 @@ trim_and_sub(Package *pkg, const std::string &str, const std::string &path) {
 
             varval = package_get_var(pkg, varname);
 
-            if(varval.empty()) {
+            if(varval.length == 0) {
                 verbose_error("Variable '%s' not defined in '%s'\n", varname.c_str(), path.c_str());
                 if(parse_strict)
                     exit(1);
@@ -184,8 +165,8 @@ trim_and_sub(Package *pkg, const std::string &str, const std::string &path) {
     return subst;
 }
 
-static void parse_name(Package *pkg, std::string &str, const std::string &path) {
-    if(!pkg->name.empty()) {
+static void parse_name(Package pkg, string str, const string path) {
+    if(pkg.name.length > 0) {
         verbose_error("Name field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
@@ -193,11 +174,11 @@ static void parse_name(Package *pkg, std::string &str, const std::string &path) 
             return;
     }
 
-    pkg->name = trim_and_sub(pkg, str, path);
+    pkg.name = trim_and_sub(pkg, str, path);
 }
 
-static void parse_version(Package *pkg, const std::string &str, const std::string &path) {
-    if(!pkg->version.empty()) {
+static void parse_version(Package pkg, const string str, const string path) {
+    if(pkg.version_ != "") {
         verbose_error("Version field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
@@ -205,11 +186,11 @@ static void parse_version(Package *pkg, const std::string &str, const std::strin
             return;
     }
 
-    pkg->version = trim_and_sub(pkg, str, path);
+    pkg.version_ = trim_and_sub(pkg, str, path);
 }
 
-static void parse_description(Package *pkg, const std::string &str, const std::string &path) {
-    if(!pkg->description.empty()) {
+static void parse_description(Package pkg, const string str, const string path) {
+    if(pkg.description != "") {
         verbose_error("Description field occurs twice in '%s'\n", path.c_str());
         if(parse_strict)
             exit(1);
@@ -217,11 +198,16 @@ static void parse_description(Package *pkg, const std::string &str, const std::s
             return;
     }
 
-    pkg->description = trim_and_sub(pkg, str, path);
+    pkg.description = trim_and_sub(pkg, str, path);
 }
 
-#define MODULE_SEPARATOR(c) ((c) == ',' || isspace ((c)))
-#define OPERATOR_CHAR(c) ((c) == '<' || (c) == '>' || (c) == '!' || (c) == '=')
+bool MODULE_SEPARATOR(const int c) {
+    return ((c) == ',' || isspace ((c)));
+}
+
+bool OPERATOR_CHAR(const int c) {
+    return ((c) == '<' || (c) == '>' || (c) == '!' || (c) == '=');
+}
 
 /* A module list is a list of modules with optional version specification,
  * separated by commas and/or spaces. Commas are treated just like whitespace,
@@ -229,7 +215,7 @@ static void parse_description(Package *pkg, const std::string &str, const std::s
  * where @FRIBIDI_PC@ gets substituted to nothing or to 'fribidi'
  */
 
-typedef enum {
+enum ModuleSplitState {
     /* put numbers to help interpret lame debug spew ;-) */
     OUTSIDE_MODULE = 0,
     IN_MODULE_NAME = 1,
@@ -237,25 +223,26 @@ typedef enum {
     IN_OPERATOR = 3,
     AFTER_OPERATOR = 4,
     IN_MODULE_VERSION = 5
-} ModuleSplitState;
+};
 
-#define PARSE_SPEW 0
+immutable int PARSE_SPEW=0;
 
-static std::vector<std::string>
-split_module_list(const std::string &str, const std::string &path) {
-    std::vector<std::string> retval;
-    std::string::size_type p = 0;
-    std::string::size_type start = 0;
+static string[]
+split_module_list(const string str, const string path) {
+    string[] retval;
+    int p = 0;
+    int start = 0;
     ModuleSplitState state = OUTSIDE_MODULE;
     ModuleSplitState last_state = OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
 
-    while(p < str.size()) {
+    while(p < str.length) {
+        /*
 #if PARSE_SPEW
         fprintf (stderr, "p: %c state: %d last_state: %d\n", str.c_str() + (int)p, state, last_state);
 #endif
-
+*/
         switch (state){
         case OUTSIDE_MODULE:
             if(!MODULE_SEPARATOR(str[p]))
@@ -263,13 +250,13 @@ split_module_list(const std::string &str, const std::string &path) {
             break;
 
         case IN_MODULE_NAME:
-            if(isspace( str[p])) {
+            if(isspace(str[p])) {
                 /* Need to look ahead to determine next state */
                 auto s = p;
-                while(s < str.size() && isspace( str[s]))
+                while(s < str.length && isspace( str[s]))
                     ++s;
 
-                if(s == str.size())
+                if(s == str.length)
                     state = OUTSIDE_MODULE;
                 else if(MODULE_SEPARATOR(str[s]))
                     state = OUTSIDE_MODULE;
@@ -285,12 +272,13 @@ split_module_list(const std::string &str, const std::string &path) {
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
-            if(isspace( str[p]))
+            if(isspace( str[p])) {
                 ; /* no change */
-            else if(OPERATOR_CHAR(str[p]))
+            } else if(OPERATOR_CHAR(str[p])) {
                 state = IN_OPERATOR;
-            else
+            } else {
                 throw "Unreachable code";
+            }
             break;
 
         case IN_OPERATOR:
@@ -314,13 +302,13 @@ split_module_list(const std::string &str, const std::string &path) {
 
         if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
             /* We left a module */
-            std::string module = str.substr(start, p - start);
-            retval.push_back(module);
-
+            string module_ = str[start .. p - start];
+            retval ~= module_;
+/*
 #if PARSE_SPEW
             fprintf (stderr, "found module: '%s'\n", module);
 #endif
-
+*/
             /* reset start */
             start = p;
         }
@@ -331,47 +319,47 @@ split_module_list(const std::string &str, const std::string &path) {
 
     if(p != start) {
         /* get the last module */
-        std::string module = str.substr(start, p - start);
-        retval.push_back(module);
-
+        string module_ = str[start .. p - start];
+        retval ~= module_;
+/*
 #if PARSE_SPEW
         fprintf (stderr, "found module: '%s'\n", module);
 #endif
-
+*/
     }
 
     return retval;
 }
 
-std::vector<RequiredVersion>
-parse_module_list(Package *pkg, const std::string &str_, const std::string &path) {
-    std::vector<RequiredVersion> retval;
+RequiredVersion[]
+parse_module_list(Package pkg, const string str_, const string path) {
+    RequiredVersion[] retval;
 
     auto split = split_module_list(str_, path);
 
-    for(auto &str : split) {
-        std::string::size_type p = 0;
-        std::string::size_type start = 0;
+    foreach(str; split) {
+        int p = 0;
+        int start = 0;
 
         RequiredVersion ver;
         ver.comparison = ALWAYS_MATCH;
         ver.owner = pkg;
 
-        while(p<str.size() && MODULE_SEPARATOR(str[p]))
+        while(p<str.length && MODULE_SEPARATOR(str[p]))
             ++p;
 
         start = p;
 
-        while(p<str.size() && !isspace( str[p]))
+        while(p<str.length && !isspace( str[p]))
             ++p;
 
-        std::string package_name = str.substr(start, p-start);
-        while(p<str.size() && MODULE_SEPARATOR(str[p])) {
+        string package_name = str.substr(start, p-start);
+        while(p<str.length && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
 
-        if(package_name.empty()) {
-            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path.c_str());
+        if(package_name == "") {
+            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
             if(parse_strict)
                 exit(1);
             else
@@ -382,16 +370,16 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
 
         start = p;
 
-        while(p<str.size() && !isspace( str[p])) {
+        while(p<str.length && !isspace(str[p])) {
             ++p;
         }
 
-        std::string comparison = str.substr(start, p-start);
-        while(p<str.size() && isspace( str[p])) {
+        string comparison = str.substr(start, p-start);
+        while(p<str.length && isspace(str[p])) {
             ++p;
         }
 
-        if(!comparison.empty()) {
+        if(comparison != "") {
             if(comparison == "=")
                 ver.comparison = EQUAL;
             else if(comparison == ">=")
@@ -406,7 +394,7 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
                 ver.comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after "
-                        "package name '%s' in file '%s'\n", comparison.c_str(), ver.name.c_str(), path.c_str());
+                        "package name '%s' in file '%s'\n", comparison, ver.name, path);
                 if(parse_strict)
                     exit(1);
                 else
@@ -416,50 +404,51 @@ parse_module_list(Package *pkg, const std::string &str_, const std::string &path
 
         start = p;
 
-        while(p<str.size() && !MODULE_SEPARATOR(str[p]))
+        while(p<str.length && !MODULE_SEPARATOR(str[p]))
             ++p;
 
-        std::string version = str.substr(start, p-start);
-        while(p<str.size() && MODULE_SEPARATOR(str[p])) {
+        string version_ = str.substr(start, p-start);
+        while(p<str.length && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
 
-        if(ver.comparison != ALWAYS_MATCH && version.empty()) {
+        if(ver.comparison != ALWAYS_MATCH && version_ == "") {
             verbose_error("Comparison operator but no version after package "
-                    "name '%s' in file '%s'\n", ver.name.c_str(), path.c_str());
+                    "name '%s' in file '%s'\n", ver.name, path);
             if(parse_strict)
                 exit(1);
             else {
-                ver.version = "0";
+                ver.version_ = "0";
                 continue;
             }
         }
 
-        if(!version.empty()) {
-            ver.version = version;
+        if(version_ != "") {
+            ver.version_ = version_;
         }
 
-        assert(!ver.name.empty());
-        retval.push_back(ver);
+        assert(ver.name != "");
+        retval ~= ver;
     }
 
     return retval;
 }
 
-static std::vector<std::string>
-split_module_list2(const std::string &str, const std::string &path) {
-    std::vector<std::string> retval;
-    std::string::size_type p = 0, start = 0;
+static string[]
+split_module_list2(const string str, const string path) {
+    string[] retval;
+    int p = 0, start = 0;
     ModuleSplitState state = OUTSIDE_MODULE;
     ModuleSplitState last_state = OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
 
     while(p<str.length()) {
+/*
 #if PARSE_SPEW
         fprintf (stderr, "p: %c state: %d last_state: %d\n", *p, state, last_state);
 #endif
-
+*/
         switch (state){
         case OUTSIDE_MODULE:
             if(!MODULE_SEPARATOR(str[p]))
@@ -470,10 +459,10 @@ split_module_list2(const std::string &str, const std::string &path) {
             if(isspace(str[p])) {
                 /* Need to look ahead to determine next state */
                 auto s = p;
-                while(s<str.length() && isspace(str[s]))
+                while(s<str.length && isspace(str[s]))
                     ++s;
 
-                if(s>=str.length())
+                if(s>=str.length)
                     state = OUTSIDE_MODULE;
                 else if(MODULE_SEPARATOR(str[s]))
                     state = OUTSIDE_MODULE;
@@ -489,12 +478,13 @@ split_module_list2(const std::string &str, const std::string &path) {
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
-            if(isspace(str[p]))
+            if(isspace(str[p])) {
                 ; /* no change */
-            else if(OPERATOR_CHAR(str[p]))
+            } else if(OPERATOR_CHAR(str[p])) {
                 state = IN_OPERATOR;
-            else
-                throw "Unreachable code.";
+            } else {
+                throw new Exception("Unreachable code.");
+            }
             break;
 
         case IN_OPERATOR:
@@ -513,18 +503,18 @@ split_module_list2(const std::string &str, const std::string &path) {
             break;
 
         default:
-            throw "Unreachable code";
+            throw new Exception("Unreachable code");
         }
 
         if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
             /* We left a module */
-            auto module = str.substr(start, p - start);
-            retval.push_back(module);
-
+            auto module_ = str[start .. p - start];
+            retval ~= module_;
+/*
 #if PARSE_SPEW
             fprintf (stderr, "found module: '%s'\n", module);
 #endif
-
+*/
             /* reset start */
             start = p;
         }
@@ -535,48 +525,48 @@ split_module_list2(const std::string &str, const std::string &path) {
 
     if(p != start) {
         /* get the last module */
-        auto module = str.substr(start, p - start);
-        retval.push_back(module);
-
+        auto module_ = str[start .. p - start];
+        retval ~= module_;
+/*
 #if PARSE_SPEW
         fprintf (stderr, "found module: '%s'\n", module);
 #endif
-
+*/
     }
 
     return retval;
 }
 
-std::vector<RequiredVersion>
-parse_module_list2(Package *pkg, const std::string &str, const std::string &path) {
-    std::vector<std::string> split;
-    std::vector<RequiredVersion> retval;
+RequiredVersion[]
+parse_module_list2(Package pkg, const string str, const string path) {
+    string[] split;
+    RequiredVersion[] retval;
 
     split = split_module_list2(str, path);
 
-    for(const auto &iter : split) {
+    foreach(iter; split) {
         RequiredVersion ver;
-        std::string::size_type p=0, start=0;
-        std::string tmpstr{iter};
+        int p=0, start=0;
+        string tmpstr = iter;
 
         ver.comparison = ALWAYS_MATCH;
         ver.owner = pkg;
 
-        while(p<iter.size() && MODULE_SEPARATOR(iter[p]))
+        while(p<iter.length && MODULE_SEPARATOR(iter[p]))
             ++p;
 
         start = p;
 
-        while(p<iter.size() && !isspace(iter[p]))
+        while(p<iter.length && !isspace(iter[p]))
             ++p;
 
-        auto name = iter.substr(start, p-start);
+        auto name = iter[start .. p-start];
         while(p<iter.length() && MODULE_SEPARATOR(iter[p])) {
             ++p;
         }
 
         if(name.empty()) {
-            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path.c_str());
+            verbose_error("Empty package name in Requires or Conflicts in file '%s'\n", path);
             if(parse_strict)
                 exit(1);
             else
@@ -587,11 +577,11 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
 
         start = p;
 
-        while(p<str.size() && !isspace(str[p]))
+        while(p<str.length && !isspace(str[p]))
             ++p;
 
         auto comparer = iter.substr(start, p-start);
-        while(p<iter.size() && isspace(iter[p])) {
+        while(p<iter.length && isspace(iter[p])) {
             ++p;
         }
 
@@ -620,7 +610,7 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
 
         start = p;
 
-        while(p<iter.size() && !MODULE_SEPARATOR(iter[p]))
+        while(p<iter.length && !MODULE_SEPARATOR(iter[p]))
             ++p;
 
         auto number = iter.substr(start, p-start);
@@ -634,25 +624,25 @@ parse_module_list2(Package *pkg, const std::string &str, const std::string &path
             if(parse_strict)
                 exit(1);
             else {
-                ver.version = "0";
+                ver.version_ = "0";
                 continue;
             }
         }
 
-        if(!number.empty()) {
-            ver.version = number;
+        if(number != "") {
+            ver.version_ = number;
         }
 
-        assert(!ver.name.empty());
-        retval.push_back(ver);
+        assert(ver.name != "");
+        retval ~= ver;
     }
 
     return retval;
 }
 
-static void parse_requires(Package *pkg, const std::string &str, const std::string &path) {
-    if(!pkg->requires.empty()) {
-        verbose_error("Requires field occurs twice in '%s'\n", path.c_str());
+static void parse_requires(Package pkg, const string str, const string path) {
+    if(pkg.requires != "") {
+        verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -660,14 +650,14 @@ static void parse_requires(Package *pkg, const std::string &str, const std::stri
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    pkg->requires_entries = parse_module_list(pkg, trimmed, path);
+    pkg.requires_entries = parse_module_list(pkg, trimmed, path);
 }
 
-static void parse_requires_private(Package *pkg, const std::string &str, const std::string &path) {
-    std::string trimmed;
+static void parse_requires_private(Package pkg, const string str, const string path) {
+    string trimmed;
 
-    if(!pkg->requires_private.empty()) {
-        verbose_error("Requires.private field occurs twice in '%s'\n", path.c_str());
+    if(pkg.requires_private != "") {
+        verbose_error("Requires.private field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -675,13 +665,13 @@ static void parse_requires_private(Package *pkg, const std::string &str, const s
     }
 
     trimmed = trim_and_sub(pkg, str, path);
-    pkg->requires_private_entries = parse_module_list(pkg, trimmed, path);
+    pkg.requires_private_entries = parse_module_list(pkg, trimmed, path);
 }
 
-static void parse_conflicts(Package *pkg, const std::string &str, const std::string &path) {
+static void parse_conflicts(Package pkg, const string str, const string path) {
 
-    if(!pkg->conflicts.empty()) {
-        verbose_error("Conflicts field occurs twice in '%s'\n", path.c_str());
+    if(pkg.conflicts != "") {
+        verbose_error("Conflicts field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -689,13 +679,13 @@ static void parse_conflicts(Package *pkg, const std::string &str, const std::str
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    pkg->conflicts = parse_module_list2(pkg, trimmed, path);
+    pkg.conflicts = parse_module_list2(pkg, trimmed, path);
 }
 
-static std::string strdup_escape_shell(const std::string &s) {
-    std::string r;
-    r.reserve(s.size() + 10);
-    for(char c : s) {
+static string strdup_escape_shell(const string s) {
+    string r;
+    r.reserve(s.length + 10);
+    foreach(c; s) {
         if((c < '$') || (c > '$' && s[0] < '(') || (c > ')' && c < '+') || (c > ':' && c < '=')
                 || (c > '=' && c < '@') || (c > 'Z' && c < '^') || (c == '`')
                 || (c > 'z' && c < '~') || (c > '~')) {
@@ -706,44 +696,46 @@ static std::string strdup_escape_shell(const std::string &s) {
     return r;
 }
 
-static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
-    std::string::size_type i = 0;
+static void _do_parse_libs(Package pkg, const string[] args) {
+    int i = 0;
+/*
 #ifdef _WIN32
     const char *L_flag = (msvc_syntax ? "/libpath:" : "-L");
-    const std::string l_flag = (msvc_syntax ? "" : "-l");
+    const string l_flag = (msvc_syntax ? "" : "-l");
     const char *lib_suffix = (msvc_syntax ? ".lib" : "");
 #else
-    const std::string L_flag = "-L";
-    const std::string l_flag = "-l";
-    const std::string lib_suffix = "";
-#endif
+*/
+    const string L_flag = "-L";
+    const string l_flag = "-l";
+    const string lib_suffix = "";
+//#endif
 
-    while(i < args.size()) {
+    while(i < args.length) {
         Flag flag;
         auto tmp = trim_string(args[i]);
-        std::string arg = strdup_escape_shell(tmp);
-        std::string::size_type p = 0;
+        string arg = strdup_escape_shell(tmp);
+        int p = 0;
 
         if(arg[p] == '-' && arg[p+1] == 'l' &&
         /* -lib: is used by the C# compiler for libs; it's not an -l
          flag. */
-        !string_starts_with(arg.substr(p, std::string::npos), "-lib:")) {
+        !string_starts_with(arg[p .. arg.length()], "-lib:")) {
             p += 2;
-            while(p<arg.size() && isspace(arg[p]))
+            while(p<arg.length && isspace(arg[p]))
                 ++p;
 
             flag.type = LIBS_l;
-            flag.arg = l_flag + arg.substr(p, std::string::npos) + lib_suffix;
-            pkg->libs.push_back(flag);
+            flag.arg = l_flag + arg[p .. arg.length] + lib_suffix;
+            pkg.libs ~= flag;
         } else if(arg[p] == '-' && arg[p+1] == 'L') {
             p += 2;
             while(p<arg.length() && isspace(arg[p]))
                 ++p;
 
             flag.type = LIBS_L;
-            flag.arg = L_flag + arg.substr(p, std::string::npos);
-            pkg->libs.push_back(flag);
-        } else if((arg.substr(p, std::string::npos) == "-framework" || arg.substr(p, std::string::npos) == "-Wl,-framework") && (i + 1 < args.size())) {
+            flag.arg = L_flag + arg[p .. arg.length];
+            pkg.libs ~= flag;
+        } else if((arg[p .. arg.length] == "-framework" || arg[p .. arg.length] == "-Wl,-framework") && (i + 1 < args.length)) {
             /* Mac OS X has a -framework Foo which is really one option,
              * so we join those to avoid having -framework Foo
              * -framework Bar being changed into -framework Foo Bar
@@ -756,12 +748,12 @@ static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
             flag.arg = arg;
             flag.arg += " ";
             flag.arg += framework;
-            pkg->libs.push_back(flag);
+            pkg.libs ~= push_back(flag);
             i++;
         } else if(!arg.empty()) {
             flag.type = LIBS_OTHER;
             flag.arg = arg;
-            pkg->libs.push_back(flag);
+            pkg.libs ~= flag;
         } else {
             /* flag wasn't used */
         }
@@ -772,11 +764,11 @@ static void _do_parse_libs(Package *pkg, const std::vector<std::string> &args) {
 }
 
 
-static void parse_libs(Package *pkg, const std::string &str, const std::string &path) {
+static void parse_libs(Package pkg, const string str, const string path) {
     /* Strip out -l and -L flags, put them in a separate list. */
 
-    if(pkg->libs_num > 0) {
-        verbose_error("Libs field occurs twice in '%s'\n", path.c_str());
+    if(pkg.libs_num > 0) {
+        verbose_error("Libs field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -784,14 +776,14 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    std::vector<std::string> args;
+    string[] args;
     if(!trimmed.empty()) {
         args = parse_shell_commandline(trimmed);
         if(args.empty()) {
             verbose_error("Couldn't parse Libs field into an argument vector: %s\n", "unknown");
-            if(parse_strict)
-            exit(1);
-            else {
+            if(parse_strict) {
+                exit(1);
+            } else {
                 return;
             }
         }
@@ -799,10 +791,10 @@ static void parse_libs(Package *pkg, const std::string &str, const std::string &
 
     _do_parse_libs(pkg, args);
 
-    pkg->libs_num++;
+    pkg.libs_num++;
 }
 
-static void parse_libs_private(Package *pkg, const std::string &str, const std::string &path) {
+static void parse_libs_private(Package pkg, const string str, const string path) {
     /*
      List of private libraries.  Private libraries are libraries which
      are needed in the case of static linking or on platforms not
@@ -815,8 +807,8 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
      a public dependency and not a private one.
      */
 
-    if(pkg->libs_private_num > 0) {
-        verbose_error("Libs.private field occurs twice in '%s'\n", path.c_str());
+    if(pkg.libs_private_num > 0) {
+        verbose_error("Libs.private field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -824,10 +816,10 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
     }
 
     auto trimmed = trim_and_sub(pkg, str, path);
-    std::vector<std::string> args;
+    string[] args;
     if(!trimmed.empty()) {
         args = parse_shell_commandline(trimmed);
-        if(args.empty()) {
+        if(args.length == 0) {
             verbose_error("Couldn't parse Libs.private field into an argument vector: %s\n",
                     "unknown");
             if(parse_strict)
@@ -840,17 +832,17 @@ static void parse_libs_private(Package *pkg, const std::string &str, const std::
 
     _do_parse_libs(pkg, args);
 
-    pkg->libs_private_num++;
+    pkg.libs_private_num++;
 }
 
-std::vector<std::string> parse_shell_string(std::string const& in)
+string[] parse_shell_string(const string in_)
 {
-    std::vector<std::string> out;
-    std::string arg;
+    string[] out_;
+    string arg;
 
     char quoteChar = 0;
 
-    for(auto ch : in) {
+    foreach(ch; in_) {
 
         if (quoteChar == '\\') {
             arg.push_back(ch);
@@ -859,7 +851,7 @@ std::vector<std::string> parse_shell_string(std::string const& in)
         }
 
         if (quoteChar && ch != quoteChar) {
-            arg.push_back(ch);
+            arg ~= ch;
             continue;
         }
 
@@ -876,29 +868,29 @@ std::vector<std::string> parse_shell_string(std::string const& in)
         case '\n':
 
             if (!arg.empty()) {
-                out.push_back(arg);
+                out_ ~= arg;
                 arg.clear();
             }
             break;
 
         default:
-            arg.push_back(ch);
+            arg ~= ch;
             break;
         }
     }
 
     if (!arg.empty()) {
-        out.push_back(arg);
+        out_.push_back(arg);
     }
 
-    return out;
+    return out_;
 }
 
-static void parse_cflags(Package *pkg, const std::string &str, const std::string &path) {
+static void parse_cflags(Package pkg, const string str, const string path) {
     /* Strip out -I flags, put them in a separate list. */
 
-    if(!pkg->cflags.empty()) {
-        verbose_error("Cflags field occurs twice in '%s'\n", path.c_str());
+    if(pkg.cflags == "") {
+        verbose_error("Cflags field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -917,35 +909,35 @@ static void parse_cflags(Package *pkg, const std::string &str, const std::string
         }
     }
 
-    for(int i=0; i<(int)argv.size(); ++i) {
+    for(int i=0; i<argv.length; ++i) {
         Flag flag;
-        auto tmp = trim_string(argv[i].c_str());
-        std::string arg = strdup_escape_shell(tmp);
-        std::string::size_type p = 0;
+        auto tmp = trim_string(argv[i]);
+        string arg = strdup_escape_shell(tmp);
+        int p = 0;
 
-        if(p < arg.size()-2 && arg[p] == '-' && arg[p+1] == 'I') {
+        if(p < arg.length-2 && arg[p] == '-' && arg[p+1] == 'I') {
             p += 2;
             while(p<arg.length() && isspace(arg[p]))
                 ++p;
 
             flag.type = CFLAGS_I;
-            flag.arg = std::string("-I") + arg.substr(p, std::string::npos);
-            pkg->cflags.push_back(flag);
-        } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < (int)argv.size())) {
+            flag.arg = string("-I") + arg[p .. arg.length];
+            pkg.cflags ~= flag;
+        } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < argv.length)) {
             auto tmp = trim_string(argv[i + 1].c_str());
-            std::string option = strdup_escape_shell(tmp);
+            string option = strdup_escape_shell(tmp);
 
             /* These are -I flags since they control the search path */
             flag.type = CFLAGS_I;
             flag.arg = arg;
             flag.arg += " ";
             flag.arg += option;
-            pkg->cflags.push_back(flag);
+            pkg.cflags ~= flag;
             i++;
         } else if(!arg.empty()) {
             flag.type = CFLAGS_OTHER;
             flag.arg = arg;
-            pkg->cflags.push_back(flag);
+            pkg.cflags ~= flag;
         } else {
             /* flag wasn't used */
         }
@@ -953,23 +945,23 @@ static void parse_cflags(Package *pkg, const std::string &str, const std::string
 
 }
 
-static void parse_url(Package *pkg, const std::string &str, const std::string &path) {
-    if(!pkg->url.empty()) {
-        verbose_error("URL field occurs twice in '%s'\n", path.c_str());
+static void parse_url(Package pkg, const string str, const string path) {
+    if(pkg.url != "") {
+        verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
             return;
     }
 
-    pkg->url = trim_and_sub(pkg, str, path);
+    pkg.url = trim_and_sub(pkg, str, path);
 }
 
-static void parse_line(Package *pkg, const std::string &untrimmed, const std::string &path, bool ignore_requires,
+static void parse_line(Package pkg, const string untrimmed, const string path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
-    std::string::size_type p;
+    int p;
 
-    debug_spew("  line>%s\n", untrimmed.c_str());
+    debug_spew("  line>%s\n", untrimmed);
 
     auto str = trim_string(untrimmed);
 
@@ -998,7 +990,7 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
         while(p<str.length() && isspace(str[p]))
             ++p;
 
-        auto remainder = str.substr(p, std::string::npos);
+        auto remainder = str[p .. str.length];
         if(tag == "Name")
             parse_name(pkg, remainder, path);
         else if(tag == "Description")
@@ -1030,7 +1022,7 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
              * versions of pkg-config.  We do make a note of them in the
              * debug spew though, in order to help catch mistakes in .pc
              * files. */
-            debug_spew("Unknown keyword '%s' in '%s'\n", tag.c_str(), path.c_str());
+            debug_spew("Unknown keyword '%s' in '%s'\n", tag, path);
         }
     } else if(str[p] == '=') {
 
@@ -1044,23 +1036,26 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
              */
             bool is_pkgconfigdir;
 
-            auto base = get_basename(pkg->pcfiledir);
-            std::transform(base.begin(), base.end(), base.begin(), ::tolower);
+            string base;
+            foreach(c; get_basename(pkg.pcfiledir)) {
+                import std.ascii;
+                base ~= toLower(c);
+            }
             is_pkgconfigdir = (base == "pkgconfig");
             if(is_pkgconfigdir) {
                 /* It ends in pkgconfig. Good. */
 
                 /* Keep track of the original prefix value. */
-                pkg->orig_prefix = str.substr(p, std::string::npos);
+                pkg.orig_prefix = str[p .. str.length];
 
                 /* Get grandparent directory for new prefix. */
-                auto prefix = get_dirname(get_dirname(pkg->pcfiledir));
+                auto prefix = get_dirname(get_dirname(pkg.pcfiledir));
 
                 /* Turn backslashes into slashes or
                  * g_shell_parse_argv() will eat them when ${prefix}
                  * has been expanded in parse_libs().
                  */
-                for(std::string::size_type i=0; i<prefix.size(); i++) {
+                for(int i=0; i<prefix.length; i++) {
                     if(prefix[i] == '\\')
                         prefix[i] = '/';
                 }
@@ -1068,39 +1063,39 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
                 /* Now escape the special characters so that there's no danger
                  * of arguments that include the prefix getting split.
                  */
-                std::string prefix_ = strdup_escape_shell(prefix);
+                string prefix_ = strdup_escape_shell(prefix);
 
-                debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag.c_str(), prefix_.c_str());
-                pkg->vars[tag] = prefix_;
+                debug_spew(" Variable declaration, '%s' overridden with '%s'\n", tag, prefix_);
+                pkg.vars[tag] = prefix_;
                 goto cleanup;
             }
-        } else if(define_prefix && !pkg->orig_prefix.empty() &&
-                strncmp(str.data()+p, pkg->orig_prefix.c_str(), pkg->orig_prefix.length()) == 0 &&
-                IS_DIR_SEPARATOR (str[p+pkg->orig_prefix.length()])) {
-            std::string oldstr = str;
+        } else if(define_prefix && !pkg.orig_prefix.empty() &&
+                str[p..str.length] == pkg.orig_prefix.c_str() &&
+                IS_DIR_SEPARATOR (str[p+pkg.orig_prefix.length])) {
+            string oldstr = str;
 
-            auto lookup = pkg->vars.find(prefix_variable);
-            std::string tmp;
-            if(lookup != pkg->vars.end()) {
-                tmp = lookup->second;
+            auto lookup = pkg.vars.find(prefix_variable);
+            string tmp;
+            if(lookup != pkg.vars.end()) {
+                tmp = lookup.second;
             }
-            str = tmp + str.substr(p + pkg->orig_prefix.length(), std::string::npos);
+            str = tmp + str[p + pkg.orig_prefix.length() .. str.length];
             p = 0;
         }
 
-        if(pkg->vars.find(tag) != pkg->vars.end()) {
-            verbose_error("Duplicate definition of variable '%s' in '%s'\n", tag.c_str(), path.c_str());
+        if(!tag in pkg.vars) {
+            verbose_error("Duplicate definition of variable '%s' in '%s'\n", tag, path);
             if(parse_strict)
                 exit(1);
             else
                 goto cleanup;
         }
 
-        auto remainder = str.substr(p, std::string::npos);
+        auto remainder = str[p .. str.length];
         auto varval = trim_and_sub(pkg, remainder, path);
 
-        debug_spew(" Variable declaration, '%s' has value '%s'\n", tag.c_str(), varval.c_str());
-        pkg->vars[tag] = varval;
+        debug_spew(" Variable declaration, '%s' has value '%s'\n", tag, varval);
+        pkg.vars[tag] = varval;
 
     }
 
@@ -1108,26 +1103,25 @@ static void parse_line(Package *pkg, const std::string &untrimmed, const std::st
 }
 
 Package
-parse_package_file(const std::string &key, const std::string &path, bool ignore_requires, bool ignore_private_libs,
+parse_package_file(const string key, const string path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private) {
-    FILE *f;
+    __IO_FILE_STREAM *f;
     Package pkg;
-    std::string str;
+    string str;
     bool one_line = false;
 
-    f = fopen(path.c_str(), "r");
+    f = fopen(path, "r");
 
     if(f == NULL) {
-        verbose_error("Failed to open '%s': %s\n", path.c_str(), strerror(errno));
-
-        return Package();
+        verbose_error("Failed to open '%s': %s\n", path, strerror(errno));
+        return pkg;
     }
 
-    debug_spew("Parsing package file '%s'\n", path.c_str());
+//    debug_spew("Parsing package file '%s'\n", path);
 
     pkg.key = key;
 
-    if(!path.empty()) {
+    if(path != "") {
         pkg.pcfiledir = get_dirname(path);
     } else {
         debug_spew("No pcfiledir determined for package\n");
@@ -1145,7 +1139,7 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
         str.clear();
     }
 
-    if(!one_line)
+    if(one_line == "")
         verbose_error("Package file '%s' appears to be empty\n", path.c_str());
     fclose(f);
 
@@ -1158,10 +1152,10 @@ parse_package_file(const std::string &key, const std::string &path, bool ignore_
  * unquote it so it can be more easily used in a shell. Otherwise,
  * return the raw value.
  */
-std::string
-parse_package_variable(Package *pkg, const std::string &variable) {
-    std::string value;
-    std::string result;
+string
+parse_package_variable(Package pkg, const string variable) {
+    string value;
+    string result;
 
     value = package_get_var(pkg, variable);
     if(value.empty())
@@ -1173,8 +1167,8 @@ parse_package_variable(Package *pkg, const std::string &variable) {
 
     // FIXME, this is wrong but the test suite does not
     // have any quotes-within-quotes tests so it passes. :)
-    for(std::string::size_type i=1; i<value.size()-1; ++i) {
-        result.push_back(value[i]);
+    for(int i=1; i<value.length-1; ++i) {
+        result ~= value[i];
     }
     return result;
 }
