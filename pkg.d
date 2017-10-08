@@ -649,7 +649,7 @@ static void verify_package(Package pkg) {
     add_env_variable_to_list(system_directories, search_path);
 
     filtered.clear();
-    for(const auto &flag : pkg.libs) {
+    foreach(flag; pkg.libs) {
 
         if(!(flag.type & LIBS_L)) {
             filtered.push_back(flag);

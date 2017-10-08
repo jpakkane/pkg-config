@@ -52,5 +52,6 @@ endif
 pkgconfig = static_library('utils',
   'pkg.d',
   'rpmvercmp.d',
+  'quoter.d',
   'utils.d')
 

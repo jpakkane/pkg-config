@@ -15,8 +15,7 @@
  */
 
 
-#include<quoter.h>
-#include<cassert>
+module quoter;
 
 
 /*
@@ -24,23 +23,23 @@
  * avoid an external dependency.
  */
 
-static std::string unquote_string(const std::string &str, std::string::size_type &s) {
-    std::string dest;
-    dest.reserve(str.size()-s);
+static string unquote_string(const string str, ref int s) {
+    string dest;
+    dest.reserve(str.length - s);
     char quote_char;
 
     quote_char = str[s];
 
     if(!(str[s] == '"' || str[s] == '\'')) {
-        throw "Quoted text doesn’t begin with a quotation mark";
+        throw new Exception("Quoted text doesn’t begin with a quotation mark");
     }
 
     /* Skip the initial quote mark */
     ++s;
 
     if(quote_char == '"') {
-        while(s<str.size()) {
-            assert(s > dest.size()); /* loop invariant */
+        while(s<str.length) {
+            assert(s > dest.length); /* loop invariant */
 
             switch (str[s]){
             case '"':
@@ -57,51 +56,51 @@ static std::string unquote_string(const std::string &str, std::string::size_type
                 case '`':
                 case '$':
                 case '\n':
-                    dest += str[s];
+                    dest ~= str[s];
                     ++s;
                     break;
 
                 default:
                     /* not an escaped char */
-                    dest += '\\';
+                    dest ~= '\\';
                     /* ++s already done. */
                     break;
                 }
                 break;
 
             default:
-                dest += str[s];
+                dest ~= str[s];
                 ++s;
                 break;
             }
 
-            assert(s > dest.size()); /* loop invariant */
+            assert(s > dest.length); /* loop invariant */
         }
     } else {
-        while(s<str.size()) {
-            assert(s > dest.size()); /* loop invariant */
+        while(s<str.length) {
+            assert(s > dest.length); /* loop invariant */
 
             if(str[s] == '\'') {
                 /* End of the string, return now */
                 ++s;
                 return dest;
             } else {
-                dest += str[s];
+                dest ~= str[s];
                 ++s;
             }
 
-            assert(s > dest.size()); /* loop invariant */
+            assert(s > dest.length); /* loop invariant */
         }
     }
 
     /* If we reach here this means the close quote was never encountered */
 
-    throw "Unmatched quotation mark in command line or other shell-quoted text";
+    throw new Exception("Unmatched quotation mark in command line or other shell-quoted text");
 }
 
-static std::string shell_unquote(const std::string &quoted_string) {
-    std::string::size_type start;
-    std::string retval;
+static string shell_unquote(const string quoted_string) {
+    int start;
+    string retval;
 
     auto unquoted = quoted_string;
 
@@ -110,32 +109,32 @@ static std::string shell_unquote(const std::string &quoted_string) {
     /* The loop allows cases such as
      * "foo"blah blah'bar'woo foo"baz"la la la\'\''foo'
      */
-    while(start<quoted_string.size()) {
+    while(start<quoted_string.length) {
         /* Append all non-quoted chars, honoring backslash escape
          */
 
-        while(start<quoted_string.size() && !(quoted_string[start] == '"' || quoted_string[start] == '\'')) {
-            if(quoted_string[start ]== '\\') {
+        while(start<quoted_string.length && !(quoted_string[start] == '"' || quoted_string[start] == '\'')) {
+            if(quoted_string[start]== '\\') {
                 /* all characters can get escaped by backslash,
                  * except newline, which is removed if it follows
                  * a backslash outside of quotes
                  */
 
                 ++start;
-                if(start<quoted_string.size()) {
+                if(start<quoted_string.length) {
                     if(quoted_string[start] != '\n')
-                        retval += quoted_string[start];
+                        retval ~= quoted_string[start];
                     ++start;
                 }
             } else {
-                retval += quoted_string[start];
+                retval ~= quoted_string[start];
                 ++start;
             }
         }
 
-        if(start<quoted_string.size()) {
+        if(start<quoted_string.length) {
             auto uq = unquote_string(quoted_string, start);
-            retval += uq;
+            retval ~= uq;
         }
     }
 
@@ -143,25 +142,25 @@ static std::string shell_unquote(const std::string &quoted_string) {
 
 }
 
-static void delimit_token(std::string &token, std::vector<std::string> &retval) {
-    if(token.empty())
+static void delimit_token(string token, string[] retval) {
+    if(token.length == 0)
         return;
 
-    retval.emplace_back(std::move(token));
+    retval ~= token;
 }
 
-static std::vector<std::string>
-tokenize_command_line(const std::string &command_line) {
+static string[]
+tokenize_command_line(const string command_line) {
     char current_quote;
-    std::string::size_type p = 0;
-    std::string current_token;
-    std::vector<std::string> retval;
+    int p = 0;
+    string current_token;
+    string[] retval;
     bool quoted;
 
     current_quote = '\0';
     quoted = false;
 
-    while(p < command_line.size()) {
+    while(p < command_line.length) {
         if(current_quote == '\\') {
             if(command_line[p] == '\n') {
                 /* we append nothing; backslash-newline become nothing */
@@ -169,19 +168,19 @@ tokenize_command_line(const std::string &command_line) {
                 /* we append the backslash and the current char,
                  * to be interpreted later after tokenization
                  */
-                current_token += '\\';
-                current_token += command_line[p];
+                current_token ~= '\\';
+                current_token ~= command_line[p];
             }
 
             current_quote = '\0';
         } else if(current_quote == '#') {
             /* Discard up to and including next newline */
-            while(p < command_line.size() && command_line[p] != '\n')
+            while(p < command_line.length && command_line[p] != '\n')
                 ++p;
 
             current_quote = '\0';
 
-            if(p == command_line.size())
+            if(p == command_line.length)
                 break;
         } else if(current_quote) {
             if(command_line[p] == current_quote &&
@@ -195,7 +194,7 @@ tokenize_command_line(const std::string &command_line) {
              * gets appended literally.
              */
 
-            current_token += command_line[p];
+            current_token ~= command_line[p];
         } else {
             switch (command_line[p]){
             case '\n':
@@ -208,7 +207,7 @@ tokenize_command_line(const std::string &command_line) {
                  * the current token. A nonzero length
                  * token should always contain the previous char.
                  */
-                if(!current_token.empty()) {
+                if(current_token.length > 0) {
                     delimit_token(current_token, retval);
                 }
 
@@ -222,7 +221,7 @@ tokenize_command_line(const std::string &command_line) {
 
             case '\'':
             case '"':
-                current_token += command_line[p];
+                current_token ~= command_line[p];
 
                 /* FALL THRU */
             case '\\':
@@ -241,7 +240,7 @@ tokenize_command_line(const std::string &command_line) {
                     current_quote = command_line[p];
                     break;
                 default:
-                    current_token += command_line[p];
+                    current_token ~= command_line[p];
                     break;
                 }
                 break;
@@ -250,7 +249,7 @@ tokenize_command_line(const std::string &command_line) {
                 /* Combines rules 4) and 6) - if we have a token, append to it,
                  * otherwise create a new token.
                  */
-                current_token += command_line[p];
+                current_token ~= command_line[p];
                 break;
             }
         }
@@ -270,39 +269,36 @@ tokenize_command_line(const std::string &command_line) {
 
     if(current_quote) {
         if(current_quote == '\\')
-            throw "Text ended just after a “\\” character. (The text was “%s”)";
+            throw new Exception("Text ended just after a “\\” character. (The text was “%s”)");
 //                     command_line);
         else
-            throw "Text ended before matching quote was found for %c."
-                    " (The text was “%s”)";
+            throw new Exception("Text ended before matching quote was found for %c."
+                    " (The text was “%s”)");
 //                     current_quote, command_line);
 
-        goto error;
     }
 
-    if(retval.empty() && !command_line.empty()) {
-        throw "Text was empty (or contained only whitespace)";
+    if(retval.length == 0 && command_line.length > 0) {
+        throw new Exception("Text was empty (or contained only whitespace)");
     }
 
     return retval;
 
-    error:
-
-    return std::vector<std::string>{};
 }
 
-std::vector<std::string> parse_shell_commandline(const std::string &command_line) {
+string[] parse_shell_commandline(const string command_line) {
     /* Code based on poptParseArgvString() from libpopt */
-    std::vector<std::string> args;
+    string[] args;
 
-    if(command_line.empty()) {
+    if(command_line.length == 0) {
         return args;
     }
 
     auto tokens = tokenize_command_line(command_line);
-    if(tokens.empty())
-        return std::vector<std::string>{};
-
+    if(tokens.length == 0) {
+        string[] empty;
+        return empty;
+    }
     /* Because we can't have introduced any new blank space into the
      * tokens (we didn't do any new expansions), we don't need to
      * perform field splitting. If we were going to honor IFS or do any
@@ -317,17 +313,16 @@ std::vector<std::string> parse_shell_commandline(const std::string &command_line
      * such things.
      */
 
-    for(const auto &t : tokens) {
-        args.push_back(shell_unquote(t));
+    foreach(t; tokens) {
+        args ~= shell_unquote(t);
 
         /* Since we already checked that quotes matched up in the
          * tokenizer, this shouldn't be possible to reach I guess.
          */
-        if(args.back().empty())
-            throw "Should not be reached";
+        if(args[args.length - 1].length == 0)
+            throw new Exception("Should not be reached");
 
     }
-
 
     return args;
 
