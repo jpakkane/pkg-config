@@ -20,7 +20,7 @@
  */
 
 module parse;
-import pkg: Package;
+import pkg: Package, RequiredVersion;
 import std.file;
 import core.stdc.stdio;
 import core.stdc.ctype: isspace;

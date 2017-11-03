@@ -20,6 +20,7 @@
 module pkg;
 
 import utils : get_basename;
+import main : VERSION;
 
 import std.stdio;
 import core.stdc.ctype;
@@ -27,15 +28,17 @@ import core.stdc.string;
 
 immutable char DIR_SEPARATOR = '/';
 
-immutable int LIBS_l =       (1 << 0);
-immutable int LIBS_L =       (1 << 1);
-immutable int LIBS_OTHER =   (1 << 2);
-immutable int CFLAGS_I =     (1 << 3);
-immutable int CFLAGS_OTHER = (1 << 4);
+enum FlagType {
+    LIBS_l =       (1 << 0),
+    LIBS_L =       (1 << 1),
+    LIBS_OTHER =   (1 << 2),
+    CFLAGS_I =     (1 << 3),
+    CFLAGS_OTHER = (1 << 4),
 
-immutable int LIBS_ANY =    (LIBS_l | LIBS_L | LIBS_OTHER);
-immutable int CFLAGS_ANY =  (CFLAGS_I | CFLAGS_OTHER);
-immutable int FLAGS_ANY =   (LIBS_ANY | CFLAGS_ANY);
+    LIBS_ANY =    (LIBS_l | LIBS_L | LIBS_OTHER),
+    CFLAGS_ANY =  (CFLAGS_I | CFLAGS_OTHER),
+    FLAGS_ANY =   (LIBS_ANY | CFLAGS_ANY),
+}
 
 enum ComparisonType {
     LESS_THAN, GREATER_THAN, LESS_THAN_EQUAL, GREATER_THAN_EQUAL, EQUAL, NOT_EQUAL, ALWAYS_MATCH
@@ -50,7 +53,7 @@ struct RequiredVersion {
     string name;
     ComparisonType comparison; // default initialised to LESS_THAN
     string version_;
-    Package *owner = nullptr;
+    Package *owner = null;
 }
 
 class Package {
@@ -92,7 +95,7 @@ bool ignore_requires_private = true;
 bool ignore_private_libs = true;
 
 void add_search_dir(const string path) {
-    search_dirs.push_back(path);
+    search_dirs ~= path;
 }
 
 void add_search_dirs(const string path_, const char separator) {
@@ -114,7 +117,7 @@ void add_search_dirs(const string path_, const char separator) {
 */
 
 char FOLD(char c) {
-    return tolower(c);
+    return cast(char)tolower(c);
 }
 
 int FOLDCMP(string a, string b) {
@@ -490,7 +493,7 @@ add_env_variable_to_list(string[] list, const string env) {
 /* Well known compiler include path environment variables. These are
  * used to find additional system include paths to remove. See
  * https://gcc.gnu.org/onlinedocs/gcc/Environment-Variables.html. */
-static string[] gcc_include_envvars = { "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH" };
+static string[] gcc_include_envvars = [ "CPATH", "C_INCLUDE_PATH", "CPP_INCLUDE_PATH" ];
 /*
 #ifdef _WIN32
 // MSVC include path environment variables. See
@@ -902,39 +905,40 @@ void print_package_list() {
     ignore_requires = true;
     ignore_requires_private = true;
 
-    foreach(i; packages)
-        import std.algorithm.comparison : max;
-        mlen = max(mlen, i.length());
+    foreach(i; packages) {
+        l = i.length();
+        if(l > mlen) { mlen = l; }
     }
     foreach(first, second; packages) {
         string pad;
-        for(int counter=0; counter < mlen - first.size()+1; counter++)
+        for(int counter=0; counter < mlen - first.size()+1; counter++) {
             pad += " ";
+        }
         writeln("%s%s%s - %s", second.key, pad, second.name,
                 second.description);
     }
 }
 
-void enable_private_libs(void) {
+void enable_private_libs() {
     ignore_private_libs = false;
 }
 
-void disable_private_libs(void) {
+void disable_private_libs() {
     ignore_private_libs = true;
 }
 
-void enable_requires(void) {
+void enable_requires() {
     ignore_requires = false;
 }
 
-void disable_requires(void) {
+void disable_requires() {
     ignore_requires = true;
 }
 
-void enable_requires_private(void) {
+void enable_requires_private() {
     ignore_requires_private = false;
 }
 
-void disable_requires_private(void) {
+void disable_requires_private() {
     ignore_requires_private = true;
 }
