@@ -21,6 +21,7 @@ module pkg;
 
 import utils : get_basename;
 
+import std.stdio;
 import core.stdc.ctype;
 import core.stdc.string;
 
@@ -257,8 +258,8 @@ Package internal_get_package(const string name, bool warn) {
 
     if(location.empty()) {
         if(warn)
-            verbose_error("Package %s was not found in the pkg-config search path.\n"
-                    "Perhaps you should add the directory containing `%s.pc'\n"
+            verbose_error("Package %s was not found in the pkg-config search path.\n" ~
+                    "Perhaps you should add the directory containing `%s.pc'\n" ~
                     "to the PKG_CONFIG_PATH environment variable\n", name.c_str(), name.c_str());
 
         return Package();
@@ -542,7 +543,7 @@ static void verify_package(Package pkg) {
             auto ver = pkg.required_versions[req.key];
             if(!version_test(ver.comparison, req.version_, ver.version_)) {
                 verbose_error("Package '%s' requires '%s %s %s' but version of %s is %s\n", pkg.key, req.key,
-                        comparison_to_str(ver.comparison), ver.version, req.key, req.version);
+                        comparison_to_str(ver.comparison), ver.version_, req.key, req.version_);
                 if(!req.url.empty())
                     verbose_error("You may find new versions of %s at %s\n", req.name, req.url);
 
@@ -564,9 +565,9 @@ static void verify_package(Package pkg) {
         foreach(ver; req.conflicts) {
 
             if(ver.name == req.key && version_test(ver.comparison, req.version_, ver.version_)) {
-                verbose_error("Version %s of %s creates a conflict.\n"
-                        "(%s %s %s conflicts with %s %s)\n", req.version, req.key, ver.name,
-                        comparison_to_str(ver.comparison), ver.version.empty() ? ver.version_ : "(any)", ver.owner.key,
+                verbose_error("Version %s of %s creates a conflict.\n" ~
+                        "(%s %s %s conflicts with %s %s)\n", req.version_, req.key, ver.name,
+                        comparison_to_str(ver.comparison), ver.version_.empty() ? ver.version_ : "(any)", ver.owner.key,
                         ver.owner.version_);
 
                 throw new Exception("1");
@@ -896,18 +897,18 @@ comparison_to_str(ComparisonType comparison) {
 }
 
 void print_package_list() {
-    size_t mlen = 0;
+    int mlen = 0;
 
     ignore_requires = true;
     ignore_requires_private = true;
 
-    foreach(i; packages.byKey)
+    foreach(i; packages)
         import std.algorithm.comparison : max;
         mlen = max(mlen, i.length());
     }
-    foreach(first, second; packages.byKeyValue) {
+    foreach(first, second; packages) {
         string pad;
-        for(int counter=0; counter < mlen - first.size()+1; ++counter)
+        for(int counter=0; counter < mlen - first.size()+1; counter++)
             pad += " ";
         writeln("%s%s%s - %s", second.key, pad, second.name,
                 second.description);

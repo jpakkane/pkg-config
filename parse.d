@@ -273,7 +273,7 @@ split_module_list(const string str, const string path) {
              * IN_MODULE_NAME
              */
             if(isspace( str[p])) {
-                ; /* no change */
+                /* no change */
             } else if(OPERATOR_CHAR(str[p])) {
                 state = IN_OPERATOR;
             } else {
@@ -393,7 +393,7 @@ parse_module_list(Package pkg, const string str_, const string path) {
             else if(comparison == "!=")
                 ver.comparison = NOT_EQUAL;
             else {
-                verbose_error("Unknown version comparison operator '%s' after "
+                verbose_error("Unknown version comparison operator '%s' after " ~
                         "package name '%s' in file '%s'\n", comparison, ver.name, path);
                 if(parse_strict)
                     exit(1);
@@ -413,7 +413,7 @@ parse_module_list(Package pkg, const string str_, const string path) {
         }
 
         if(ver.comparison != ALWAYS_MATCH && version_ == "") {
-            verbose_error("Comparison operator but no version after package "
+            verbose_error("Comparison operator but no version after package " ~
                     "name '%s' in file '%s'\n", ver.name, path);
             if(parse_strict)
                 exit(1);
@@ -479,7 +479,7 @@ split_module_list2(const string str, const string path) {
              * IN_MODULE_NAME
              */
             if(isspace(str[p])) {
-                ; /* no change */
+                /* no change */
             } else if(OPERATOR_CHAR(str[p])) {
                 state = IN_OPERATOR;
             } else {
@@ -599,7 +599,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
             else if(comparer == "!=")
                 ver.comparison = NOT_EQUAL;
             else {
-                verbose_error("Unknown version comparison operator '%s' after "
+                verbose_error("Unknown version comparison operator '%s' after " ~
                         "package name '%s' in file '%s'\n", comparer.c_str(), ver.name.c_str(), path.c_str());
                 if(parse_strict)
                     exit(1);
@@ -619,7 +619,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
         }
 
         if(ver.comparison != ALWAYS_MATCH && number.empty()) {
-            verbose_error("Comparison operator but no version after package "
+            verbose_error("Comparison operator but no version after package " ~
                     "name '%s' in file '%s'\n", ver.name.c_str(), path.c_str());
             if(parse_strict)
                 exit(1);
