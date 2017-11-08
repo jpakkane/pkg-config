@@ -178,7 +178,7 @@ static bool output_opt_cb(const char *opt, const char *arg, void */*data*/) {
         want_exists = true;
     else if(opt == "--print-variables")
         want_variable_list = true;
-    else if(opt = "--uninstalled")
+    else if(opt == "--uninstalled")
         want_uninstalled = true;
     else if(opt == "--atleast-version") {
         required_atleast_version = arg;
@@ -235,8 +235,8 @@ static void init_pc_path() {
 #ifdef _WIN32
     char *instdir, *lpath, *shpath;
 
-    instdir = g_win32_get_package_installation_directory_of_module (NULL);
-    if (instdir == NULL)
+    instdir = g_win32_get_package_installation_directory_of_module (null);
+    if (instdir == null)
     {
         // This only happens when GetModuleFilename() fails. If it does, that
         // failure should be investigated and fixed.
@@ -244,10 +244,10 @@ static void init_pc_path() {
         return;
     }
 
-    lpath = g_build_filename (instdir, "lib", "pkgconfig", NULL);
-    shpath = g_build_filename (instdir, "share", "pkgconfig", NULL);
+    lpath = g_build_filename (instdir, "lib", "pkgconfig", null);
+    shpath = g_build_filename (instdir, "share", "pkgconfig", null);
     pkg_config_pc_path = g_strconcat (lpath, SEARCHPATH_SEPARATOR_S, shpath,
-            NULL);
+            null);
     g_free (instdir);
     g_free (lpath);
     g_free (shpath);
@@ -262,7 +262,7 @@ static void init_pc_path() {
 static bool process_package_args(const string cmdline, Package[] packages, File *log) {
     bool success = true;
 
-    auto reqs = parse_module_list(NULL, cmdline, "(command line arguments)");
+    auto reqs = parse_module_list(null, cmdline, "(command line arguments)");
     if(reqs.empty() && !cmdline.empty()) {
         fprintf(stderr, "Must specify package names on the command line\n");
         fflush(stderr);
@@ -289,7 +289,7 @@ static bool process_package_args(const string cmdline, Package[] packages, File 
         else
             req = get_package(ver.name);
 
-        if(log != NULL) {
+        if(log != null) {
             if(req.empty())
                 fprintf(log, "%s NOT-FOUND\n", ver.name.c_str());
             else
@@ -342,41 +342,41 @@ struct OptionEntry {
 bool function (const char *, const char *, void *) opt_cb;
 
 static OptionEntry[] options_table = [
-        { "version",                   0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output version of pkg-config", NULL },
-        { "modversion",                0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output version for package", NULL },
-        { "atleast-pkgconfig-version", 0, 0,                  OPTION_ARG_STRING,   &required_pkgconfig_version,             "require given version of pkg-config", "VERSION" },
-        { "libs",                      0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output all linker flags", NULL },
-        { "static",                    0, 0,                  OPTION_ARG_NONE,     &want_static_lib_list,                   "output linker flags for static linking", NULL },
-        { "short-errors",              0, 0,                  OPTION_ARG_NONE,     &want_short_errors,                      "print short errors", NULL },
-        { "libs-only-l",               0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -l flags", NULL },
-        { "libs-only-other",           0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output other libs (e.g. -pthread)", NULL },
-        { "libs-only-L",               0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -L flags", NULL },
-        { "cflags",                    0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output all pre-processor and compiler flags", NULL },
-        { "cflags-only-I",             0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -I flags", NULL },
-        { "cflags-only-other",         0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output cflags not covered by the cflags-only-I option", NULL },
-        { "variable",                  0, 0,                  OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "get the value of variable named NAME", "NAME" },
-        { "define-variable",           0, 0,                  OPTION_ARG_CALLBACK, cast(void*)(&define_variable_cb), "set variable NAME to VALUE", "NAME=VALUE" },
-        { "exists",                    0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module(s) exist", NULL },
-        { "print-variables",           0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output list of variables defined by the module", NULL },
-        { "uninstalled",               0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the uninstalled version of one or more module(s) or their dependencies will be used", NULL },
-        { "atleast-version",           0, 0,                  OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at least version VERSION", "VERSION" },
-        { "exact-version",             0, 0,                  OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at exactly version VERSION", "VERSION" },
-        { "max-version",               0, 0,                  OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at no newer than version VERSION", "VERSION" },
-        { "list-all",                  0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "list all known packages", NULL },
-        { "debug",                     0, 0,                  OPTION_ARG_NONE,     &want_debug_spew,                        "show verbose debug information", NULL },
-        { "print-errors",              0, 0,                  OPTION_ARG_NONE,     &want_verbose_errors,                    "show verbose information about missing or conflicting packages (default unless --exists or --atleast/exact/max-version given on the command line)", NULL },
-        { "silence-errors",            0, 0,                  OPTION_ARG_NONE,     &want_silence_errors,                    "be silent about errors (default when --exists or --atleast/exact/max-version given on the command line)", NULL },
-        { "errors-to-stdout",          0, 0,                  OPTION_ARG_NONE,     &want_stdout_errors,                     "print errors from --print-errors to stdout not stderr", NULL },
-        { "print-provides",            0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package provides", NULL },
-        { "print-requires",            0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package requires", NULL },
-        { "print-requires-private",    0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package requires for static linking", NULL },
-        { "validate",                  0, OPTION_FLAG_NO_ARG, OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "validate a package's .pc file", NULL },
-        { "define-prefix",             0, 0,                  OPTION_ARG_NONE,     &define_prefix,                          "try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", NULL },
-        { "dont-define-prefix",        0, OPTION_FLAG_REVERSE, OPTION_ARG_NONE,    &define_prefix,                          "don't try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", NULL },
-        { "prefix-variable",           0, 0,                  OPTION_ARG_STRING,   &prefix_variable,                        "set the name of the variable that pkg-config automatically sets", "PREFIX" },
+        { "version",                   0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output version of pkg-config", null },
+        { "modversion",                0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output version for package", null },
+        { "atleast-pkgconfig-version", 0, 0,                  OptionArg.OPTION_ARG_STRING,   &required_pkgconfig_version,             "require given version of pkg-config", "VERSION" },
+        { "libs",                      0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output all linker flags", null },
+        { "static",                    0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_static_lib_list,                   "output linker flags for static linking", null },
+        { "short-errors",              0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_short_errors,                      "print short errors", null },
+        { "libs-only-l",               0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -l flags", null },
+        { "libs-only-other",           0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output other libs (e.g. -pthread)", null },
+        { "libs-only-L",               0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -L flags", null },
+        { "cflags",                    0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output all pre-processor and compiler flags", null },
+        { "cflags-only-I",             0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -I flags", null },
+        { "cflags-only-other",         0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output cflags not covered by the cflags-only-I option", null },
+        { "variable",                  0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "get the value of variable named NAME", "NAME" },
+        { "define-variable",           0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&define_variable_cb), "set variable NAME to VALUE", "NAME=VALUE" },
+        { "exists",                    0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module(s) exist", null },
+        { "print-variables",           0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output list of variables defined by the module", null },
+        { "uninstalled",               0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the uninstalled version of one or more module(s) or their dependencies will be used", null },
+        { "atleast-version",           0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at least version VERSION", "VERSION" },
+        { "exact-version",             0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at exactly version VERSION", "VERSION" },
+        { "max-version",               0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at no newer than version VERSION", "VERSION" },
+        { "list-all",                  0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "list all known packages", null },
+        { "debug",                     0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_debug_spew,                        "show verbose debug information", null },
+        { "print-errors",              0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_verbose_errors,                    "show verbose information about missing or conflicting packages (default unless --exists or --atleast/exact/max-version given on the command line)", null },
+        { "silence-errors",            0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_silence_errors,                    "be silent about errors (default when --exists or --atleast/exact/max-version given on the command line)", null },
+        { "errors-to-stdout",          0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_stdout_errors,                     "print errors from --print-errors to stdout not stderr", null },
+        { "print-provides",            0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package provides", null },
+        { "print-requires",            0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package requires", null },
+        { "print-requires-private",    0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package requires for static linking", null },
+        { "validate",                  0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "validate a package's .pc file", null },
+        { "define-prefix",             0, 0,                  OptionArg.OPTION_ARG_NONE,     &define_prefix,                          "try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", null },
+        { "dont-define-prefix",        0, OPTION_FLAG_REVERSE, OptionArg.OPTION_ARG_NONE,    &define_prefix,                          "don't try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", null },
+        { "prefix-variable",           0, 0,                  OptionArg.OPTION_ARG_STRING,   &prefix_variable,                        "set the name of the variable that pkg-config automatically sets", "PREFIX" },
 /*
 #ifdef _WIN32
-        {   "msvc-syntax",             0, 0,                  OPTION_ARG_NONE,     &msvc_syntax,                            "output -l and -L flags for the Microsoft compiler (cl)", NULL},
+        {   "msvc-syntax",             0, 0,                  OPTION_ARG_NONE,     &msvc_syntax,                            "output -l and -L flags for the Microsoft compiler (cl)", null},
 #endif
 */
 ];
@@ -454,7 +454,7 @@ int main(string[] argv) {
     string search_path;
     string pcbuilddir;
     bool need_newline;
-    FILE *log = NULL;
+    FILE *log = null;
 
     /* This is here so that we get debug spew from the start,
      * during arg parsing
@@ -480,7 +480,7 @@ int main(string[] argv) {
     if(search_path) {
         add_search_dirs(search_path, SEARCHPATH_SEPARATOR);
     }
-    if(getenv("PKG_CONFIG_LIBDIR") != NULL) {
+    if(getenv("PKG_CONFIG_LIBDIR") != null) {
         add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), SEARCHPATH_SEPARATOR);
     } else {
         add_search_dirs(pkg_config_pc_path, SEARCHPATH_SEPARATOR);
@@ -534,7 +534,7 @@ int main(string[] argv) {
                 "options besides --exists, --atleast/exact/max-version or " ~
                 "--list-all. Value of --silence-errors: %d\n", want_silence_errors);
 
-        if(want_silence_errors && getenv("PKG_CONFIG_DEBUG_SPEW") == NULL)
+        if(want_silence_errors && getenv("PKG_CONFIG_DEBUG_SPEW") == null)
             want_verbose_errors = false;
         else
             want_verbose_errors = true;
@@ -593,9 +593,9 @@ int main(string[] argv) {
 
     str = chomp(str);
 
-    if(getenv("PKG_CONFIG_LOG") != NULL) {
+    if(getenv("PKG_CONFIG_LOG") != null) {
         log = fopen(getenv("PKG_CONFIG_LOG"), "a");
-        if(log == NULL) {
+        if(log == null) {
             fprintf(stderr, "Cannot open log file: %s\n", getenv("PKG_CONFIG_LOG"));
             exit(1);
         }
@@ -605,7 +605,7 @@ int main(string[] argv) {
     if(!process_package_args(str, &package_list, log))
         return 1;
 
-    if(log != NULL)
+    if(log != null)
         fclose(log);
 
     /* If the user just wants to check package existence or validate its .pc
@@ -623,7 +623,7 @@ int main(string[] argv) {
                 /* Sort variables for consistent output */
                 keys.sort();
                 foreach(i; keys) {
-                    print_list_data(i, NULL);
+                    print_list_data(i, null);
                 }
             }
             if(pkg.length == 0)
