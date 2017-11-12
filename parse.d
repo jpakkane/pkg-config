@@ -25,6 +25,8 @@ import std.file;
 import core.stdc.stdio;
 import core.stdc.ctype: isspace;
 
+const bool ENABLE_DEFINE_PREFIX = true;
+
 bool parse_strict = true;
 bool define_prefix = ENABLE_DEFINE_PREFIX;
 string prefix_variable = "prefix";

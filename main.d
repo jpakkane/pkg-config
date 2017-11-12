@@ -20,36 +20,41 @@
 module main;
 import std.stdio;
 import pkg: FlagType, Package;
+import parse: define_prefix;
 
 string pcsysrootdir;
 string pkg_config_pc_path;
 
-static const bool ENABLE_INDIRECT_DEPS = true;
+const bool ENABLE_INDIRECT_DEPS = true;
+
+string prefix_variable = "prefix";
 
 string VERSION;
-static bool want_my_version = false;
-static bool want_version = false;
-static FlagType pkg_flags = cast(FlagType)0;
-static bool want_list = false;
-static bool want_static_lib_list = ENABLE_INDIRECT_DEPS;
-static bool want_short_errors = false;
-static bool want_uninstalled = false;
-static string variable_name;
-static bool want_exists = false;
-static bool want_provides = false;
-static bool want_requires = false;
-static bool want_requires_private = false;
-static bool want_validate = false;
-static string required_atleast_version;
-static string required_exact_version;
-static string required_max_version;
-static string required_pkgconfig_version;
-static bool want_silence_errors = false;
-static bool want_variable_list = false;
-static bool want_debug_spew = false;
-static bool want_verbose_errors = false;
-static bool want_stdout_errors = false;
-static bool output_opt_set = false;
+bool want_my_version = false;
+bool want_version = false;
+FlagType pkg_flags = FlagType.NO_FLAGS;
+bool want_list = false;
+bool want_static_lib_list = ENABLE_INDIRECT_DEPS;
+bool want_short_errors = false;
+bool want_uninstalled = false;
+string variable_name;
+bool want_exists = false;
+bool want_provides = false;
+bool want_requires = false;
+bool want_requires_private = false;
+bool want_validate = false;
+string required_atleast_version;
+string required_exact_version;
+string required_max_version;
+string required_pkgconfig_version;
+bool want_silence_errors = false;
+bool want_variable_list = false;
+bool want_debug_spew = false;
+bool want_verbose_errors = false;
+bool want_stdout_errors = false;
+bool output_opt_set = false;
+
+bool vercmp_opt_set = false;
 
 // FIXME, should be somewhere saner.
 //extern std::unordered_map<string, Package> packages;
@@ -94,120 +99,7 @@ void verbose_error(const char *format, ...) {
 
 }
 
-static bool define_variable_cb(string opt, string arg, void* data) {
-    string input(arg);
-    int p=0;
-    while(p<input.size() && isspace(input[p]))
-        ++p;
 
-    const int name_start = p;
-    while(p<input.size() && input[p] != '=' && input[p] != ' ')
-        ++p;
-
-    auto varname = input.substr(name_start, p-name_start);
-    while(p<input.size() && (input[p] == '=' || input[p] == ' ')) {
-        ++p;
-    }
-
-    if(p == input.size()) {
-        fprintf(stderr, "--define-variable argument does not have a value " ~
-                "for the variable\n");
-        exit(1);
-    }
-
-    auto varval = input[p .. input.length];
-    define_global_variable(varname, varval);
-
-    return true;
-}
-
-static bool output_opt_cb(const char *opt, const char *arg, void */*data*/) {
-    static bool vercmp_opt_set = false;
-
-    /* only allow one output mode, with a few exceptions */
-    if(output_opt_set) {
-        bool bad_opt = true;
-
-        /* multiple flag options (--cflags --libs-only-l) allowed */
-        if(pkg_flags != 0
-                && opt == "--libs" || opt == "--libs-only-l"
-                        || opt == "--libs-only-other" || opt == "--libs-only-L"
-                        || opt == "--cflags" || opt == "--cflags-only-I"
-                        || opt == "--cflags-only-other")
-            bad_opt = false;
-
-        /* --print-requires and --print-requires-private allowed */
-        if((want_requires && opt == "--print-requires-private")
-                || (want_requires_private && opt == "--print-requires"))
-            bad_opt = false;
-
-        /* --exists allowed with --atleast/exact/max-version */
-        if(want_exists && !vercmp_opt_set
-                && (opt == "--atleast-version" || opt == "--exact-version"
-                        || opt == "--max-version"))
-            bad_opt = false;
-
-        if(bad_opt) {
-            fprintf(stderr, "Ignoring incompatible output option \"%s\"\n", opt);
-            fflush(stderr);
-            return true;
-        }
-    }
-
-    if(opt == "--version")
-        want_my_version = true;
-    else if(opt == "--modversion")
-        want_version = true;
-    else if(opt == "--libs")
-        pkg_flags |= LIBS_ANY;
-    else if(opt == "--libs-only-l")
-        pkg_flags |= LIBS_l;
-    else if(opt == "--libs-only-other")
-        pkg_flags |= LIBS_OTHER;
-    else if(opt == "--libs-only-L")
-        pkg_flags |= LIBS_L;
-    else if(opt == "--cflags")
-        pkg_flags |= CFLAGS_ANY;
-    else if(opt == "--cflags-only-I")
-        pkg_flags |= CFLAGS_I;
-    else if(opt == "--cflags-only-other")
-        pkg_flags |= CFLAGS_OTHER;
-    else if(opt == "--variable")
-        variable_name = arg;
-    else if(opt == "--exists")
-        want_exists = true;
-    else if(opt == "--print-variables")
-        want_variable_list = true;
-    else if(opt == "--uninstalled")
-        want_uninstalled = true;
-    else if(opt == "--atleast-version") {
-        required_atleast_version = arg;
-        want_exists = true;
-        vercmp_opt_set = true;
-    } else if(opt == "--exact-version") {
-        required_exact_version = arg;
-        want_exists = true;
-        vercmp_opt_set = true;
-    } else if(opt == "--max-version") {
-        required_max_version = arg;
-        want_exists = true;
-        vercmp_opt_set = true;
-    } else if(opt == "--list-all")
-        want_list = true;
-    else if(opt == "--print-provides")
-        want_provides = true;
-    else if(opt == "--print-requires")
-        want_requires = true;
-    else if(opt == "--print-requires-private")
-        want_requires_private = true;
-    else if(opt == "--validate")
-        want_validate = true;
-    else
-        return false;
-
-    output_opt_set = true;
-    return true;
-}
 
 static bool pkg_uninstalled(const Package pkg) {
     /* See if > 0 pkgs were uninstalled */
@@ -327,125 +219,108 @@ enum OptionArg {
     OPTION_ARG_STRING,
 };
 
-struct OptionEntry {
-  const string long_name;
-  char        short_name;
-  int         flags;
 
-  OptionArg   arg;
-  void*     arg_data;
 
-  const char *description;
-  const char *arg_description;
-};
-
-bool function (const char *, const char *, void *) opt_cb;
-
-static OptionEntry[] options_table = [
-        { "version",                   0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output version of pkg-config", null },
-        { "modversion",                0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output version for package", null },
-        { "atleast-pkgconfig-version", 0, 0,                  OptionArg.OPTION_ARG_STRING,   &required_pkgconfig_version,             "require given version of pkg-config", "VERSION" },
-        { "libs",                      0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output all linker flags", null },
-        { "static",                    0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_static_lib_list,                   "output linker flags for static linking", null },
-        { "short-errors",              0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_short_errors,                      "print short errors", null },
-        { "libs-only-l",               0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -l flags", null },
-        { "libs-only-other",           0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output other libs (e.g. -pthread)", null },
-        { "libs-only-L",               0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -L flags", null },
-        { "cflags",                    0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output all pre-processor and compiler flags", null },
-        { "cflags-only-I",             0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output -I flags", null },
-        { "cflags-only-other",         0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output cflags not covered by the cflags-only-I option", null },
-        { "variable",                  0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "get the value of variable named NAME", "NAME" },
-        { "define-variable",           0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&define_variable_cb), "set variable NAME to VALUE", "NAME=VALUE" },
-        { "exists",                    0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module(s) exist", null },
-        { "print-variables",           0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "output list of variables defined by the module", null },
-        { "uninstalled",               0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the uninstalled version of one or more module(s) or their dependencies will be used", null },
-        { "atleast-version",           0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at least version VERSION", "VERSION" },
-        { "exact-version",             0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at exactly version VERSION", "VERSION" },
-        { "max-version",               0, 0,                  OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "return 0 if the module is at no newer than version VERSION", "VERSION" },
-        { "list-all",                  0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "list all known packages", null },
-        { "debug",                     0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_debug_spew,                        "show verbose debug information", null },
-        { "print-errors",              0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_verbose_errors,                    "show verbose information about missing or conflicting packages (default unless --exists or --atleast/exact/max-version given on the command line)", null },
-        { "silence-errors",            0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_silence_errors,                    "be silent about errors (default when --exists or --atleast/exact/max-version given on the command line)", null },
-        { "errors-to-stdout",          0, 0,                  OptionArg.OPTION_ARG_NONE,     &want_stdout_errors,                     "print errors from --print-errors to stdout not stderr", null },
-        { "print-provides",            0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package provides", null },
-        { "print-requires",            0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package requires", null },
-        { "print-requires-private",    0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "print which packages the package requires for static linking", null },
-        { "validate",                  0, OPTION_FLAG_NO_ARG, OptionArg.OPTION_ARG_CALLBACK, cast(void*)(&output_opt_cb), "validate a package's .pc file", null },
-        { "define-prefix",             0, 0,                  OptionArg.OPTION_ARG_NONE,     &define_prefix,                          "try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", null },
-        { "dont-define-prefix",        0, OPTION_FLAG_REVERSE, OptionArg.OPTION_ARG_NONE,    &define_prefix,                          "don't try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", null },
-        { "prefix-variable",           0, 0,                  OptionArg.OPTION_ARG_STRING,   &prefix_variable,                        "set the name of the variable that pkg-config automatically sets", "PREFIX" },
-/*
-#ifdef _WIN32
-        {   "msvc-syntax",             0, 0,                  OPTION_ARG_NONE,     &msvc_syntax,                            "output -l and -L flags for the Microsoft compiler (cl)", null},
-#endif
-*/
-];
-
-void print_help() {
-    printf("Printing help is not implemented yet.\n");
-    exit(0);
-}
-
-string[] parse_cmd_args(string[] argv) {
-    string[] remaining;
-    string work;
-    for(int i=1; i<argv.size; ++i) { // skip program name
-        string current = argv[i];
-        if(current == "-h" || current == "--help") {
-            print_help();
-        }
-        if(current.size < 3) {
-            remaining ~= current;
-            continue;
-        }
-        work = current[2..current.size];
-        auto equal_sign = work.indexOf('=');
-        string command, argument;
-        if(equal_sign < 0) {
-            command = work.substr[0 .. equal_sign];
-            argument = work[equal_sign+1 .. work.size];
-        } else {
-            command = work;
-        }
-        bool match_found = false;
-        foreach(const opt; options_table) {
-            if(command == opt.long_name) {
-                match_found = true;
-                if(opt.arg == OPTION_ARG_STRING) {
-                    if(argument.size == 0) {
-                        argument = argv[++i];
-                    }
-                    string *ptr = cast(string*)(opt.arg_data);
-                    *ptr = argument;
-                } else if(opt.arg == OPTION_ARG_NONE) {
-                    *cast(bool*)(opt.arg_data) = !(opt.flags & OPTION_FLAG_REVERSE);
-                } else if(opt.arg == OPTION_ARG_CALLBACK) {
-                    string optionstr = "--" + command;
-                    if(!(opt.flags & OPTION_FLAG_NO_ARG)) {
-                        if(argument.empty()) {
-                            argument = argv[++i];
-                        }
-                    }
-                    opt_cb cb = cast(opt_cb) (opt.arg_data);
-                    (*cb)(optionstr.c_str(), argument.c_str(), nullptr);
-                } else {
-                    throw "Unknown option type.";
-                }
-                break;
-            }
-        }
-        if(!match_found) {
-            if(current[0] == '-') {
-                fprintf(stderr, "Unknown option %s\n", current);
-                exit(1);
-            } else {
-                remaining.push_back(current);
-            }
-        }
-
+void version_callback(string option, string value) {
+    if(option == "atleast-version") {
+        required_atleast_version = value;
+        want_exists = true;
+        vercmp_opt_set = true;
+    } else if(option == "exact-version") {
+        required_exact_version = value;
+        want_exists = true;
+        vercmp_opt_set = true;
+    } else if(option == "max-version") {
+        required_max_version = value;
+        want_exists = true;
+        vercmp_opt_set = true;
+    } else {
+        assert(false);
     }
-    return remaining;
 }
+
+void type_callback(string opt) {
+    if(opt == "libs")
+        pkg_flags |= FlagType.LIBS_ANY;
+    else if(opt == "libs-only-l")
+        pkg_flags |= FlagType.LIBS_l;
+    else if(opt == "libs-only-other")
+        pkg_flags |= FlagType.LIBS_OTHER;
+    else if(opt == "libs-only-L")
+        pkg_flags |= FlagType.LIBS_L;
+    else if(opt == "cflags")
+        pkg_flags |= FlagType.CFLAGS_ANY;
+    else if(opt == "cflags-only-I")
+        pkg_flags |= FlagType.CFLAGS_I;
+    else if(opt == "cflags-only-other")
+        pkg_flags |= FlagType.CFLAGS_OTHER;
+    else
+        assert(false);
+}
+
+void define_variable_cb(string varname, string varval) {
+}
+
+void define_prefix_cb(string name) {
+    if(name == "define-prefix") {
+        define_prefix = true;
+    } else if(name == "dont-define-prefix") {
+        define_prefix = false;
+    } else {
+        assert(false);
+    }
+}
+
+string[] parse_cmd_args(string[] args) {
+    import std.getopt;
+    auto helpInformation = getopt(
+        args,
+        "version", "output version of pkg-config", &want_my_version,
+        "modversion", "output version for package", &want_version,
+        "atleast-pkgconfig-version", "require given version of pkg-config", &required_pkgconfig_version,
+        "libs", "output all linker flags", &type_callback,
+        "static", "output linker flags for static linking", &want_static_lib_list,
+        "short-errors", "print short errors", &want_short_errors,
+        "libs-only-l", "output -l flags", &type_callback,
+        "libs-only-other", "output other libs (e.g. -pthread)", &type_callback,
+        "libs-only-L", "output -L flags", &type_callback,
+        "cflags", "output all pre-processor and compiler flags", &type_callback,
+        "cflags-only-I", "output -I flags", &type_callback,
+        "cflags-only-other", "output cflags not covered by the cflags-only-I option", &type_callback,
+        "variable", "get the value of variable named NAME", &variable_name,
+        "define-variable", "set variable NAME to VALUE", &define_variable_cb,
+        "exists", "return 0 if the module(s) exist", &want_exists,
+        "print-variables", "output list of variables defined by the module", &want_variable_list,
+        "uninstalled", "return 0 if the uninstalled version of one or more module(s) or their dependencies will be used", &want_uninstalled,
+        "atleast-version", "return 0 if the module is at least version VERSION", &version_callback,
+        "exact-version", "return 0 if the module is at exactly version VERSION", &version_callback,
+        "max-version", "return 0 if the module is at no newer than version VERSION", &version_callback,
+        "list-all", "list all known packages", &want_list,
+        "debug", "show verbose debug information", &want_debug_spew,
+        "print-errors", "show verbose information about missing or conflicting packages (default unless --exists or --atleast/exact/max-version given on the command line)", &want_verbose_errors,
+        "silence-errors", "be silent about errors (default when --exists or --atleast/exact/max-version given on the command line)", &want_silence_errors,
+        "errors-to-stdout", "print errors from --print-errors to stdout not stderr", &want_stdout_errors,
+        "print-provides", "print which packages the package provides", &want_provides,
+        "print-requires", "print which packages the package requires", &want_requires,
+        "print-requires-private", "print which packages the package requires for static linking", &want_requires_private,
+        "validate", "validate a package's .pc file", &want_validate,
+        "define-prefix", "try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", &define_prefix_cb,
+        "dont-define-prefix", "don't try to override the value of prefix for each .pc file found with a guesstimated value based on the location of the .pc file", &define_prefix_cb,
+        "prefix-variable", "set the name of the variable that pkg-config automatically sets",   &prefix_variable,
+    );
+    if(helpInformation.helpWanted) {
+        defaultGetoptPrinter("Usage:
+  pkg-config [OPTION?]
+
+Help Options:
+  -h, --help                              Show help options
+
+Application Options:", helpInformation.options);
+    }
+    return [];
+}
+
+
 
 int main(string[] argv) {
     import core.stdc.stdlib: getenv;

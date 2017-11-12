@@ -29,6 +29,7 @@ import core.stdc.string;
 immutable char DIR_SEPARATOR = '/';
 
 enum FlagType {
+    NO_FLAGS = 0,
     LIBS_l =       (1 << 0),
     LIBS_L =       (1 << 1),
     LIBS_OTHER =   (1 << 2),
@@ -127,7 +128,7 @@ int FOLDCMP(string a, string b) {
 immutable int EXT_LEN=3;
 
 static bool ends_in_dotpc(const string str) {
-    const auto len = str.length();
+    const auto len = str.length;
 
     if(len > EXT_LEN && str[len - 3] == '.' &&
     FOLD (str[len - 2]) == 'p' &&
@@ -755,9 +756,9 @@ void define_global_variable(const string varname, const string varval) {
 string
 var_to_env_var(const string pkg, const string var) {
     string new_ = "PKG_CONFIG_";
-    new_ += pkg;
-    new_ += "_";
-    new_ += var;
+    new_ ~= pkg;
+    new_ ~= "_";
+    new_ ~= var;
     for(size_t i = 0; i<new_.length(); ++i) {
         char c = new_[i];
         if(c >= 'a' && c <= 'z') {
