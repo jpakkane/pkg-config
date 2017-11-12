@@ -19,13 +19,15 @@
 
 module main;
 import std.stdio;
-import pkg: FlagType, Package;
-import parse: define_prefix;
+import std.format;
+import pkg;
+import parse: define_prefix, parse_module_list;
 
 string pcsysrootdir;
 string pkg_config_pc_path;
 
 const bool ENABLE_INDIRECT_DEPS = true;
+const string PKG_CONFIG_PC_PATH = "/usr/lib/pkgconfig";
 
 string prefix_variable = "prefix";
 
@@ -57,9 +59,10 @@ bool output_opt_set = false;
 bool vercmp_opt_set = false;
 
 // FIXME, should be somewhere saner.
-//extern std::unordered_map<string, Package> packages;
+Package[string] packages;
 
 void debug_spew(const char *format, ...) {
+    /*
     va_list args;
     FILE* stream;
 
@@ -80,10 +83,11 @@ void debug_spew(const char *format, ...) {
     va_end(args);
 
     fflush(stream);
-
+*/
 }
 
 void verbose_error(const char *format, ...) {
+    /*
     va_list args;
     FILE* stream = want_stdout_errors ? stdout : stderr;
 
@@ -96,7 +100,7 @@ void verbose_error(const char *format, ...) {
     vfprintf(stream, format, args);
     va_end(args);
     fflush(stream);
-
+*/
 }
 
 
@@ -109,8 +113,8 @@ static bool pkg_uninstalled(const Package pkg) {
     }
 
     foreach(pkg_name; pkg.requires) {
-        auto pkg = packages[pkg_name];
-        if(pkg_uninstalled(pkg)) {
+        auto pkg_ = packages[pkg_name];
+        if(pkg_uninstalled(pkg_)) {
             return true;
         }
     }
@@ -155,24 +159,23 @@ static bool process_package_args(const string cmdline, Package[] packages, File 
     bool success = true;
 
     auto reqs = parse_module_list(null, cmdline, "(command line arguments)");
-    if(reqs.empty() && !cmdline.empty()) {
-        fprintf(stderr, "Must specify package names on the command line\n");
-        fflush(stderr);
+    if(reqs.length == 0 && !cmdline.length == 0) {
+        stderr.write("Must specify package names on the command line\n");
         return false;
     }
-
+    string foo;
     foreach(ver; reqs) {
         Package req;
 
         /* override requested versions with cmdline options */
-        if(!required_exact_version.empty()) {
-            ver.comparison = EQUAL;
+        if(required_exact_version != "") {
+            ver.comparison = ComparisonType.EQUAL;
             ver.version_ = required_exact_version;
-        } else if(!required_atleast_version.empty()) {
-            ver.comparison = GREATER_THAN_EQUAL;
+        } else if(required_atleast_version != "") {
+            ver.comparison = ComparisonType.GREATER_THAN_EQUAL;
             ver.version_ = required_atleast_version;
-        } else if(!required_max_version.empty()) {
-            ver.comparison = LESS_THAN_EQUAL;
+        } else if(required_max_version != "") {
+            ver.comparison = ComparisonType.LESS_THAN_EQUAL;
             ver.version_ = required_max_version;
         }
 
@@ -183,10 +186,10 @@ static bool process_package_args(const string cmdline, Package[] packages, File 
 
         if(log != null) {
             if(req.empty())
-                fprintf(log, "%s NOT-FOUND\n", ver.name.c_str());
+                formattedWrite(log, "%s NOT-FOUND\n", ver.name);
             else
-                fprintf(log, "%s %s %s\n", ver.name.c_str(), comparison_to_str(ver.comparison).c_str(),
-                        (ver.version_.length==0) ? "(null)" : ver.version_.c_str());
+                formattedWrite(log, "%s %s %s\n", ver.name, comparison_to_str(ver.comparison),
+                        (ver.version_.length==0) ? "(null)" : ver.version_);
         }
 
         if(req.empty()) {

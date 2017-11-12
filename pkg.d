@@ -20,9 +20,10 @@
 module pkg;
 
 import utils : get_basename;
-import main : VERSION;
+import main : VERSION, verbose_error, debug_spew, pkg_config_pc_path;
 
 import std.stdio;
+import std.string;
 import core.stdc.ctype;
 import core.stdc.string;
 
@@ -142,10 +143,10 @@ static bool ends_in_dotpc(const string str) {
 immutable int UNINSTALLED_LEN=12;
 
 bool name_ends_in_uninstalled(const string str) {
-    auto len = str.length();
+    auto len = str.length;
 
     if(len > UNINSTALLED_LEN &&
-    FOLDCMP ((str.c_str() + len - UNINSTALLED_LEN), "-uninstalled") == 0)
+    FOLDCMP (str[len - UNINSTALLED_LEN .. len], "-uninstalled") == 0)
         return true;
     else
         return false;
@@ -166,8 +167,8 @@ void scan_dir(const string dirname) {
      */
     string dirname_copy = dirname;
 
-    if(dirname_copy.length > 1 && dirname_copy.back() == DIR_SEPARATOR) {
-        dirname_copy.pop_back();
+    if(dirname_copy.length > 1 && dirname_copy[dirname_copy.length-1] == DIR_SEPARATOR) {
+        dirname_copy = dirname_copy[0..dirname_copy.length-1];
     }
 /*
 #ifdef _WIN32
@@ -776,11 +777,11 @@ var_to_env_var(const string pkg, const string var) {
 }
 
 string
-package_get_var(Package pkg, const string var) {
+package_get_var(const ref Package pkg, const string var) {
     import core.stdc.stdlib;
     string varval;
 
-    if(lookup in globals.end()) {
+    if(lookup in globals) {
         varval = globals[lookup];
     }
     /* Allow overriding specific variables using an environment variable of the

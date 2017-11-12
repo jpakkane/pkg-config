@@ -20,8 +20,12 @@
  */
 
 module parse;
-import pkg: Package, RequiredVersion;
+import utils;
+import main: verbose_error, debug_spew;
+import pkg: Package, RequiredVersion, package_get_var;
 import std.file;
+import std.stdio;
+import std.string;
 import core.stdc.stdio;
 import core.stdc.ctype: isspace;
 
@@ -48,45 +52,47 @@ bool msvc_syntax = false;
  * 
  * Return value: %false if the stream was already at an EOF character.
  **/
-static bool read_one_line(_IO_FILE *stream, string str) {
+static bool read_one_line(ref File stream, ref string str) {
     bool quoted = false;
     bool comment = false;
     int n_read = 0;
 
-    str.clear();
+    str = "";
 
     while(true) {
         int c;
 
-        c = getc(stream);
 
-        if(c == EOF) {
+        if(stream.eof()) {
             if(quoted)
-                str += '\\';
+                str ~= '\\';
 
             goto done;
-        } else
+        } else {
+            c = stream.rawRead(new char[1])[0];
             n_read++;
-
+        }
+        
         if(quoted) {
             quoted = false;
 
             switch (c){
             case '#':
-                str += '#';
+                str ~= '#';
                 break;
             case '\r':
             case '\n': {
-                int next_c = getc(stream);
+                if(!stream.eof()) {
+                    auto next_c = stream.rawRead(new char[1])[0];
 
-                if(!(c == EOF || (c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r')))
-                    ungetc(next_c, stream);
-
+                    if(!(c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r'))
+                        stream.seek(-1);
+                }
                 break;
             }
             default:
-                str +=  '\\';
-                str += c;
+                str ~=  '\\';
+                str ~= c;
             }
         } else {
             switch (c){
@@ -98,16 +104,17 @@ static bool read_one_line(_IO_FILE *stream, string str) {
                     quoted = true;
                 break;
             case '\n': {
-                int next_c = getc(stream);
+                if(!stream.eof()) {
+                    auto next_c = stream.rawRead(new char[1])[0];
 
-                if(!(c == EOF || (c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r')))
-                    ungetc(next_c, stream);
-
+                    if(!((c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r')))
+                        stream.seek(-1);
+                }
                 goto done;
             }
             default:
                 if(!comment)
-                    str += c;
+                    str ~= c;
             }
         }
     }
@@ -118,8 +125,8 @@ static bool read_one_line(_IO_FILE *stream, string str) {
 }
 
 static string
-trim_string(const string str) {
-    return comp(str);
+trim_string(const ref string str) {
+    return strip(str);
 }
 
 static string
@@ -132,7 +139,7 @@ trim_and_sub(const Package pkg, const string str, const string path) {
     while(p<trimmed.length) {
         if(str[p] == '$' && str[p+1] == '$') {
             /* escaped $ */
-            subst += '$';
+            subst ~= '$';
             p += 2;
         } else if(str[p] == '$' && str[p+1] == '{') {
             /* variable */
@@ -144,14 +151,14 @@ trim_and_sub(const Package pkg, const string str, const string path) {
             while(p<str.length && str[p] != '}')
                 ++p;
 
-            auto varname = str.substr(var_start, p-var_start);
+            auto varname = str[var_start .. p-var_start];
 
             ++p; /* past brace */
 
             varval = package_get_var(pkg, varname);
 
             if(varval.length == 0) {
-                verbose_error("Variable '%s' not defined in '%s'\n", varname.c_str(), path.c_str());
+                verbose_error("Variable '%s' not defined in '%s'\n", varname, path);
                 if(parse_strict)
                     exit(1);
             }
@@ -169,7 +176,7 @@ trim_and_sub(const Package pkg, const string str, const string path) {
 
 static void parse_name(Package pkg, string str, const string path) {
     if(pkg.name.length > 0) {
-        verbose_error("Name field occurs twice in '%s'\n", path.c_str());
+        verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -181,7 +188,7 @@ static void parse_name(Package pkg, string str, const string path) {
 
 static void parse_version(Package pkg, const string str, const string path) {
     if(pkg.version_ != "") {
-        verbose_error("Version field occurs twice in '%s'\n", path.c_str());
+        verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -193,7 +200,7 @@ static void parse_version(Package pkg, const string str, const string path) {
 
 static void parse_description(Package pkg, const string str, const string path) {
     if(pkg.description != "") {
-        verbose_error("Description field occurs twice in '%s'\n", path.c_str());
+        verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
         else
@@ -242,7 +249,7 @@ split_module_list(const string str, const string path) {
     while(p < str.length) {
         /*
 #if PARSE_SPEW
-        fprintf (stderr, "p: %c state: %d last_state: %d\n", str.c_str() + (int)p, state, last_state);
+        fprintf (stderr, "p: %c state: %d last_state: %d\n", str + (int)p, state, last_state);
 #endif
 */
         switch (state){
@@ -602,7 +609,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
                 ver.comparison = NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after " ~
-                        "package name '%s' in file '%s'\n", comparer.c_str(), ver.name.c_str(), path.c_str());
+                        "package name '%s' in file '%s'\n", comparer, ver.name, path);
                 if(parse_strict)
                     exit(1);
                 else
@@ -622,7 +629,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
 
         if(ver.comparison != ALWAYS_MATCH && number.empty()) {
             verbose_error("Comparison operator but no version after package " ~
-                    "name '%s' in file '%s'\n", ver.name.c_str(), path.c_str());
+                    "name '%s' in file '%s'\n", ver.name, path);
             if(parse_strict)
                 exit(1);
             else {
@@ -926,7 +933,7 @@ static void parse_cflags(Package pkg, const string str, const string path) {
             flag.arg = string("-I") + arg[p .. arg.length];
             pkg.cflags ~= flag;
         } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < argv.length)) {
-            auto tmp = trim_string(argv[i + 1].c_str());
+            auto tmp = trim_string(argv[i + 1]);
             string option = strdup_escape_shell(tmp);
 
             /* These are -I flags since they control the search path */
@@ -981,15 +988,15 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
             str[p] == '_' || str[p] == '.')
         p++;
 
-    auto tag = str.substr(0, p);
+    auto tag = str[0 .. p];
 
-    while(str.length() < p && isspace(str[p]))
+    while(str.length < p && isspace(str[p]))
         ++p;
 
     if(str[p] == ':') {
         /* keyword */
         ++p;
-        while(p<str.length() && isspace(str[p]))
+        while(p<str.length && isspace(str[p]))
             ++p;
 
         auto remainder = str[p .. str.length];
@@ -1072,7 +1079,7 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
                 goto cleanup;
             }
         } else if(define_prefix && !pkg.orig_prefix.empty() &&
-                str[p..str.length] == pkg.orig_prefix.c_str() &&
+                str[p..str.length] == pkg.orig_prefix &&
                 IS_DIR_SEPARATOR (str[p+pkg.orig_prefix.length])) {
             string oldstr = str;
 
@@ -1107,18 +1114,18 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
 Package
 parse_package_file(const string key, const string path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private) {
-    __IO_FILE_STREAM *f;
+    File f;
     Package pkg;
     string str;
     bool one_line = false;
 
-    f = fopen(path, "r");
-
-    if(f == NULL) {
-        verbose_error("Failed to open '%s': %s\n", path, strerror(errno));
+    f = File(path, "r");
+/*
+    if(f == null) {
+        verbose_error("Failed to open '%s'\n", path);
         return pkg;
     }
-
+*/
 //    debug_spew("Parsing package file '%s'\n", path);
 
     pkg.key = key;
@@ -1136,14 +1143,14 @@ parse_package_file(const string key, const string path, bool ignore_requires, bo
     while(read_one_line(f, str)) {
         one_line = true;
 
-        parse_line(&pkg, str, path.c_str(), ignore_requires, ignore_private_libs, ignore_requires_private);
+        parse_line(pkg, str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
 
-        str.clear();
+        str = "";
     }
 
-    if(one_line == "")
-        verbose_error("Package file '%s' appears to be empty\n", path.c_str());
-    fclose(f);
+    if(one_line)
+        verbose_error("Package file '%s' appears to be empty\n", path);
+    f.close();
 
     //pkg->libs = g_list_reverse(pkg->libs);
 
