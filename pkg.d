@@ -21,7 +21,7 @@ module pkg;
 
 import utils;
 import main : VERSION, verbose_error, debug_spew, pkg_config_pc_path, pcsysrootdir;
-import parse : parse_package_file;
+import parse : parse_package_file, parse_package_variable;
 
 import std.stdio;
 import std.string;
@@ -654,7 +654,7 @@ static void verify_package(Package pkg) {
     pkg.cflags.swap(filtered);
 
 
-    system_directories.clear();
+    system_directories.length = 0;
 
     search_path = to!string(getenv("PKG_CONFIG_SYSTEM_LIBRARY_PATH"));
 
@@ -664,7 +664,7 @@ static void verify_package(Package pkg) {
 
     add_env_variable_to_list(system_directories, search_path);
 
-    filtered.clear();
+    filtered.length = 0;
     foreach(flag; pkg.libs) {
 
         if(!(flag.type & FlagType.LIBS_L)) {
@@ -790,18 +790,18 @@ string
 package_get_var(const ref Package pkg, const string var) {
     string varval;
 
-    if(lookup in globals) {
-        varval = globals[lookup];
+    if(var in globals) {
+        varval = globals[var];
     }
     /* Allow overriding specific variables using an environment variable of the
      * form PKG_CONFIG_$PACKAGENAME_$VARIABLE
      */
     if(!pkg.key.empty()) {
         string env_var = var_to_env_var(pkg.key, var);
-        string env_var_content = getenv(env_var);
-        if(env_var_content) {
+        string env_var_content = to!string(getenv(env_var));
+        if(env_var_content != "") {
             debug_spew("Overriding variable '%s' from environment\n", var);
-            return string(env_var_content);
+            return env_var_content;
         }
     }
 
