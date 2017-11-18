@@ -28,6 +28,7 @@ import std.string;
 import core.stdc.ctype;
 import core.stdc.string;
 import std.conv;
+import core.stdc.stdlib;
 
 immutable char DIR_SEPARATOR = '/';
 
@@ -311,7 +312,6 @@ Package internal_get_package(const string name, bool warn) {
         debug_spew("Searching for '%s' requirement '%s'\n", added_pkg.key, ver.name);
         auto req = internal_get_package(ver.name, warn);
         if(req.empty()) {
-            import core.stdc.stdlib;
             verbose_error("Package '%s', required by '%s', not found\n", ver.name, added_pkg.key);
             exit(1);
         }
@@ -325,7 +325,6 @@ Package internal_get_package(const string name, bool warn) {
         debug_spew("Searching for '%s' private requirement '%s'\n", added_pkg.key, ver.name);
         auto req = internal_get_package(ver.name, warn);
         if(req.empty()) {
-            import core.stdc.stdlib;
             verbose_error("Package '%s', required by '%s', not found\n", ver.name, added_pkg.key);
             exit(1);
         }
@@ -518,7 +517,6 @@ static const char *msvc_include_envvars[] = {
 #endif
 */
 static void verify_package(Package pkg) {
-    import core.stdc.stdlib;
     string[] requires;
     RequiredVersion[] conflicts;
     string[] system_directories;
@@ -747,8 +745,8 @@ packages_get_flags(Package[] pkgs, FlagType flags) {
     }
 
     /* Strip trailing space. */
-    if(!str.empty() && str.back() == ' ')
-        str.pop_back();
+    if(!str.empty() && str[$-1] == ' ')
+        str.length = str.length-1;
 
     debug_spew("returning flags string \"%s\"\n", str);
     return str;
@@ -790,7 +788,6 @@ var_to_env_var(const string pkg, const string var) {
 
 string
 package_get_var(const ref Package pkg, const string var) {
-    import core.stdc.stdlib;
     string varval;
 
     if(lookup in globals) {
@@ -809,7 +806,6 @@ package_get_var(const ref Package pkg, const string var) {
     }
 
     if(varval.empty()) {
-        auto res = pkg.vars.find(var);
         if(var in pkg.vars)
             varval = pkg.vars[var];
     }
@@ -824,8 +820,8 @@ packages_get_var(Package[] pkgs, const string varname) {
         auto var = parse_package_variable(pkg, varname);
         if(!var.empty()) {
             if(!str.empty())
-                str += ' ';
-            str += var;
+                str ~= ' ';
+            str ~= var;
         }
 
     }

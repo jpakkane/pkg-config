@@ -17,7 +17,6 @@
 
 module quoter;
 
-
 /*
  * The remaining contents of this file are taken from Glib internals to
  * avoid an external dependency.

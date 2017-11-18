@@ -22,12 +22,14 @@
 module parse;
 import utils;
 import main: verbose_error, debug_spew;
-import pkg: Package, RequiredVersion, package_get_var;
+import quoter;
+import pkg: Package, RequiredVersion, package_get_var, ComparisonType;
 import std.file;
 import std.stdio;
 import std.string;
 import core.stdc.stdio;
 import core.stdc.ctype: isspace;
+import core.stdc.stdlib;
 
 const bool ENABLE_DEFINE_PREFIX = true;
 
@@ -131,7 +133,6 @@ trim_string(const ref string str) {
 
 static string
 trim_and_sub(const Package pkg, const string str, const string path) {
-    import core.stdc.stdlib;
     string subst;
     int p = 0;
 
@@ -176,7 +177,6 @@ trim_and_sub(const Package pkg, const string str, const string path) {
 }
 
 static void parse_name(Package pkg, string str, const string path) {
-    import core.stdc.stdlib;
     if(pkg.name.length > 0) {
         verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -189,7 +189,6 @@ static void parse_name(Package pkg, string str, const string path) {
 }
 
 static void parse_version(Package pkg, const string str, const string path) {
-    import core.stdc.stdlib;
     if(pkg.version_ != "") {
         verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -202,7 +201,6 @@ static void parse_version(Package pkg, const string str, const string path) {
 }
 
 static void parse_description(Package pkg, const string str, const string path) {
-    import core.stdc.stdlib;
     if(pkg.description != "") {
         verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -387,24 +385,24 @@ parse_module_list(Package pkg, const string str_, const string path) {
             ++p;
         }
 
-        string comparison = str.substr(start, p-start);
+        string comparison = str[start .. p-start];
         while(p<str.length && isspace(str[p])) {
             ++p;
         }
 
         if(comparison != "") {
             if(comparison == "=")
-                ver.comparison = EQUAL;
+                ver.comparison = ComparisonType.EQUAL;
             else if(comparison == ">=")
-                ver.comparison = GREATER_THAN_EQUAL;
+                ver.comparison = ComparisonType.GREATER_THAN_EQUAL;
             else if(comparison == "<=")
-                ver.comparison = LESS_THAN_EQUAL;
+                ver.comparison = ComparisonType.LESS_THAN_EQUAL;
             else if(comparison == ">")
-                ver.comparison = GREATER_THAN;
+                ver.comparison = ComparisonType.GREATER_THAN;
             else if(comparison == "<")
-                ver.comparison = LESS_THAN;
+                ver.comparison = ComparisonType.LESS_THAN;
             else if(comparison == "!=")
-                ver.comparison = NOT_EQUAL;
+                ver.comparison = ComparisonType.NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after " ~
                         "package name '%s' in file '%s'\n", comparison, ver.name, path);
@@ -420,12 +418,12 @@ parse_module_list(Package pkg, const string str_, const string path) {
         while(p<str.length && !MODULE_SEPARATOR(str[p]))
             ++p;
 
-        string version_ = str.substr(start, p-start);
+        string version_ = str[start .. p-start];
         while(p<str.length && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
 
-        if(ver.comparison != ALWAYS_MATCH && version_ == "") {
+        if(ver.comparison != ComparisonType.ALWAYS_MATCH && version_ == "") {
             verbose_error("Comparison operator but no version after package " ~
                     "name '%s' in file '%s'\n", ver.name, path);
             if(parse_strict)
@@ -451,24 +449,24 @@ static string[]
 split_module_list2(const string str, const string path) {
     string[] retval;
     int p = 0, start = 0;
-    ModuleSplitState state = OUTSIDE_MODULE;
-    ModuleSplitState last_state = OUTSIDE_MODULE;
+    ModuleSplitState state = ModuleSplitState.OUTSIDE_MODULE;
+    ModuleSplitState last_state = ModuleSplitState.OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
 
-    while(p<str.length()) {
+    while(p<str.length) {
 /*
 #if PARSE_SPEW
         fprintf (stderr, "p: %c state: %d last_state: %d\n", *p, state, last_state);
 #endif
 */
         switch (state){
-        case OUTSIDE_MODULE:
+        case ModuleSplitState.OUTSIDE_MODULE:
             if(!MODULE_SEPARATOR(str[p]))
-                state = IN_MODULE_NAME;
+                state = ModuleSplitState.IN_MODULE_NAME;
             break;
 
-        case IN_MODULE_NAME:
+        case ModuleSplitState.IN_MODULE_NAME:
             if(isspace(str[p])) {
                 /* Need to look ahead to determine next state */
                 auto s = p;
@@ -476,50 +474,50 @@ split_module_list2(const string str, const string path) {
                     ++s;
 
                 if(s>=str.length)
-                    state = OUTSIDE_MODULE;
+                    state = ModuleSplitState.OUTSIDE_MODULE;
                 else if(MODULE_SEPARATOR(str[s]))
-                    state = OUTSIDE_MODULE;
+                    state = ModuleSplitState.OUTSIDE_MODULE;
                 else if(OPERATOR_CHAR(str[s]))
-                    state = BEFORE_OPERATOR;
+                    state = ModuleSplitState.BEFORE_OPERATOR;
                 else
-                    state = OUTSIDE_MODULE;
+                    state = ModuleSplitState.OUTSIDE_MODULE;
             } else if(MODULE_SEPARATOR(str[p]))
-                state = OUTSIDE_MODULE; /* comma precludes any operators */
+                state = ModuleSplitState.OUTSIDE_MODULE; /* comma precludes any operators */
             break;
 
-        case BEFORE_OPERATOR:
+        case ModuleSplitState.BEFORE_OPERATOR:
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
             if(isspace(str[p])) {
                 /* no change */
             } else if(OPERATOR_CHAR(str[p])) {
-                state = IN_OPERATOR;
+                state = ModuleSplitState.IN_OPERATOR;
             } else {
                 throw new Exception("Unreachable code.");
             }
             break;
 
-        case IN_OPERATOR:
+        case ModuleSplitState.IN_OPERATOR:
             if(!OPERATOR_CHAR(str[p]))
-                state = AFTER_OPERATOR;
+                state = ModuleSplitState.AFTER_OPERATOR;
             break;
 
-        case AFTER_OPERATOR:
+        case ModuleSplitState.AFTER_OPERATOR:
             if(!isspace(str[p]))
-                state = IN_MODULE_VERSION;
+                state = ModuleSplitState.IN_MODULE_VERSION;
             break;
 
-        case IN_MODULE_VERSION:
+        case ModuleSplitState.IN_MODULE_VERSION:
             if(MODULE_SEPARATOR(str[p]))
-                state = OUTSIDE_MODULE;
+                state = ModuleSplitState.OUTSIDE_MODULE;
             break;
 
         default:
             throw new Exception("Unreachable code");
         }
 
-        if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
+        if(state == ModuleSplitState.OUTSIDE_MODULE && last_state != ModuleSplitState.OUTSIDE_MODULE) {
             /* We left a module */
             auto module_ = str[start .. p - start];
             retval ~= module_;
@@ -562,7 +560,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
         int p=0, start=0;
         string tmpstr = iter;
 
-        ver.comparison = ALWAYS_MATCH;
+        ver.comparison = ComparisonType.ALWAYS_MATCH;
         ver.owner = pkg;
 
         while(p<iter.length && MODULE_SEPARATOR(iter[p]))
@@ -574,7 +572,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
             ++p;
 
         auto name = iter[start .. p-start];
-        while(p<iter.length() && MODULE_SEPARATOR(iter[p])) {
+        while(p<iter.length && MODULE_SEPARATOR(iter[p])) {
             ++p;
         }
 
@@ -593,24 +591,24 @@ parse_module_list2(Package pkg, const string str, const string path) {
         while(p<str.length && !isspace(str[p]))
             ++p;
 
-        auto comparer = iter.substr(start, p-start);
+        auto comparer = iter[start .. p-start];
         while(p<iter.length && isspace(iter[p])) {
             ++p;
         }
 
         if(!comparer.empty()) {
             if(comparer == "=")
-                ver.comparison = EQUAL;
+                ver.comparison = ComparisonType.EQUAL;
             else if(comparer == ">=")
-                ver.comparison = GREATER_THAN_EQUAL;
+                ver.comparison = ComparisonType.GREATER_THAN_EQUAL;
             else if(comparer == "<=")
-                ver.comparison = LESS_THAN_EQUAL;
+                ver.comparison = ComparisonType.LESS_THAN_EQUAL;
             else if(comparer == ">")
-                ver.comparison = GREATER_THAN;
+                ver.comparison = ComparisonType.GREATER_THAN;
             else if(comparer == "<")
-                ver.comparison = LESS_THAN;
+                ver.comparison = ComparisonType.LESS_THAN;
             else if(comparer == "!=")
-                ver.comparison = NOT_EQUAL;
+                ver.comparison = ComparisonType.NOT_EQUAL;
             else {
                 verbose_error("Unknown version comparison operator '%s' after " ~
                         "package name '%s' in file '%s'\n", comparer, ver.name, path);
@@ -626,12 +624,12 @@ parse_module_list2(Package pkg, const string str, const string path) {
         while(p<iter.length && !MODULE_SEPARATOR(iter[p]))
             ++p;
 
-        auto number = iter.substr(start, p-start);
-        while(p<iter.length() && MODULE_SEPARATOR(iter[p])) {
+        auto number = iter[start .. p-start];
+        while(p<iter.length && MODULE_SEPARATOR(iter[p])) {
             ++p;
         }
 
-        if(ver.comparison != ALWAYS_MATCH && number.empty()) {
+        if(ver.comparison != ComparisonType.ALWAYS_MATCH && number.empty()) {
             verbose_error("Comparison operator but no version after package " ~
                     "name '%s' in file '%s'\n", ver.name, path);
             if(parse_strict)
@@ -702,9 +700,9 @@ static string strdup_escape_shell(const string s) {
         if((c < '$') || (c > '$' && s[0] < '(') || (c > ')' && c < '+') || (c > ':' && c < '=')
                 || (c > '=' && c < '@') || (c > 'Z' && c < '^') || (c == '`')
                 || (c > 'z' && c < '~') || (c > '~')) {
-            r.push_back('\\');
+            r ~= '\\';
         }
-        r.push_back(c);
+        r ~= c;
     }
     return r;
 }
@@ -732,20 +730,20 @@ static void _do_parse_libs(Package pkg, const string[] args) {
         if(arg[p] == '-' && arg[p+1] == 'l' &&
         /* -lib: is used by the C# compiler for libs; it's not an -l
          flag. */
-        !string_starts_with(arg[p .. arg.length()], "-lib:")) {
+        !string_starts_with(arg[p .. arg.length], "-lib:")) {
             p += 2;
             while(p<arg.length && isspace(arg[p]))
                 ++p;
 
-            flag.type = LIBS_l;
+            flag.type = Flagtype.LIBS_l;
             flag.arg = l_flag + arg[p .. arg.length] + lib_suffix;
             pkg.libs ~= flag;
         } else if(arg[p] == '-' && arg[p+1] == 'L') {
             p += 2;
-            while(p<arg.length() && isspace(arg[p]))
+            while(p<arg.length && isspace(arg[p]))
                 ++p;
 
-            flag.type = LIBS_L;
+            flag.type = FlagType.LIBS_L;
             flag.arg = L_flag + arg[p .. arg.length];
             pkg.libs ~= flag;
         } else if((arg[p .. arg.length] == "-framework" || arg[p .. arg.length] == "-Wl,-framework") && (i + 1 < args.length)) {
@@ -757,14 +755,14 @@ static void _do_parse_libs(Package pkg, const string[] args) {
             auto tmp = trim_string(args[i + 1]);
 
             auto framework = strdup_escape_shell(tmp);
-            flag.type = LIBS_OTHER;
+            flag.type = ComparisonType.LIBS_OTHER;
             flag.arg = arg;
             flag.arg += " ";
             flag.arg += framework;
-            pkg.libs ~= push_back(flag);
+            pkg.libs ~= flag;
             i++;
         } else if(!arg.empty()) {
-            flag.type = LIBS_OTHER;
+            flag.type = ComparisonType.LIBS_OTHER;
             flag.arg = arg;
             pkg.libs ~= flag;
         } else {
@@ -858,7 +856,7 @@ string[] parse_shell_string(const string in_)
     foreach(ch; in_) {
 
         if (quoteChar == '\\') {
-            arg.push_back(ch);
+            arg ~= ch;
             quoteChar = 0;
             continue;
         }
@@ -882,7 +880,7 @@ string[] parse_shell_string(const string in_)
 
             if (!arg.empty()) {
                 out_ ~= arg;
-                arg.clear();
+                arg.length = 0;
             }
             break;
 
@@ -893,7 +891,7 @@ string[] parse_shell_string(const string in_)
     }
 
     if (arg != "") {
-        out_.push_back(arg);
+        out_ ~= arg;
     }
 
     return out_;
@@ -930,25 +928,25 @@ static void parse_cflags(Package pkg, const string str, const string path) {
 
         if(p < arg.length-2 && arg[p] == '-' && arg[p+1] == 'I') {
             p += 2;
-            while(p<arg.length() && isspace(arg[p]))
+            while(p<arg.length && isspace(arg[p]))
                 ++p;
 
-            flag.type = CFLAGS_I;
+            flag.type = FlagType.CFLAGS_I;
             flag.arg = string("-I") + arg[p .. arg.length];
             pkg.cflags ~= flag;
         } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < argv.length)) {
-            auto tmp = trim_string(argv[i + 1]);
-            string option = strdup_escape_shell(tmp);
+            auto tmp2 = trim_string(argv[i + 1]);
+            string option = strdup_escape_shell(tmp2);
 
             /* These are -I flags since they control the search path */
-            flag.type = CFLAGS_I;
+            flag.type = FlagType.CFLAGS_I;
             flag.arg = arg;
             flag.arg += " ";
             flag.arg += option;
             pkg.cflags ~= flag;
             i++;
         } else if(!arg.empty()) {
-            flag.type = CFLAGS_OTHER;
+            flag.type = FlagType.CFLAGS_OTHER;
             flag.arg = arg;
             pkg.cflags ~= flag;
         } else {
@@ -959,7 +957,6 @@ static void parse_cflags(Package pkg, const string str, const string path) {
 }
 
 static void parse_url(Package pkg, const string str, const string path) {
-    import core.stdc.stdlib;
     if(pkg.url != "") {
         verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -973,7 +970,6 @@ static void parse_url(Package pkg, const string str, const string path) {
 
 static void parse_line(Package pkg, const string untrimmed, const string path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
-    import core.stdc.stdlib;
     int p;
 
     debug_spew("  line>%s\n", untrimmed);
@@ -1042,7 +1038,7 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
     } else if(str[p] == '=') {
 
         ++p;
-        while(p<str.length() && isspace(str[p]))
+        while(p<str.length && isspace(str[p]))
             ++p;
 
         if(define_prefix && tag == prefix_variable) {
@@ -1094,7 +1090,7 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
             if(lookup != pkg.vars.end()) {
                 tmp = lookup.second;
             }
-            str = tmp + str[p + pkg.orig_prefix.length() .. str.length];
+            str = tmp + str[p + pkg.orig_prefix.length .. str.length];
             p = 0;
         }
 
