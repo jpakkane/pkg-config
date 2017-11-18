@@ -19,13 +19,15 @@
 
 module pkg;
 
-import utils : get_basename;
-import main : VERSION, verbose_error, debug_spew, pkg_config_pc_path;
+import utils;
+import main : VERSION, verbose_error, debug_spew, pkg_config_pc_path, pcsysrootdir;
+import parse : parse_package_file;
 
 import std.stdio;
 import std.string;
 import core.stdc.ctype;
 import core.stdc.string;
+import std.conv;
 
 immutable char DIR_SEPARATOR = '/';
 
@@ -84,6 +86,7 @@ class Package {
     bool empty() const { return key.length == 0; }
 };
 
+const string PKG_CONFIG_SYSTEM_LIBRARY_PATH = "/usr/lib";
 
 static void verify_package(Package *pkg);
 
@@ -123,7 +126,13 @@ char FOLD(char c) {
 }
 
 int FOLDCMP(string a, string b) {
-    return strcmp(a, b);
+    if(a == b) {
+        return 0;
+    }
+    if(a < b) {
+        return -1;
+    }
+    return 1;
 }
 
 immutable int EXT_LEN=3;
@@ -178,7 +187,7 @@ void scan_dir(const string dirname) {
 #endif
 */
     string[] entries;
-    foreach(string de; dirEntries(dirname_copy)) {
+    foreach(de; dirEntries(dirname_copy)) {
         if(de == '.')
             continue;
         string path(dirname);
@@ -228,22 +237,22 @@ Package internal_get_package(const string name, bool warn) {
     if(name in packages)
         return packages[name];
 
-    debug_spew("Looking for package '%s'\n", name.c_str());
+    debug_spew("Looking for package '%s'\n", name);
 
     /* treat "name" as a filename if it ends in .pc and exists */
-    if(ends_in_dotpc(name.c_str())) {
-        debug_spew("Considering '%s' to be a filename rather than a package name\n", name.c_str());
+    if(ends_in_dotpc(name)) {
+        debug_spew("Considering '%s' to be a filename rather than a package name\n", name);
         location = name;
         key = name;
     } else {
         /* See if we should auto-prefer the uninstalled version */
-        if(!disable_uninstalled && !name_ends_in_uninstalled(name.c_str())) {
-            string un = name + "-uninstalled";
+        if(!disable_uninstalled && !name_ends_in_uninstalled(name)) {
+            string un = name ~ "-uninstalled";
 
             pkg = internal_get_package(un, false);
 
             if(!pkg.key.empty()) {
-                debug_spew("Preferring uninstalled version of package '%s'\n", name.c_str());
+                debug_spew("Preferring uninstalled version of package '%s'\n", name);
                 return pkg;
             }
         }
@@ -251,12 +260,12 @@ Package internal_get_package(const string name, bool warn) {
         foreach(dir; search_dirs) {
             path_position++;
             location = dir;
-            location += DIR_SEPARATOR;
-            location += name;
-            location += ".pc";
-            if(is_regular_file(location.c_str()))
+            location ~= DIR_SEPARATOR;
+            location ~= name;
+            location ~= ".pc";
+            if(is_regular_file(location))
                 break;
-            location.clear();
+            location = "";
         }
 
     }
@@ -265,9 +274,9 @@ Package internal_get_package(const string name, bool warn) {
         if(warn)
             verbose_error("Package %s was not found in the pkg-config search path.\n" ~
                     "Perhaps you should add the directory containing `%s.pc'\n" ~
-                    "to the PKG_CONFIG_PATH environment variable\n", name.c_str(), name.c_str());
+                    "to the PKG_CONFIG_PATH environment variable\n", name, name);
 
-        return Package();
+        return new Package();
     }
 
     if(key.empty())
@@ -275,52 +284,54 @@ Package internal_get_package(const string name, bool warn) {
     else {
         /* need to extract package name out of the full filename path */
         key = get_basename(name);
-        key = key.substr(0, key.length() - EXT_LEN);
+        key = key[0 .. key.length - EXT_LEN];
     }
 
-    debug_spew("Reading '%s' from file '%s'\n", name.c_str(), location.c_str());
+    debug_spew("Reading '%s' from file '%s'\n", name, location);
     pkg = parse_package_file(key, location, ignore_requires, ignore_private_libs, ignore_requires_private);
 
     if(!pkg.empty() && location.indexOf("uninstalled.pc") >= 0)
         pkg.uninstalled = true;
 
     if(pkg.empty()) {
-        debug_spew("Failed to parse '%s'\n", location.c_str());
-        return Package();
+        debug_spew("Failed to parse '%s'\n", location);
+        return new Package();
     }
 
     pkg.path_position = path_position;
 
-    debug_spew("Path position of '%s' is %d\n", pkg.key.c_str(), pkg.path_position);
+    debug_spew("Path position of '%s' is %d\n", pkg.key, pkg.path_position);
 
-    debug_spew("Adding '%s' to list of known packages\n", pkg.key.c_str());
+    debug_spew("Adding '%s' to list of known packages\n", pkg.key);
     packages[pkg.key] = pkg;
     auto added_pkg = packages[pkg.key];
 
     /* pull in Requires packages */
     foreach(ver; added_pkg.requires_entries) {
-        debug_spew("Searching for '%s' requirement '%s'\n", added_pkg.key.c_str(), ver.name.c_str());
-        auto req = internal_get_package(ver.name.c_str(), warn);
+        debug_spew("Searching for '%s' requirement '%s'\n", added_pkg.key, ver.name);
+        auto req = internal_get_package(ver.name, warn);
         if(req.empty()) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), added_pkg.key.c_str());
+            import core.stdc.stdlib;
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name, added_pkg.key);
             exit(1);
         }
 
         added_pkg.required_versions[ver.name] = ver;
-        added_pkg.requires.push_back(req.key);
+        added_pkg.requires ~= req.key;
     }
 
     /* pull in Requires.private packages */
     foreach(ver; added_pkg.requires_private_entries) {
-        debug_spew("Searching for '%s' private requirement '%s'\n", added_pkg.key.c_str(), ver.name.c_str());
-        auto req = internal_get_package(ver.name.c_str(), warn);
+        debug_spew("Searching for '%s' private requirement '%s'\n", added_pkg.key, ver.name);
+        auto req = internal_get_package(ver.name, warn);
         if(req.empty()) {
-            verbose_error("Package '%s', required by '%s', not found\n", ver.name.c_str(), added_pkg.key.c_str());
+            import core.stdc.stdlib;
+            verbose_error("Package '%s', required by '%s', not found\n", ver.name, added_pkg.key);
             exit(1);
         }
 
         added_pkg.required_versions[ver.name] = ver;
-        added_pkg.requires_private.push_back(req.key);
+        added_pkg.requires_private ~= req.key;
     }
 
     import std.algorithm : reverse;
@@ -354,7 +365,7 @@ static Flag[] flag_list_strip_duplicates(const Flag[] list) {
     result ~= list[0];
     /* Start at the 2nd element of the list so we don't have to check for an
      * existing previous element. */
-    for(size_t i=1; i<list.size(); ++i) {
+    for(size_t i=1; i<list.length; ++i) {
         const Flag cur = list[i];
         const Flag prev = list[i-1];
 
@@ -375,26 +386,26 @@ static string flag_list_to_string(const Flag[] flags) {
     foreach(flag; flags) {
         const string tmpstr = flag.arg;
 
-        if(!pcsysrootdir.empty() && (flag.type & (CFLAGS_I | LIBS_L))) {
+        if(pcsysrootdir.length > 0 && (flag.type & (FlagType.CFLAGS_I | FlagType.LIBS_L))) {
             /* Handle non-I Cflags like -isystem */
-            if((flag.type & CFLAGS_I) && strncmp(tmpstr.c_str(), "-I", 2) != 0) {
+            if((flag.type & FlagType.CFLAGS_I) && tmpstr[0..2] != "-I") {
                 auto space_loc = tmpstr.indexOf(' ');
 
                 /* Ensure this has a separate arg */
-                assert(space_loc >= 0 && space_loc < tmpstr.length()-1);
-                str += tmpstr[0 .. space_loc + 1];
-                str += pcsysrootdir;
-                str += tmpstr[space_loc .. 1];
+                assert(space_loc >= 0 && space_loc < tmpstr.length-1);
+                str ~= tmpstr[0 .. space_loc + 1];
+                str ~= pcsysrootdir;
+                str ~= tmpstr[space_loc .. 1];
             } else {
-                str += '-';
-                str += tmpstr[1];
-                str += pcsysrootdir;
-                str += tmpstr.substr(2);
+                str ~= '-';
+                str ~= tmpstr[1];
+                str ~= pcsysrootdir;
+                str ~= tmpstr[2..tmpstr.length];
             }
         } else {
-            str += tmpstr;
+            str ~= tmpstr;
         }
-        str += ' ';
+        str ~= ' ';
     }
 
     return str;
@@ -425,7 +436,7 @@ static void recursive_fill_list(const Package pkg, bool include_private, bool[st
      * broken.
      */
     if(pkg.key in visited) {
-        debug_spew("Package %s already in requires chain, skipping\n", pkg.key.c_str());
+        debug_spew("Package %s already in requires chain, skipping\n", pkg.key);
         return;
     }
     /* record this package in the dependency chain */
@@ -438,10 +449,10 @@ static void recursive_fill_list(const Package pkg, bool include_private, bool[st
         auto p = packages[p_name];
         recursive_fill_list(p, include_private, visited, listp);
     }
-    string[] tmp;
-    tmp ~= pkg.key;
-    tmp ~= listp;
-    listp = tmp;
+    string[] tmp_;
+    tmp_ ~= pkg.key;
+    tmp_ ~= listp;
+    listp = tmp_;
 }
 
 /* merge the flags from the individual packages */
@@ -451,10 +462,10 @@ merge_flag_lists(const string[] pkgs, FlagType type) {
     /* keep track of the last element to avoid traversing the whole list */
     foreach(pkey; pkgs) {
         auto i = packages[pkey];
-        Flag[] flags = (type & LIBS_ANY) ? i.libs : i.cflags;
+        Flag[] flags = (type & FlagType.LIBS_ANY) ? i.libs : i.cflags;
         foreach(f; flags) {
             if(f.type & type) {
-                merged.push_back(f);
+                merged ~= f;
             }
         }
     }
@@ -471,7 +482,7 @@ fill_list(Package[] pkgs, FlagType type, bool in_path_order, bool include_privat
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
     foreach(tmp; pkgs)
-        recursive_fill_list(*tmp, include_private, visited, expanded);
+        recursive_fill_list(tmp, include_private, visited, expanded);
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
@@ -512,29 +523,29 @@ static void verify_package(Package pkg) {
     RequiredVersion[] conflicts;
     string[] system_directories;
     bool[string] visited;
-    const char *search_path;
+    string search_path;
     const char **include_envvars;
     const char **var;
 
     /* Be sure we have the required fields */
 
     if(pkg.key.empty()) {
-        fprintf(stderr, "Internal pkg-config error, package with no key, please file a bug report\n");
+        stderr.writeln("Internal pkg-config error, package with no key, please file a bug report\n");
         exit(1);
     }
 
     if(pkg.name.empty()) {
-        verbose_error("Package '%s' has no Name: field\n", pkg.key.c_str());
+        verbose_error("Package '%s' has no Name: field\n", pkg.key);
         exit(1);
     }
 
     if(pkg.version_.empty()) {
-        verbose_error("Package '%s' has no Version: field\n", pkg.key.c_str());
+        verbose_error("Package '%s' has no Version: field\n", pkg.key);
         exit(1);
     }
 
     if(pkg.description.empty()) {
-        verbose_error("Package '%s' has no Description: field\n", pkg.key.c_str());
+        verbose_error("Package '%s' has no Description: field\n", pkg.key);
         exit(1);
     }
 
@@ -584,9 +595,10 @@ static void verify_package(Package pkg) {
      * can remove them.
      */
 
-    search_path = getenv("PKG_CONFIG_SYSTEM_INCLUDE_PATH");
+    search_path = "";
+    search_path ~= fromStringz(getenv("PKG_CONFIG_SYSTEM_INCLUDE_PATH"));
 
-    if(search_path == NULL) {
+    if(search_path.length == 0) {
         search_path = PKG_CONFIG_SYSTEM_INCLUDE_PATH;
     }
 
@@ -607,8 +619,8 @@ static void verify_package(Package pkg) {
     foreach(flag; pkg.cflags) {
         int offset = 0;
 
-        if(!(flag.type & CFLAGS_I)) {
-            filtered.push_back(flag);
+        if(!(flag.type & FlagType.CFLAGS_I)) {
+            filtered ~= flag;
             continue;
         }
         /* Handle the system cflags. We put things in canonical
@@ -619,8 +631,8 @@ static void verify_package(Package pkg) {
          * they're intended to adjust the system cflags behavior.
          */
         bool discard_this = false;
-        if(((strncmp(flag.arg.c_str(), "-I", 2) == 0) && (offset = 2))
-                || ((strncmp(flag.arg.c_str(), "-I ", 3) == 0) && (offset = 3))) {
+        if((flag[0..2] == "-I" && offset = 2)
+                || ((flag.arg[0..3] == "-I ") && (offset = 3))) {
             if(offset == 0) {
                 continue;
             }
@@ -630,7 +642,7 @@ static void verify_package(Package pkg) {
                 if(system_dir_iter == tmp) {
                     debug_spew("Package %s has %s in Cflags\n", pkg.key, flag.arg);
                     if(getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == null) {
-                        debug_spew("Removing %s from cflags for %s\n", flag.arg.c_str(), pkg.key.c_str());
+                        debug_spew("Removing %s from cflags for %s\n", flag.arg, pkg.key);
                         discard_this = true;
                         break;
                     }
@@ -638,7 +650,7 @@ static void verify_package(Package pkg) {
             }
         }
         if(!discard_this) {
-            filtered.push_back(flag);
+            filtered ~= flag;
         }
     }
     pkg.cflags.swap(filtered);
@@ -646,9 +658,9 @@ static void verify_package(Package pkg) {
 
     system_directories.clear();
 
-    search_path = getenv("PKG_CONFIG_SYSTEM_LIBRARY_PATH");
+    search_path = to!string(getenv("PKG_CONFIG_SYSTEM_LIBRARY_PATH"));
 
-    if(search_path == NULL) {
+    if(search_path == "") {
         search_path = PKG_CONFIG_SYSTEM_LIBRARY_PATH;
     }
 
@@ -657,24 +669,24 @@ static void verify_package(Package pkg) {
     filtered.clear();
     foreach(flag; pkg.libs) {
 
-        if(!(flag.type & LIBS_L)) {
-            filtered.push_back(flag);
+        if(!(flag.type & FlagType.LIBS_L)) {
+            filtered ~= flag;
             continue;
         }
 
         bool discard_this = false;
         foreach(system_dir_iter; system_directories) {
             bool is_system = false;
-            const char *linker_arg = flag.arg.c_str();
-            const char *system_libpath = system_dir_iter.c_str();
+            auto linker_arg = flag.arg;
+            auto system_libpath = system_dir_iter;
 
-            if(strncmp(linker_arg, "-L ", 3) == 0 && strcmp(linker_arg + 3, system_libpath) == 0)
+            if(linker_arg[0..3] == "-L " && linker_arg[3 .. linker_arg.length] == system_libpath)
                 is_system = true;
-            else if(strncmp(linker_arg, "-L", 2) == 0 && strcmp(linker_arg + 2, system_libpath) == 0)
+            else if(linker_arg[0..2] == "-L" && linker_arg[2..linker_arg.length] == system_libpath)
                 is_system = true;
             if(is_system) {
                 debug_spew("Package %s has -L %s in Libs\n", pkg.key, system_libpath);
-                if(getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == NULL) {
+                if(getenv("PKG_CONFIG_ALLOW_SYSTEM_LIBS") == null) {
                     discard_this = true;
                     debug_spew("Removing -L %s from libs for %s\n", system_libpath, pkg.key);
                     break;
@@ -682,7 +694,7 @@ static void verify_package(Package pkg) {
             }
         }
         if(!discard_this) {
-            filtered.push_back(flag);
+            filtered ~= flag;
         }
     }
 
@@ -713,25 +725,25 @@ packages_get_flags(Package[] pkgs, FlagType flags) {
     string str, cur;
 
     /* sort packages in path order for -L/-I, dependency order otherwise */
-    if(flags & CFLAGS_OTHER) {
-        cur = get_multi_merged(&pkgs, CFLAGS_OTHER, false, true);
+    if(flags & FlagType.CFLAGS_OTHER) {
+        cur = get_multi_merged(pkgs, FlagType.CFLAGS_OTHER, false, true);
         debug_spew("adding CFLAGS_OTHER string \"%s\"\n", cur);
-        str += cur;
+        str ~= cur;
     }
-    if(flags & CFLAGS_I) {
-        cur = get_multi_merged(&pkgs, CFLAGS_I, true, true);
+    if(flags & FlagType.CFLAGS_I) {
+        cur = get_multi_merged(pkgs, FlagType.CFLAGS_I, true, true);
         debug_spew("adding CFLAGS_I string \"%s\"\n", cur);
-        str += cur;
+        str ~= cur;
     }
-    if(flags & LIBS_L) {
-        cur = get_multi_merged(&pkgs, LIBS_L, true, !ignore_private_libs);
+    if(flags & FlagType.LIBS_L) {
+        cur = get_multi_merged(pkgs, FlagType.LIBS_L, true, !ignore_private_libs);
         debug_spew("adding LIBS_L string \"%s\"\n", cur);
-        str += cur;
+        str ~= cur;
     }
-    if(flags & (LIBS_OTHER | LIBS_l)) {
-        cur = get_multi_merged(&pkgs, flags & (LIBS_OTHER | LIBS_l), false, !ignore_private_libs);
+    if(flags & (FlagType.LIBS_OTHER | FlagType.LIBS_l)) {
+        cur = get_multi_merged(pkgs, flags & (FlagType.LIBS_OTHER | FlagType.LIBS_l), false, !ignore_private_libs);
         debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur);
-        str += cur;
+        str ~= cur;
     }
 
     /* Strip trailing space. */
@@ -744,7 +756,7 @@ packages_get_flags(Package[] pkgs, FlagType flags) {
 
 void define_global_variable(const string varname, const string varval) {
 
-    if(globals.find(varname) != globals.end()) {
+    if(varname in globals) {
         verbose_error("Variable '%s' defined twice globally\n", varname);
         exit(1);
     }
@@ -760,7 +772,7 @@ var_to_env_var(const string pkg, const string var) {
     new_ ~= pkg;
     new_ ~= "_";
     new_ ~= var;
-    for(size_t i = 0; i<new_.length(); ++i) {
+    for(int i = 0; i<new_.length; ++i) {
         char c = new_[i];
         if(c >= 'a' && c <= 'z') {
             c += 'A' - 'a';
@@ -822,42 +834,35 @@ packages_get_var(Package[] pkgs, const string varname) {
 }
 
 int compare_versions(const string a, const string b) {
-    import rpmvercmp;
+    import rpmvercmp: rpmvercmp;
     return rpmvercmp(a, b);
 }
 
 bool version_test(ComparisonType comparison, const string a, const string b) {
     switch (comparison){
-    case LESS_THAN:
+    case ComparisonType.LESS_THAN:
         return compare_versions(a, b) < 0;
-        break;
 
-    case GREATER_THAN:
+    case ComparisonType.GREATER_THAN:
         return compare_versions(a, b) > 0;
-        break;
 
-    case LESS_THAN_EQUAL:
+    case ComparisonType.LESS_THAN_EQUAL:
         return compare_versions(a, b) <= 0;
-        break;
 
-    case GREATER_THAN_EQUAL:
+    case ComparisonType.GREATER_THAN_EQUAL:
         return compare_versions(a, b) >= 0;
-        break;
 
-    case EQUAL:
+    case ComparisonType.EQUAL:
         return compare_versions(a, b) == 0;
-        break;
 
-    case NOT_EQUAL:
+    case ComparisonType.NOT_EQUAL:
         return compare_versions(a, b) != 0;
-        break;
 
-    case ALWAYS_MATCH:
+    case ComparisonType.ALWAYS_MATCH:
         return true;
-        break;
 
     default:
-        throw "Unreachable code.";
+        throw new Exception("Unreachable code.");
     }
 
     return false;
@@ -866,57 +871,50 @@ bool version_test(ComparisonType comparison, const string a, const string b) {
 string
 comparison_to_str(ComparisonType comparison) {
     switch (comparison){
-    case LESS_THAN:
+    case ComparisonType.LESS_THAN:
         return "<";
-        break;
 
-    case GREATER_THAN:
+    case ComparisonType.GREATER_THAN:
         return ">";
-        break;
 
-    case LESS_THAN_EQUAL:
+    case ComparisonType.LESS_THAN_EQUAL:
         return "<=";
-        break;
 
-    case GREATER_THAN_EQUAL:
+    case ComparisonType.GREATER_THAN_EQUAL:
         return ">=";
-        break;
 
-    case EQUAL:
+    case ComparisonType.EQUAL:
         return "=";
-        break;
 
-    case NOT_EQUAL:
+    case ComparisonType.NOT_EQUAL:
         return "!=";
-        break;
 
-    case ALWAYS_MATCH:
+    case ComparisonType.ALWAYS_MATCH:
         return "(any)";
-        break;
 
     default:
-        throw "Unreachable code.";
+        throw new Exception("Unreachable code.");
     }
 
     return "???";
 }
 
 void print_package_list() {
-    int mlen = 0;
+    ulong mlen = 0;
 
     ignore_requires = true;
     ignore_requires_private = true;
 
     foreach(i; packages) {
-        l = i.length();
+        auto l = i.name.length;
         if(l > mlen) { mlen = l; }
     }
     foreach(first, second; packages) {
         string pad;
-        for(int counter=0; counter < mlen - first.size()+1; counter++) {
-            pad += " ";
+        for(ulong counter=0; counter < mlen - first.length+1; counter++) {
+            pad ~= " ";
         }
-        writeln("%s%s%s - %s", second.key, pad, second.name,
+        writefln("%s%s%s - %s", first, pad, second.name,
                 second.description);
     }
 }

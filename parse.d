@@ -131,6 +131,7 @@ trim_string(const ref string str) {
 
 static string
 trim_and_sub(const Package pkg, const string str, const string path) {
+    import core.stdc.stdlib;
     string subst;
     int p = 0;
 
@@ -163,9 +164,9 @@ trim_and_sub(const Package pkg, const string str, const string path) {
                     exit(1);
             }
 
-            subst += varval;
+            subst ~= varval;
         } else {
-            subst += str[p];
+            subst ~= str[p];
 
             ++p;
         }
@@ -175,6 +176,7 @@ trim_and_sub(const Package pkg, const string str, const string path) {
 }
 
 static void parse_name(Package pkg, string str, const string path) {
+    import core.stdc.stdlib;
     if(pkg.name.length > 0) {
         verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -187,6 +189,7 @@ static void parse_name(Package pkg, string str, const string path) {
 }
 
 static void parse_version(Package pkg, const string str, const string path) {
+    import core.stdc.stdlib;
     if(pkg.version_ != "") {
         verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -199,6 +202,7 @@ static void parse_version(Package pkg, const string str, const string path) {
 }
 
 static void parse_description(Package pkg, const string str, const string path) {
+    import core.stdc.stdlib;
     if(pkg.description != "") {
         verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -241,8 +245,8 @@ split_module_list(const string str, const string path) {
     string[] retval;
     int p = 0;
     int start = 0;
-    ModuleSplitState state = OUTSIDE_MODULE;
-    ModuleSplitState last_state = OUTSIDE_MODULE;
+    ModuleSplitState state = ModuleSplitState.OUTSIDE_MODULE;
+    ModuleSplitState last_state = ModuleSplitState.OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
 
@@ -253,12 +257,12 @@ split_module_list(const string str, const string path) {
 #endif
 */
         switch (state){
-        case OUTSIDE_MODULE:
+        case ModuleSplitState.OUTSIDE_MODULE:
             if(!MODULE_SEPARATOR(str[p]))
-                state = IN_MODULE_NAME;
+                state = ModuleSplitState.IN_MODULE_NAME;
             break;
 
-        case IN_MODULE_NAME:
+        case ModuleSplitState.IN_MODULE_NAME:
             if(isspace(str[p])) {
                 /* Need to look ahead to determine next state */
                 auto s = p;
@@ -266,50 +270,50 @@ split_module_list(const string str, const string path) {
                     ++s;
 
                 if(s == str.length)
-                    state = OUTSIDE_MODULE;
+                    state = ModuleSplitState.OUTSIDE_MODULE;
                 else if(MODULE_SEPARATOR(str[s]))
-                    state = OUTSIDE_MODULE;
+                    state = ModuleSplitState.OUTSIDE_MODULE;
                 else if(OPERATOR_CHAR(str[s]))
-                    state = BEFORE_OPERATOR;
+                    state = ModuleSplitState.BEFORE_OPERATOR;
                 else
-                    state = OUTSIDE_MODULE;
+                    state = ModuleSplitState.OUTSIDE_MODULE;
             } else if(MODULE_SEPARATOR(str[p]))
-                state = OUTSIDE_MODULE; /* comma precludes any operators */
+                state = ModuleSplitState.OUTSIDE_MODULE; /* comma precludes any operators */
             break;
 
-        case BEFORE_OPERATOR:
+        case ModuleSplitState.BEFORE_OPERATOR:
             /* We know an operator is coming up here due to lookahead from
              * IN_MODULE_NAME
              */
             if(isspace( str[p])) {
                 /* no change */
             } else if(OPERATOR_CHAR(str[p])) {
-                state = IN_OPERATOR;
+                state = ModuleSplitState.IN_OPERATOR;
             } else {
                 throw "Unreachable code";
             }
             break;
 
-        case IN_OPERATOR:
+        case ModuleSplitState.IN_OPERATOR:
             if(!OPERATOR_CHAR(str[p]))
-                state = AFTER_OPERATOR;
+                state = ModuleSplitState.AFTER_OPERATOR;
             break;
 
-        case AFTER_OPERATOR:
+        case ModuleSplitState.AFTER_OPERATOR:
             if(!isspace( str[p]))
-                state = IN_MODULE_VERSION;
+                state = ModuleSplitState.IN_MODULE_VERSION;
             break;
 
-        case IN_MODULE_VERSION:
+        case ModuleSplitState.IN_MODULE_VERSION:
             if(MODULE_SEPARATOR(str[p]))
-                state = OUTSIDE_MODULE;
+                state = ModuleSplitState.OUTSIDE_MODULE;
             break;
 
         default:
-            throw "Unreachable code.";
+            throw new Exception("Unreachable code.");
         }
 
-        if(state == OUTSIDE_MODULE && last_state != OUTSIDE_MODULE) {
+        if(state == ModuleSplitState.OUTSIDE_MODULE && last_state != ModuleSplitState.OUTSIDE_MODULE) {
             /* We left a module */
             string module_ = str[start .. p - start];
             retval ~= module_;
@@ -888,7 +892,7 @@ string[] parse_shell_string(const string in_)
         }
     }
 
-    if (!arg.empty()) {
+    if (arg != "") {
         out_.push_back(arg);
     }
 
@@ -955,6 +959,7 @@ static void parse_cflags(Package pkg, const string str, const string path) {
 }
 
 static void parse_url(Package pkg, const string str, const string path) {
+    import core.stdc.stdlib;
     if(pkg.url != "") {
         verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -968,6 +973,7 @@ static void parse_url(Package pkg, const string str, const string path) {
 
 static void parse_line(Package pkg, const string untrimmed, const string path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
+    import core.stdc.stdlib;
     int p;
 
     debug_spew("  line>%s\n", untrimmed);
@@ -1092,7 +1098,7 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
             p = 0;
         }
 
-        if(!tag in pkg.vars) {
+        if(!(tag in pkg.vars)) {
             verbose_error("Duplicate definition of variable '%s' in '%s'\n", tag, path);
             if(parse_strict)
                 exit(1);
