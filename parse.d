@@ -288,7 +288,7 @@ split_module_list(const string str, const string path) {
             } else if(OPERATOR_CHAR(str[p])) {
                 state = ModuleSplitState.IN_OPERATOR;
             } else {
-                throw "Unreachable code";
+                throw new Exception("Unreachable code");
             }
             break;
 
@@ -343,7 +343,7 @@ split_module_list(const string str, const string path) {
 }
 
 RequiredVersion[]
-parse_module_list(Package pkg, const string str_, const string path) {
+parse_module_list(ref Package pkg, const string str_, const string path) {
     RequiredVersion[] retval;
 
     auto split = split_module_list(str_, path);
@@ -353,8 +353,8 @@ parse_module_list(Package pkg, const string str_, const string path) {
         int start = 0;
 
         RequiredVersion ver;
-        ver.comparison = ALWAYS_MATCH;
-        ver.owner = pkg;
+        ver.comparison = ComparisonType.ALWAYS_MATCH;
+        ver.owner = &pkg;
 
         while(p<str.length && MODULE_SEPARATOR(str[p]))
             ++p;
@@ -364,7 +364,7 @@ parse_module_list(Package pkg, const string str_, const string path) {
         while(p<str.length && !isspace( str[p]))
             ++p;
 
-        string package_name = str.substr(start, p-start);
+        string package_name = str[start .. p-start];
         while(p<str.length && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
@@ -561,7 +561,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
         string tmpstr = iter;
 
         ver.comparison = ComparisonType.ALWAYS_MATCH;
-        ver.owner = pkg;
+        ver.owner = &pkg;
 
         while(p<iter.length && MODULE_SEPARATOR(iter[p]))
             ++p;
@@ -652,7 +652,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
 }
 
 static void parse_requires(Package pkg, const string str, const string path) {
-    if(pkg.requires != "") {
+    if(pkg.requires.length != 0) {
         verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -667,7 +667,7 @@ static void parse_requires(Package pkg, const string str, const string path) {
 static void parse_requires_private(Package pkg, const string str, const string path) {
     string trimmed;
 
-    if(pkg.requires_private != "") {
+    if(pkg.requires_private.length != 0) {
         verbose_error("Requires.private field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -681,7 +681,7 @@ static void parse_requires_private(Package pkg, const string str, const string p
 
 static void parse_conflicts(Package pkg, const string str, const string path) {
 
-    if(pkg.conflicts != "") {
+    if(pkg.conflicts.length != 0) {
         verbose_error("Conflicts field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -900,7 +900,7 @@ string[] parse_shell_string(const string in_)
 static void parse_cflags(Package pkg, const string str, const string path) {
     /* Strip out -I flags, put them in a separate list. */
 
-    if(pkg.cflags == "") {
+    if(pkg.cflags.length == 0) {
         verbose_error("Cflags field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);

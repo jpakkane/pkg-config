@@ -22,6 +22,7 @@ import std.stdio;
 import std.format;
 import pkg;
 import parse: define_prefix, parse_module_list;
+import core.stdc.stdlib;
 
 string pcsysrootdir;
 string pkg_config_pc_path;

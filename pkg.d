@@ -334,7 +334,7 @@ Package internal_get_package(const string name, bool warn) {
     }
 
     import std.algorithm : reverse;
-    added_pkg.reverse();
+    added_pkg.requires_private.reverse();
     /* make requires_private include a copy of the public requires too */
     added_pkg.requires_private ~= added_pkg.requires;
 
@@ -485,6 +485,8 @@ fill_list(Package[] pkgs, FlagType type, bool in_path_order, bool include_privat
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
+        import std.algorithm.sorting;
+        import std.algorithm.mutation : SwapStrategy;
         spew_package_list("original", expanded);
         alias myComp = (pa, pb) => packages[pa].path_position < packages[pb].path_position;
         expanded.sort!(myComp, SwapStrategy.stable);
@@ -522,8 +524,8 @@ static void verify_package(Package pkg) {
     string[] system_directories;
     bool[string] visited;
     string search_path;
-    const char **include_envvars;
-    const char **var;
+    string[] include_envvars;
+    string[] var;
 
     /* Be sure we have the required fields */
 
@@ -607,10 +609,14 @@ static void verify_package(Package pkg) {
 //#else
     include_envvars = gcc_include_envvars;
 //#endif
-    foreach(var; include_envvars) {
-        search_path = getenv(var.ptr);
-        if(search_path != NULL)
+    foreach(var2; include_envvars) {
+        auto tmp = getenv(var2.ptr);
+        if(tmp != null) {
+            search_path = to!string(search_path);
             add_env_variable_to_list(system_directories, search_path);
+        } else {
+            search_path.length = 0;
+        }
     }
 
     Flag[] filtered;
@@ -770,6 +776,7 @@ var_to_env_var(const string pkg, const string var) {
     new_ ~= pkg;
     new_ ~= "_";
     new_ ~= var;
+    string result;
     for(int i = 0; i<new_.length; ++i) {
         char c = new_[i];
         if(c >= 'a' && c <= 'z') {
@@ -780,10 +787,10 @@ var_to_env_var(const string pkg, const string var) {
             c = '_';
         }
 
-        new_[i] = c;
+        result ~= c;
     }
 
-    return new_;
+    return result;
 }
 
 string
@@ -798,7 +805,7 @@ package_get_var(const ref Package pkg, const string var) {
      */
     if(!pkg.key.empty()) {
         string env_var = var_to_env_var(pkg.key, var);
-        string env_var_content = to!string(getenv(env_var));
+        string env_var_content = to!string(getenv(std.string.toStringz(env_var)));
         if(env_var_content != "") {
             debug_spew("Overriding variable '%s' from environment\n", var);
             return env_var_content;
@@ -860,8 +867,6 @@ bool version_test(ComparisonType comparison, const string a, const string b) {
     default:
         throw new Exception("Unreachable code.");
     }
-
-    return false;
 }
 
 string
@@ -891,8 +896,6 @@ comparison_to_str(ComparisonType comparison) {
     default:
         throw new Exception("Unreachable code.");
     }
-
-    return "???";
 }
 
 void print_package_list() {
