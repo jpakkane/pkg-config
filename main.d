@@ -21,8 +21,12 @@ module main;
 import std.stdio;
 import std.format;
 import pkg;
-import parse: define_prefix, parse_module_list;
+import utils;
+import parse: define_prefix, parse_module_list, parse_strict;
 import core.stdc.stdlib;
+import std.algorithm.sorting;
+import std.conv;
+import std.string;
 
 string pcsysrootdir;
 string pkg_config_pc_path;
@@ -123,7 +127,7 @@ static bool pkg_uninstalled(const Package pkg) {
     return false;
 }
 
-void print_list_data(const char *data, void * user_data) {
+void print_list_data(ref string data, void * user_data) {
     writefln("%s\n", data);
 }
 
@@ -355,26 +359,27 @@ int main(string[] argv) {
         exit(1);
     }
 
-    search_path = getenv("PKG_CONFIG_PATH");
-    if(search_path) {
-        add_search_dirs(search_path, SEARCHPATH_SEPARATOR);
+    search_path = to!string(getenv("PKG_CONFIG_PATH"));
+    if(search_path.length != 0) {
+        add_search_dirs(to!string(search_path), SEARCHPATH_SEPARATOR);
     }
     if(getenv("PKG_CONFIG_LIBDIR") != null) {
-        add_search_dirs(getenv("PKG_CONFIG_LIBDIR"), SEARCHPATH_SEPARATOR);
+        add_search_dirs(to!string(getenv("PKG_CONFIG_LIBDIR")), SEARCHPATH_SEPARATOR);
     } else {
         add_search_dirs(pkg_config_pc_path, SEARCHPATH_SEPARATOR);
     }
 
     auto val = getenv("PKG_CONFIG_SYSROOT_DIR");
     if(val) {
-        pcsysrootdir = val;
+        pcsysrootdir = to!string(val);
         define_global_variable("pc_sysrootdir", pcsysrootdir);
     } else {
         define_global_variable("pc_sysrootdir", "/");
     }
 
-    pcbuilddir = getenv("PKG_CONFIG_TOP_BUILD_DIR");
-    if(pcbuilddir) {
+    auto fff = getenv("PKG_CONFIG_TOP_BUILD_DIR");
+    if(fff) {
+        pcbuilddir = to!string(pcbuilddir);
         define_global_variable("pc_top_builddir", pcbuilddir);
     } else {
         /* Default appropriate for automake */
@@ -432,8 +437,8 @@ int main(string[] argv) {
     /* honor Requires.private if any Cflags are requested or any static
      * libs are requested */
 
-    if((pkg_flags & CFLAGS_ANY) || want_requires_private || want_exists
-            || (want_static_lib_list && (pkg_flags & LIBS_ANY)))
+    if((pkg_flags & FlagType.CFLAGS_ANY) || want_requires_private || want_exists
+            || (want_static_lib_list && (pkg_flags & FlagType.LIBS_ANY)))
         enable_requires_private();
 
     /* ignore Requires if no Cflags or Libs are requested */
@@ -446,7 +451,7 @@ int main(string[] argv) {
         parse_strict = false;
 
     if(want_my_version) {
-        printf("%s\n", VERSION);
+        writeln(VERSION);
         return 0;
     }
 
@@ -466,8 +471,8 @@ int main(string[] argv) {
 
     /* Collect packages from remaining args */
     foreach(s; remaining) {
-        str += s;
-        str += " ";
+        str ~= s;
+        str ~= " ";
     }
 
     str = chomp(str);
@@ -496,8 +501,8 @@ int main(string[] argv) {
         foreach(pkg; package_list) {
             if(pkg.vars.length != 0) {
                 string[] keys;
-                foreach(i; pkg.vars) {
-                    keys ~= i.first;
+                foreach(k ,v; pkg.vars) {
+                    keys ~= k;
                 }
                 /* Sort variables for consistent output */
                 keys.sort();
@@ -506,7 +511,7 @@ int main(string[] argv) {
                 }
             }
             if(pkg.length == 0)
-                printf("\n");
+                writeln("");
         }
         need_newline = false;
     }
@@ -543,13 +548,12 @@ int main(string[] argv) {
         foreach(pkg; package_list) {
             /* process Requires: */
             foreach(req_name; pkg.requires) {
-                auto lookup = pkg.required_versions.find(req_name);
-                if(lookup == pkg.required_versions.end() || (lookup.second.comparison == ALWAYS_MATCH)) {
+                if(!(req_name in pkg.required_versions) || (pkg.required_versions[req_name].comparison == ComparisonType.ALWAYS_MATCH)) {
                     writeln(req_name);
                 } else {
                     writeln("%s %s %s", req_name,
-                            comparison_to_str(lookup.second.comparison),
-                            lookup.second.version_);
+                            comparison_to_str(pkg.required_versions[req_name].comparison),
+                            pkg.required_versions[req_name].version_);
                 }
             }
         }
@@ -558,16 +562,22 @@ int main(string[] argv) {
         foreach(pkg; package_list) {
             /* process Requires.private: */
             foreach(req_name; pkg.requires_private) {
-                if(req_name in pkg.requires) {
+                bool do_break = false;
+                foreach(i; pkg.requires) {
+                    if(i == req_name) {
+                        do_break = true;
+                        break;
+                    }
+                }
+                if(do_break) {
                     continue;
                 }
-                auto lookup = pkg.required_versions.find(req_name);
-                if((lookup == pkg.required_versions.end()) || (lookup.second.comparison == ALWAYS_MATCH))
+                if((!(req_name in pkg.required_versions) || (pkg.required_versions[req_name].comparison == ComparisonType.ALWAYS_MATCH)))
                     writeln(req_name);
                 else
                     writeln("%s %s %s", req_name,
-                            comparison_to_str(lookup.second.comparison),
-                            lookup.second.version_);
+                            comparison_to_str(pkg.required_versions[req_name].comparison),
+                            pkg.required_versions[req_name].version_);
             }
         }
     }
