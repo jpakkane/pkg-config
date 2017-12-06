@@ -90,8 +90,6 @@ class Package {
 
 const string PKG_CONFIG_SYSTEM_LIBRARY_PATH = "/usr/lib";
 
-static void verify_package(Package *pkg);
-
 Package[string] packages;
 string[string] globals;
 string[] search_dirs;
@@ -254,7 +252,6 @@ Package internal_get_package(const string name, bool warn) {
             }
         }
         foreach(dir; search_dirs) {
-            writeln(dir);
             path_position++;
             location = dir;
             location ~= DIR_SEPARATOR;
@@ -422,7 +419,8 @@ static void spew_package_list(string name, const string[] list) {
  * a list of packages such that each packages is listed once and comes before
  * any package that it depends on.
  */
-static void recursive_fill_list(const Package pkg, bool include_private, bool[string] visited, string[] listp) {
+static void recursive_fill_list(const ref Package pkg, bool include_private,
+        ref bool[string] visited, ref string[] listp) {
 
     /*
      * If the package has already been visited, then it is already in 'listp' and
@@ -468,15 +466,16 @@ merge_flag_lists(const string[] pkgs, FlagType type) {
 }
 
 static Flag[]
-fill_list(Package[] pkgs, FlagType type, bool in_path_order, bool include_private) {
+fill_list(ref Package[] pkgs, const FlagType type, bool in_path_order, bool include_private) {
     string[] expanded;
     Flag[] flags;
     bool[string] visited;
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
-    foreach(tmp; pkgs)
+    foreach(tmp; pkgs) {
         recursive_fill_list(tmp, include_private, visited, expanded);
+    }
     spew_package_list("post-recurse", expanded);
 
     if(in_path_order) {
@@ -513,7 +512,7 @@ static const char *msvc_include_envvars[] = {
 };
 #endif
 */
-static void verify_package(Package pkg) {
+static void verify_package(ref Package pkg) {
     string[] requires;
     RequiredVersion[] conflicts;
     string[] system_directories;
@@ -713,7 +712,7 @@ static void verify_package(Package pkg) {
  * The former is done for -I/-L flags, and the latter for all others.
  */
 static string
-get_multi_merged(Package[] pkgs, FlagType type, bool in_path_order, bool include_private) {
+get_multi_merged(ref Package[] pkgs, const FlagType type, const bool in_path_order, const bool include_private) {
     Flag[] list;
     string retval;
 
@@ -725,7 +724,7 @@ get_multi_merged(Package[] pkgs, FlagType type, bool in_path_order, bool include
 }
 
 string
-packages_get_flags(Package[] pkgs, FlagType flags) {
+packages_get_flags(ref Package[] pkgs, const FlagType flags) {
     string str, cur;
 
     /* sort packages in path order for -L/-I, dependency order otherwise */
@@ -745,14 +744,12 @@ packages_get_flags(Package[] pkgs, FlagType flags) {
         str ~= cur;
     }
     if(flags & (FlagType.LIBS_OTHER | FlagType.LIBS_l)) {
-        cur = get_multi_merged(pkgs, flags & (FlagType.LIBS_OTHER | FlagType.LIBS_l), false, !ignore_private_libs);
+        cur = get_multi_merged(pkgs, cast(FlagType)(flags & (FlagType.LIBS_OTHER | FlagType.LIBS_l)), false, !ignore_private_libs);
         debug_spew("adding LIBS_OTHER | LIBS_l string \"%s\"\n", cur);
         str ~= cur;
     }
 
-    /* Strip trailing space. */
-    if(!str.empty() && str[$-1] == ' ')
-        str.length = str.length-1;
+    str = chomp(str, " ");
 
     debug_spew("returning flags string \"%s\"\n", str);
     return str;

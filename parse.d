@@ -955,7 +955,6 @@ static void parse_cflags(Package *pkg, const string str, const string path) {
             /* flag wasn't used */
         }
     }
-
 }
 
 static void parse_url(Package *pkg, const string str, const string path) {

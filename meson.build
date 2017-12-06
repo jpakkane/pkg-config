@@ -36,19 +36,6 @@ else
   link_args = []
 endif
 
-#pkgconfig = executable('pkg-config',
-#  'pkg.cpp',
-#  'parse.cpp',
-#  'rpmvercmp.cpp',
-#  'quoter.cpp',
-#  'utils.cpp',
-#  'main.cpp',
-#  cpp_args : cpp_args,
-#  link_args : link_args,
-#  install : true)
-#
-#subdir('check')
-
 pkgconfig = executable('pkg-config',
   'main.d',
   'parse.d',
@@ -57,3 +44,4 @@ pkgconfig = executable('pkg-config',
   'quoter.d',
   'utils.d')
 
+subdir('check')
