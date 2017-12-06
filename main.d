@@ -189,23 +189,23 @@ static bool process_package_args(const string cmdline, Package[] packages, ref F
         else
             req = get_package(ver.name);
 
-        if(log != null) {
+        if(!log.error()) {
             if(req.empty())
-                formattedWrite(log, "%s NOT-FOUND\n", ver.name);
+                log.writef("%s NOT-FOUND\n", ver.name);
             else
-                formattedWrite(log, "%s %s %s\n", ver.name, comparison_to_str(ver.comparison),
+                log.writef("%s %s %s\n", ver.name, comparison_to_str(ver.comparison),
                         (ver.version_.length==0) ? "(null)" : ver.version_);
         }
 
         if(req.empty()) {
             success = false;
-            verbose_error("No package '%s' found\n", ver.name.c_str());
+            verbose_error("No package '%s' found\n", ver.name);
             continue;
         }
 
         if(!version_test(ver.comparison, req.version_, ver.version_)) {
             success = false;
-            verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver.name.c_str(),
+            verbose_error("Requested '%s %s %s' but version of %s is %s\n", ver.name,
                     comparison_to_str(ver.comparison), ver.version_, req.name, req.version_);
             if(!req.url.empty())
                 verbose_error("You may find new versions of %s at %s\n", req.name, req.url);

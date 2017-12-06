@@ -49,7 +49,7 @@ endif
 #
 #subdir('check')
 
-pkgconfig = executable('utils',
+pkgconfig = executable('pkg-config',
   'main.d',
   'parse.d',
   'pkg.d',

@@ -23,7 +23,7 @@ module parse;
 import utils;
 import main: verbose_error, debug_spew;
 import quoter;
-import pkg: Package, RequiredVersion, package_get_var, ComparisonType;
+import pkg: Package, Flag, FlagType, RequiredVersion, package_get_var, ComparisonType;
 import std.file;
 import std.stdio;
 import std.string;
@@ -132,7 +132,7 @@ trim_string(const ref string str) {
 }
 
 static string
-trim_and_sub(const Package pkg, const string str, const string path) {
+trim_and_sub(const Package *pkg, const string str, const string path) {
     string subst;
     int p = 0;
 
@@ -176,7 +176,7 @@ trim_and_sub(const Package pkg, const string str, const string path) {
     return subst;
 }
 
-static void parse_name(Package pkg, string str, const string path) {
+static void parse_name(Package *pkg, string str, const string path) {
     if(pkg.name.length > 0) {
         verbose_error("Name field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -188,7 +188,7 @@ static void parse_name(Package pkg, string str, const string path) {
     pkg.name = trim_and_sub(pkg, str, path);
 }
 
-static void parse_version(Package pkg, const string str, const string path) {
+static void parse_version(Package *pkg, const string str, const string path) {
     if(pkg.version_ != "") {
         verbose_error("Version field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -200,7 +200,7 @@ static void parse_version(Package pkg, const string str, const string path) {
     pkg.version_ = trim_and_sub(pkg, str, path);
 }
 
-static void parse_description(Package pkg, const string str, const string path) {
+static void parse_description(Package *pkg, const string str, const string path) {
     if(pkg.description != "") {
         verbose_error("Description field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -343,7 +343,7 @@ split_module_list(const string str, const string path) {
 }
 
 RequiredVersion[]
-parse_module_list(ref Package pkg, const string str_, const string path) {
+parse_module_list(Package *pkg, const string str_, const string path) {
     RequiredVersion[] retval;
 
     auto split = split_module_list(str_, path);
@@ -354,7 +354,7 @@ parse_module_list(ref Package pkg, const string str_, const string path) {
 
         RequiredVersion ver;
         ver.comparison = ComparisonType.ALWAYS_MATCH;
-        ver.owner = &pkg;
+        ver.owner = pkg;
 
         while(p<str.length && MODULE_SEPARATOR(str[p]))
             ++p;
@@ -549,7 +549,7 @@ split_module_list2(const string str, const string path) {
 }
 
 RequiredVersion[]
-parse_module_list2(Package pkg, const string str, const string path) {
+parse_module_list2(Package *pkg, const string str, const string path) {
     string[] split;
     RequiredVersion[] retval;
 
@@ -561,7 +561,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
         string tmpstr = iter;
 
         ver.comparison = ComparisonType.ALWAYS_MATCH;
-        ver.owner = &pkg;
+        ver.owner = pkg;
 
         while(p<iter.length && MODULE_SEPARATOR(iter[p]))
             ++p;
@@ -651,7 +651,7 @@ parse_module_list2(Package pkg, const string str, const string path) {
     return retval;
 }
 
-static void parse_requires(Package pkg, const string str, const string path) {
+static void parse_requires(Package *pkg, const string str, const string path) {
     if(pkg.requires.length != 0) {
         verbose_error("Requires field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -664,7 +664,7 @@ static void parse_requires(Package pkg, const string str, const string path) {
     pkg.requires_entries = parse_module_list(pkg, trimmed, path);
 }
 
-static void parse_requires_private(Package pkg, const string str, const string path) {
+static void parse_requires_private(Package *pkg, const string str, const string path) {
     string trimmed;
 
     if(pkg.requires_private.length != 0) {
@@ -679,7 +679,7 @@ static void parse_requires_private(Package pkg, const string str, const string p
     pkg.requires_private_entries = parse_module_list(pkg, trimmed, path);
 }
 
-static void parse_conflicts(Package pkg, const string str, const string path) {
+static void parse_conflicts(Package *pkg, const string str, const string path) {
 
     if(pkg.conflicts.length != 0) {
         verbose_error("Conflicts field occurs twice in '%s'\n", path);
@@ -707,7 +707,7 @@ static string strdup_escape_shell(const string s) {
     return r;
 }
 
-static void _do_parse_libs(Package pkg, const string[] args) {
+static void _do_parse_libs(Package *pkg, const string[] args) {
     int i = 0;
 /*
 #ifdef _WIN32
@@ -735,8 +735,8 @@ static void _do_parse_libs(Package pkg, const string[] args) {
             while(p<arg.length && isspace(arg[p]))
                 ++p;
 
-            flag_.type = Flagtype.LIBS_l;
-            flag_.arg = l_flag + arg[p .. arg.length] + lib_suffix;
+            flag_.type = FlagType.LIBS_l;
+            flag_.arg = l_flag ~ arg[p .. $] ~ lib_suffix;
             pkg.libs ~= flag_;
         } else if(arg[p] == '-' && arg[p+1] == 'L') {
             p += 2;
@@ -744,7 +744,7 @@ static void _do_parse_libs(Package pkg, const string[] args) {
                 ++p;
 
             flag_.type = FlagType.LIBS_L;
-            flag_.arg = L_flag + arg[p .. arg.length];
+            flag_.arg = L_flag ~ arg[p .. $];
             pkg.libs ~= flag_;
         } else if((arg[p .. arg.length] == "-framework" || arg[p .. arg.length] == "-Wl,-framework") && (i + 1 < args.length)) {
             /* Mac OS X has a -framework Foo which is really one option,
@@ -755,14 +755,14 @@ static void _do_parse_libs(Package pkg, const string[] args) {
             auto tmp2 = trim_string(args[i + 1]);
 
             auto framework = strdup_escape_shell(tmp2);
-            flag_.type = ComparisonType.LIBS_OTHER;
+            flag_.type = FlagType.LIBS_OTHER;
             flag_.arg = arg;
-            flag_.arg += " ";
-            flag_.arg += framework;
+            flag_.arg ~= " ";
+            flag_.arg ~= framework;
             pkg.libs ~= flag_;
             i++;
         } else if(!arg.empty()) {
-            flag_.type = ComparisonType.LIBS_OTHER;
+            flag_.type = FlagType.LIBS_OTHER;
             flag_.arg = arg;
             pkg.libs ~= flag_;
         } else {
@@ -775,7 +775,7 @@ static void _do_parse_libs(Package pkg, const string[] args) {
 }
 
 
-static void parse_libs(Package pkg, const string str, const string path) {
+static void parse_libs(Package *pkg, const string str, const string path) {
     /* Strip out -l and -L flags, put them in a separate list. */
 
     if(pkg.libs_num > 0) {
@@ -805,7 +805,7 @@ static void parse_libs(Package pkg, const string str, const string path) {
     pkg.libs_num++;
 }
 
-static void parse_libs_private(Package pkg, const string str, const string path) {
+static void parse_libs_private(Package *pkg, const string str, const string path) {
     /*
      List of private libraries.  Private libraries are libraries which
      are needed in the case of static linking or on platforms not
@@ -897,7 +897,7 @@ string[] parse_shell_string(const string in_)
     return out_;
 }
 
-static void parse_cflags(Package pkg, const string str, const string path) {
+static void parse_cflags(Package *pkg, const string str, const string path) {
     /* Strip out -I flags, put them in a separate list. */
 
     if(pkg.cflags.length == 0) {
@@ -932,7 +932,7 @@ static void parse_cflags(Package pkg, const string str, const string path) {
                 ++p;
 
             flag.type = FlagType.CFLAGS_I;
-            flag.arg = string("-I") + arg[p .. arg.length];
+            flag.arg = "-I" ~ arg[p .. $];
             pkg.cflags ~= flag;
         } else if((("-idirafter" == arg) || ("-isystem" == arg)) && (i + 1 < argv.length)) {
             auto tmp2 = trim_string(argv[i + 1]);
@@ -941,8 +941,8 @@ static void parse_cflags(Package pkg, const string str, const string path) {
             /* These are -I flags since they control the search path */
             flag.type = FlagType.CFLAGS_I;
             flag.arg = arg;
-            flag.arg += " ";
-            flag.arg += option;
+            flag.arg ~= " ";
+            flag.arg ~= option;
             pkg.cflags ~= flag;
             i++;
         } else if(!arg.empty()) {
@@ -956,7 +956,7 @@ static void parse_cflags(Package pkg, const string str, const string path) {
 
 }
 
-static void parse_url(Package pkg, const string str, const string path) {
+static void parse_url(Package *pkg, const string str, const string path) {
     if(pkg.url != "") {
         verbose_error("URL field occurs twice in '%s'\n", path);
         if(parse_strict)
@@ -968,7 +968,7 @@ static void parse_url(Package pkg, const string str, const string path) {
     pkg.url = trim_and_sub(pkg, str, path);
 }
 
-static void parse_line(Package pkg, const string untrimmed, const string path, bool ignore_requires,
+static void parse_line(Package *pkg, const string untrimmed, const string path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
     int p;
 
@@ -1068,7 +1068,7 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
                  */
                 for(int i=0; i<prefix.length; i++) {
                     if(prefix[i] == '\\')
-                        prefix[i] = '/';
+                        prefix = prefix[0..i] ~ "/" ~ prefix[i+1..$];
                 }
 
                 /* Now escape the special characters so that there's no danger
@@ -1085,12 +1085,11 @@ static void parse_line(Package pkg, const string untrimmed, const string path, b
                 IS_DIR_SEPARATOR (str[p+pkg.orig_prefix.length])) {
             string oldstr = str;
 
-            auto lookup = pkg.vars.find(prefix_variable);
             string tmp;
-            if(lookup != pkg.vars.end()) {
-                tmp = lookup.second;
+            if(prefix_variable in pkg.vars) {
+                tmp = pkg.vars[prefix_variable];
             }
-            str = tmp + str[p + pkg.orig_prefix.length .. str.length];
+            str = tmp ~ str[p + pkg.orig_prefix.length .. str.length];
             p = 0;
         }
 
@@ -1145,7 +1144,7 @@ parse_package_file(const string key, const string path, bool ignore_requires, bo
     while(read_one_line(f, str)) {
         one_line = true;
 
-        parse_line(pkg, str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
+        parse_line(&pkg, str, path, ignore_requires, ignore_private_libs, ignore_requires_private);
 
         str = "";
     }
@@ -1164,7 +1163,7 @@ parse_package_file(const string key, const string path, bool ignore_requires, bo
  * return the raw value.
  */
 string
-parse_package_variable(Package pkg, const string variable) {
+parse_package_variable(Package *pkg, const string variable) {
     string value;
     string result;
 

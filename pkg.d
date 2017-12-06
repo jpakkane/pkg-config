@@ -799,7 +799,7 @@ var_to_env_var(const string pkg, const string var) {
 }
 
 string
-package_get_var(const ref Package pkg, const string var) {
+package_get_var(const Package *pkg, const string var) {
     string varval;
 
     if(var in globals) {
@@ -829,7 +829,7 @@ packages_get_var(Package[] pkgs, const string varname) {
     string str;
 
     foreach(pkg; pkgs) {
-        auto var = parse_package_variable(pkg, varname);
+        auto var = parse_package_variable(&pkg, varname);
         if(!var.empty()) {
             if(!str.empty())
                 str ~= ' ';
