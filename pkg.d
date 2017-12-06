@@ -165,7 +165,7 @@ bool name_ends_in_uninstalled(const string str) {
 
 bool is_regular_file(const string fname) {
     import std.file;
-    return isFile(fname);
+    return exists(fname) && isFile(fname);
 }
 
 /* Look for .pc files in the given directory and add them into

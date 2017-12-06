@@ -88,7 +88,8 @@ void debug_spew(const char *format, ...) {
 */
 }
 
-void verbose_error(const char *format, ...) {
+void verbose_error(const string format, ...) {
+    writeln(format);
     /*
     va_list args;
     FILE* stream = want_stdout_errors ? stdout : stderr;
@@ -157,7 +158,7 @@ static void init_pc_path() {
 */
 }
 
-static bool process_package_args(const string cmdline, ref Package[] packages, ref File log) {
+static bool process_package_args(const ref string cmdline, ref Package[] packages, ref File log) {
     bool success = true;
 
     auto reqs = parse_module_list(null, cmdline, "(command line arguments)");
@@ -323,7 +324,7 @@ Help Options:
 Application Options:", helpInformation.options);
         exit(0);
     }
-    return args;
+    return args[1..$]; // Remove command name.
 }
 
 
@@ -390,8 +391,7 @@ int main(string[] argv) {
     }
 
     /* Parse options */
-    string[] remaining = parse_cmd_args(argv[1..$]);
-
+    string[] remaining = parse_cmd_args(argv);
     /* If no output option was set, then --exists is the default. */
     if(!output_opt_set) {
         debug_spew("no output option set, defaulting to --exists\n");

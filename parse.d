@@ -243,7 +243,7 @@ enum ModuleSplitState {
 immutable int PARSE_SPEW=0;
 
 static string[]
-split_module_list(const string str, const string path) {
+split_module_list(const ref string str, const ref string path) {
     string[] retval;
     int p = 0;
     int start = 0;
@@ -251,7 +251,6 @@ split_module_list(const string str, const string path) {
     ModuleSplitState last_state = ModuleSplitState.OUTSIDE_MODULE;
 
     /*   fprintf (stderr, "Parsing: '%s'\n", str); */
-
     while(p < str.length) {
         /*
 #if PARSE_SPEW
@@ -302,7 +301,7 @@ split_module_list(const string str, const string path) {
             break;
 
         case ModuleSplitState.AFTER_OPERATOR:
-            if(!isspace( str[p]))
+            if(!isspace(str[p]))
                 state = ModuleSplitState.IN_MODULE_VERSION;
             break;
 
@@ -317,7 +316,7 @@ split_module_list(const string str, const string path) {
 
         if(state == ModuleSplitState.OUTSIDE_MODULE && last_state != ModuleSplitState.OUTSIDE_MODULE) {
             /* We left a module */
-            string module_ = str[start .. p - start];
+            string module_ = str[start .. p];
             retval ~= module_;
 /*
 #if PARSE_SPEW
@@ -334,20 +333,21 @@ split_module_list(const string str, const string path) {
 
     if(p != start) {
         /* get the last module */
-        string module_ = str[start .. p];
-        retval ~= module_;
+        string module_ = chomp(str[start .. p], " ");
+        if(module_.length > 0) {
+            retval ~= module_;
+        }
 /*
 #if PARSE_SPEW
         fprintf (stderr, "found module: '%s'\n", module);
 #endif
 */
     }
-
     return retval;
 }
 
 RequiredVersion[]
-parse_module_list(Package *pkg, const string str_, const string path) {
+parse_module_list(Package *pkg, const ref string str_, const string path) {
     RequiredVersion[] retval;
 
     auto split = split_module_list(str_, path);
@@ -444,7 +444,6 @@ parse_module_list(Package *pkg, const string str_, const string path) {
         assert(ver.name != "");
         retval ~= ver;
     }
-
     return retval;
 }
 
@@ -903,7 +902,7 @@ string[] parse_shell_string(const string in_)
 static void parse_cflags(Package *pkg, const string str, const string path) {
     /* Strip out -I flags, put them in a separate list. */
 
-    if(pkg.cflags.length == 0) {
+    if(pkg.cflags.length > 0) {
         verbose_error("Cflags field occurs twice in '%s'\n", path);
         if(parse_strict)
             exit(1);
@@ -1109,7 +1108,7 @@ static void parse_line(Package *pkg, const string untrimmed, const string path, 
             p = 0;
         }
 
-        if(!(tag in pkg.vars)) {
+        if(tag in pkg.vars) {
             verbose_error("Duplicate definition of variable '%s' in '%s'\n", tag, path);
             if(parse_strict)
                 exit(1);
@@ -1165,7 +1164,7 @@ parse_package_file(const string key, const string path, bool ignore_requires, bo
         str = "";
     }
 
-    if(one_line)
+    if(!one_line)
         verbose_error("Package file '%s' appears to be empty\n", path);
     f.close();
 
