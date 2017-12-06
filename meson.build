@@ -42,6 +42,8 @@ pkgconfig = executable('pkg-config',
   'pkg.d',
   'rpmvercmp.d',
   'quoter.d',
-  'utils.d')
+  'utils.d',
+  d_args : '-shared-libphobos',
+  link_args : '-shared-libphobos')
 
 subdir('check')
