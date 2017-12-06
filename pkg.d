@@ -386,12 +386,12 @@ static string flag_list_to_string(const Flag[] flags) {
                 assert(space_loc >= 0 && space_loc < tmpstr.length-1);
                 str ~= tmpstr[0 .. space_loc + 1];
                 str ~= pcsysrootdir;
-                str ~= tmpstr[space_loc .. 1];
+                str ~= tmpstr[space_loc+1 .. $];
             } else {
                 str ~= '-';
                 str ~= tmpstr[1];
                 str ~= pcsysrootdir;
-                str ~= tmpstr[2..tmpstr.length];
+                str ~= tmpstr[2..$];
             }
         } else {
             str ~= tmpstr;
@@ -402,7 +402,7 @@ static string flag_list_to_string(const Flag[] flags) {
     return str;
 }
 
-static void spew_package_list(string name, const string[] list) {
+static void spew_package_list(const string name, const ref string[] list) {
     debug_spew(" %s:", name);
 
     foreach(i; list) {
@@ -449,7 +449,7 @@ static void recursive_fill_list(const ref Package pkg, bool include_private,
 
 /* merge the flags from the individual packages */
 static Flag[]
-merge_flag_lists(const string[] pkgs, FlagType type) {
+merge_flag_lists(const ref string[] pkgs, FlagType type) {
     Flag[] merged;
     /* keep track of the last element to avoid traversing the whole list */
     foreach(pkey; pkgs) {
@@ -493,7 +493,7 @@ fill_list(ref Package[] pkgs, const FlagType type, bool in_path_order, bool incl
 }
 
 static void
-add_env_variable_to_list(string[] list, const string env) {
+add_env_variable_to_list(ref string[] list, const string env) {
     auto values = split_string(env, SEARCHPATH_SEPARATOR);
     list ~= values;
 }

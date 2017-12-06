@@ -27,7 +27,9 @@ import std.algorithm;
 import std.string;
 
 const char SEARCHPATH_SEPARATOR = ':';
-const string PKG_CONFIG_SYSTEM_INCLUDE_PATH = "/usr/lib/pkgconfig";
+const string PKG_CONFIG_SYSTEM_INCLUDE_PATH = "/usr/include";
+const string PKG_CONFIG_SYSTEM_LIBRARY_PATH = "/usr/lib/x86_64-linux-gnu";
+const string PKG_CONFIG_PC_PATH = "/usr/lib/pkgconfig";
 
 
 bool IS_DIR_SEPARATOR(char c) {
