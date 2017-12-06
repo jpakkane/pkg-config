@@ -26,7 +26,7 @@ import std.array;
 import std.algorithm;
 import std.string;
 
-const char SEARCHPATH_SEPARATOR = '/';
+const char SEARCHPATH_SEPARATOR = ':';
 const string PKG_CONFIG_SYSTEM_INCLUDE_PATH = "/usr/lib/pkgconfig";
 
 

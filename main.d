@@ -324,6 +324,7 @@ Help Options:
   -h, --help                              Show help options
 
 Application Options:", helpInformation.options);
+        exit(0);
     }
     return [];
 }

@@ -25,6 +25,7 @@ import parse : parse_package_file, parse_package_variable;
 
 import std.stdio;
 import std.string;
+import std.path;
 import core.stdc.ctype;
 import core.stdc.string;
 import std.conv;
@@ -170,7 +171,7 @@ bool is_regular_file(const string fname) {
 /* Look for .pc files in the given directory and add them into
  * locations, ignoring duplicates
  */
-void scan_dir(const string dirname) {
+void scan_dir(const ref string dirname) {
     import std.file;
     /* Use a copy of dirname cause Win32 opendir doesn't like
      * superfluous trailing (back)slashes in the directory name.
@@ -189,14 +190,9 @@ void scan_dir(const string dirname) {
 */
     string[] entries;
     foreach(de; dirEntries(dirname_copy, SpanMode.shallow)) {
-        if(de.name[0] == '.')
+        if(baseName(de)[0] == '.')
             continue;
-        string path = dirname[];
-        if(path[$-1] != '/') {
-            path ~= '/';
-        }
-        path ~= de.name;
-        internal_get_package(path, false);
+        internal_get_package(de, false);
     }
 }
 
@@ -257,8 +253,8 @@ Package internal_get_package(const string name, bool warn) {
                 return pkg;
             }
         }
-
         foreach(dir; search_dirs) {
+            writeln(dir);
             path_position++;
             location = dir;
             location ~= DIR_SEPARATOR;
@@ -268,7 +264,6 @@ Package internal_get_package(const string name, bool warn) {
                 break;
             location = "";
         }
-
     }
 
     if(location.empty()) {

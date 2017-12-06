@@ -64,17 +64,17 @@ static bool read_one_line(ref File stream, ref string str) {
     while(true) {
         int c;
 
-
+        auto trial = stream.rawRead(new char[1]);
         if(stream.eof()) {
             if(quoted)
                 str ~= '\\';
 
             goto done;
         } else {
-            c = stream.rawRead(new char[1])[0];
+            c = trial[0];
             n_read++;
         }
-        
+
         if(quoted) {
             quoted = false;
 
@@ -84,12 +84,14 @@ static bool read_one_line(ref File stream, ref string str) {
                 break;
             case '\r':
             case '\n': {
+                /*
                 if(!stream.eof()) {
                     auto next_c = stream.rawRead(new char[1])[0];
 
                     if(!(c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r'))
-                        stream.seek(-1);
+                        stream.seek(-1, SEEK_CUR);
                 }
+                */
                 break;
             }
             default:
@@ -106,12 +108,14 @@ static bool read_one_line(ref File stream, ref string str) {
                     quoted = true;
                 break;
             case '\n': {
+                /*
                 if(!stream.eof()) {
                     auto next_c = stream.rawRead(new char[1])[0];
 
                     if(!((c == '\r' && next_c == '\n') || (c == '\n' && next_c == '\r')))
                         stream.seek(-1);
                 }
+                */
                 goto done;
             }
             default:
@@ -1116,7 +1120,7 @@ Package
 parse_package_file(const string key, const string path, bool ignore_requires, bool ignore_private_libs,
         bool ignore_requires_private) {
     File f;
-    Package pkg;
+    Package pkg = new Package();
     string str;
     bool one_line = false;
 

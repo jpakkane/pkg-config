@@ -16,6 +16,7 @@
 
 
 module quoter;
+import std.stdio;
 
 /*
  * The remaining contents of this file are taken from Glib internals to
@@ -141,7 +142,7 @@ static string shell_unquote(const string quoted_string) {
 
 }
 
-static void delimit_token(string token, string[] retval) {
+static void delimit_token(string token, ref string[] retval) {
     if(token.length == 0)
         return;
 
@@ -149,7 +150,7 @@ static void delimit_token(string token, string[] retval) {
 }
 
 static string[]
-tokenize_command_line(const string command_line) {
+tokenize_command_line(const ref string command_line) {
     char current_quote;
     int p = 0;
     string current_token;
@@ -285,7 +286,7 @@ tokenize_command_line(const string command_line) {
 
 }
 
-string[] parse_shell_commandline(const string command_line) {
+string[] parse_shell_commandline(const ref string command_line) {
     /* Code based on poptParseArgvString() from libpopt */
     string[] args;
 
