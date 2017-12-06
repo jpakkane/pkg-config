@@ -334,7 +334,7 @@ split_module_list(const string str, const string path) {
 
     if(p != start) {
         /* get the last module */
-        string module_ = str[start .. p - start];
+        string module_ = str[start .. p];
         retval ~= module_;
 /*
 #if PARSE_SPEW
@@ -351,7 +351,6 @@ parse_module_list(Package *pkg, const string str_, const string path) {
     RequiredVersion[] retval;
 
     auto split = split_module_list(str_, path);
-
     foreach(str; split) {
         int p = 0;
         int start = 0;
@@ -368,7 +367,7 @@ parse_module_list(Package *pkg, const string str_, const string path) {
         while(p<str.length && !isspace( str[p]))
             ++p;
 
-        string package_name = str[start .. p-start];
+        string package_name = str[start .. p];
         while(p<str.length && MODULE_SEPARATOR(str[p])) {
             ++p;
         }

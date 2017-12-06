@@ -63,9 +63,6 @@ bool output_opt_set = false;
 
 bool vercmp_opt_set = false;
 
-// FIXME, should be somewhere saner.
-Package[string] packages;
-
 void debug_spew(const char *format, ...) {
     /*
     va_list args;
@@ -160,7 +157,7 @@ static void init_pc_path() {
 */
 }
 
-static bool process_package_args(const string cmdline, Package[] packages, ref File log) {
+static bool process_package_args(const string cmdline, ref Package[] packages, ref File log) {
     bool success = true;
 
     auto reqs = parse_module_list(null, cmdline, "(command line arguments)");
@@ -326,7 +323,7 @@ Help Options:
 Application Options:", helpInformation.options);
         exit(0);
     }
-    return [];
+    return args;
 }
 
 
@@ -393,7 +390,7 @@ int main(string[] argv) {
     }
 
     /* Parse options */
-    string[] remaining = parse_cmd_args(argv);
+    string[] remaining = parse_cmd_args(argv[1..$]);
 
     /* If no output option was set, then --exists is the default. */
     if(!output_opt_set) {
@@ -490,6 +487,10 @@ int main(string[] argv) {
     if(!log.error())
         log.close();
 
+    // HACK, not correct.
+    if(pkg_flags != FlagType.NO_FLAGS) {
+        want_exists = false;
+    }
     /* If the user just wants to check package existence or validate its .pc
      * file, we're all done. */
     if(want_exists || want_validate)

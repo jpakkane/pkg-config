@@ -197,7 +197,7 @@ void scan_dir(const ref string dirname) {
 }
 
 Package add_virtual_pkgconfig_package() {
-    Package pkg;
+    Package pkg = new Package();
 
     pkg.key = "pkg-config";
     pkg.version_ = VERSION;
