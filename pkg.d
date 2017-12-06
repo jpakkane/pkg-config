@@ -325,13 +325,10 @@ Package internal_get_package(const string name, bool warn) {
         added_pkg.requires_private ~= req.key;
     }
 
-    import std.algorithm : reverse;
-    added_pkg.requires_private.reverse();
     /* make requires_private include a copy of the public requires too */
     added_pkg.requires_private ~= added_pkg.requires;
-
-//    pkg.requires = g_list_reverse(pkg.requires);
-//    pkg.requires_private_ = g_list_reverse(pkg.requires_private_);
+    import std.algorithm : reverse;
+    added_pkg.requires_private.reverse();
 
     verify_package(added_pkg);
 
@@ -347,7 +344,7 @@ Package get_package_quiet(const string name) {
 }
 
 /* Strip consecutive duplicate arguments in the flag list. */
-static Flag[] flag_list_strip_duplicates(const Flag[] list) {
+static Flag[] flag_list_strip_duplicates(ref const Flag[] list) {
     Flag[] result;
 
     if(list.empty()) {
@@ -461,7 +458,6 @@ merge_flag_lists(const ref string[] pkgs, FlagType type) {
             }
         }
     }
-
     return merged;
 }
 
@@ -473,7 +469,7 @@ fill_list(ref Package[] pkgs, const FlagType type, bool in_path_order, bool incl
 
     /* Start from the end of the requested package list to maintain order since
      * the recursive list is built by prepending. */
-    foreach(tmp; pkgs) {
+    foreach_reverse(tmp; pkgs) {
         recursive_fill_list(tmp, include_private, visited, expanded);
     }
     spew_package_list("post-recurse", expanded);
@@ -719,7 +715,6 @@ get_multi_merged(ref Package[] pkgs, const FlagType type, const bool in_path_ord
     list = fill_list(pkgs, type, in_path_order, include_private);
     list = flag_list_strip_duplicates(list);
     retval = flag_list_to_string(list);
-
     return retval;
 }
 
