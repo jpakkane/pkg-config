@@ -722,7 +722,7 @@ static void _do_parse_libs(Package pkg, const string[] args) {
 //#endif
 
     while(i < args.length) {
-        Flag flag;
+        Flag flag_;
         auto tmp = trim_string(args[i]);
         string arg = strdup_escape_shell(tmp);
         int p = 0;
@@ -735,36 +735,36 @@ static void _do_parse_libs(Package pkg, const string[] args) {
             while(p<arg.length && isspace(arg[p]))
                 ++p;
 
-            flag.type = Flagtype.LIBS_l;
-            flag.arg = l_flag + arg[p .. arg.length] + lib_suffix;
-            pkg.libs ~= flag;
+            flag_.type = Flagtype.LIBS_l;
+            flag_.arg = l_flag + arg[p .. arg.length] + lib_suffix;
+            pkg.libs ~= flag_;
         } else if(arg[p] == '-' && arg[p+1] == 'L') {
             p += 2;
             while(p<arg.length && isspace(arg[p]))
                 ++p;
 
-            flag.type = FlagType.LIBS_L;
-            flag.arg = L_flag + arg[p .. arg.length];
-            pkg.libs ~= flag;
+            flag_.type = FlagType.LIBS_L;
+            flag_.arg = L_flag + arg[p .. arg.length];
+            pkg.libs ~= flag_;
         } else if((arg[p .. arg.length] == "-framework" || arg[p .. arg.length] == "-Wl,-framework") && (i + 1 < args.length)) {
             /* Mac OS X has a -framework Foo which is really one option,
              * so we join those to avoid having -framework Foo
              * -framework Bar being changed into -framework Foo Bar
              * later
              */
-            auto tmp = trim_string(args[i + 1]);
+            auto tmp2 = trim_string(args[i + 1]);
 
-            auto framework = strdup_escape_shell(tmp);
-            flag.type = ComparisonType.LIBS_OTHER;
-            flag.arg = arg;
-            flag.arg += " ";
-            flag.arg += framework;
-            pkg.libs ~= flag;
+            auto framework = strdup_escape_shell(tmp2);
+            flag_.type = ComparisonType.LIBS_OTHER;
+            flag_.arg = arg;
+            flag_.arg += " ";
+            flag_.arg += framework;
+            pkg.libs ~= flag_;
             i++;
         } else if(!arg.empty()) {
-            flag.type = ComparisonType.LIBS_OTHER;
-            flag.arg = arg;
-            pkg.libs ~= flag;
+            flag_.type = ComparisonType.LIBS_OTHER;
+            flag_.arg = arg;
+            pkg.libs ~= flag_;
         } else {
             /* flag wasn't used */
         }

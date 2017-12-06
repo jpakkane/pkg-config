@@ -188,14 +188,14 @@ void scan_dir(const string dirname) {
 #endif
 */
     string[] entries;
-    foreach(de; dirEntries(dirname_copy)) {
-        if(de == '.')
+    foreach(de; dirEntries(dirname_copy, SpanMode.shallow)) {
+        if(de.name[0] == '.')
             continue;
-        string path(dirname);
-        if(path.back() != '/') {
-            path.push_back('/');
+        string path = dirname[];
+        if(path[$-1] != '/') {
+            path ~= '/';
         }
-        path += de;
+        path ~= de.name;
         internal_get_package(path, false);
     }
 }
@@ -553,7 +553,6 @@ static void verify_package(Package pkg) {
 
     foreach(req_name; pkg.requires_private) {
         auto req = packages[req_name];
-        auto v_find = pkg.required_versions.find(req.key);
 
         if(req.key in pkg.required_versions) {
             auto ver = pkg.required_versions[req.key];
@@ -635,14 +634,17 @@ static void verify_package(Package pkg) {
          * they're intended to adjust the system cflags behavior.
          */
         bool discard_this = false;
-        if((flag[0..2] == "-I" && offset = 2)
-                || ((flag.arg[0..3] == "-I ") && (offset = 3))) {
+        if(flag.arg[0..2] == "-I") {
+            offset = 2;
+            if(flag.arg[2] == ' ') {
+                offset = 3;
+            }
             if(offset == 0) {
                 continue;
             }
 
             foreach(system_dir_iter; system_directories) {
-                auto tmp = flag[offset .. flag.length];
+                auto tmp = flag.arg[offset .. $];
                 if(system_dir_iter == tmp) {
                     debug_spew("Package %s has %s in Cflags\n", pkg.key, flag.arg);
                     if(getenv("PKG_CONFIG_ALLOW_SYSTEM_CFLAGS") == null) {
@@ -657,7 +659,9 @@ static void verify_package(Package pkg) {
             filtered ~= flag;
         }
     }
-    pkg.cflags.swap(filtered);
+    Flag[] tmp = pkg.cflags;
+    pkg.cflags = filtered;
+    filtered = tmp;
 
 
     system_directories.length = 0;
@@ -701,8 +705,9 @@ static void verify_package(Package pkg) {
             filtered ~= flag;
         }
     }
-
-    pkg.libs.swap(filtered);
+    tmp = pkg.libs;
+    pkg.libs = filtered;
+    filtered = tmp;
 }
 
 /* Create a merged list of required packages and retrieve the flags from them.

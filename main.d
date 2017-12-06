@@ -160,7 +160,7 @@ static void init_pc_path() {
 */
 }
 
-static bool process_package_args(const string cmdline, Package[] packages, File *log) {
+static bool process_package_args(const string cmdline, Package[] packages, ref File log) {
     bool success = true;
 
     auto reqs = parse_module_list(null, cmdline, "(command line arguments)");
@@ -337,7 +337,7 @@ int main(string[] argv) {
     string search_path;
     string pcbuilddir;
     bool need_newline;
-    FILE *log = null;
+    File log;
 
     /* This is here so that we get debug spew from the start,
      * during arg parsing
@@ -478,19 +478,16 @@ int main(string[] argv) {
     str = chomp(str);
 
     if(getenv("PKG_CONFIG_LOG") != null) {
-        log = fopen(getenv("PKG_CONFIG_LOG"), "a");
-        if(log == null) {
-            fprintf(stderr, "Cannot open log file: %s\n", getenv("PKG_CONFIG_LOG"));
-            exit(1);
-        }
+        auto lfname = to!string(getenv("PKG_CONFIG_LOG"));
+        log = File(lfname, "a");
     }
 
     /* find and parse each of the packages specified */
-    if(!process_package_args(str, &package_list, log))
+    if(!process_package_args(str, package_list, log))
         return 1;
 
-    if(log != null)
-        fclose(log);
+    if(!log.error())
+        log.close();
 
     /* If the user just wants to check package existence or validate its .pc
      * file, we're all done. */
@@ -510,7 +507,7 @@ int main(string[] argv) {
                     print_list_data(i, null);
                 }
             }
-            if(pkg.length == 0)
+            if(pkg.key.length == 0)
                 writeln("");
         }
         need_newline = false;
