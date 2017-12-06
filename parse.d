@@ -136,7 +136,7 @@ trim_string(const ref string str) {
 }
 
 static string
-trim_and_sub(const Package *pkg, const string str, const string path) {
+trim_and_sub(const Package *pkg, const ref string str, const ref string path) {
     string subst;
     int p = 0;
 
@@ -157,7 +157,7 @@ trim_and_sub(const Package *pkg, const string str, const string path) {
             while(p<str.length && str[p] != '}')
                 ++p;
 
-            auto varname = str[var_start .. p-var_start];
+            auto varname = str[var_start .. p];
 
             ++p; /* past brace */
 
@@ -389,7 +389,7 @@ parse_module_list(Package *pkg, const string str_, const string path) {
             ++p;
         }
 
-        string comparison = str[start .. p-start];
+        string comparison = str[start .. p];
         while(p<str.length && isspace(str[p])) {
             ++p;
         }
@@ -422,7 +422,7 @@ parse_module_list(Package *pkg, const string str_, const string path) {
         while(p<str.length && !MODULE_SEPARATOR(str[p]))
             ++p;
 
-        string version_ = str[start .. p-start];
+        string version_ = str[start .. p];
         while(p<str.length && MODULE_SEPARATOR(str[p])) {
             ++p;
         }
@@ -972,6 +972,21 @@ static void parse_url(Package *pkg, const string str, const string path) {
     pkg.url = trim_and_sub(pkg, str, path);
 }
 
+static bool startswithprefix(const bool define_prefix, const int p, const Package *pkg, const ref string str) {
+    if(!define_prefix)
+        return false;
+    if(pkg.orig_prefix.empty)
+        return false;
+    if(str[p..$] != pkg.orig_prefix) {
+        return false;
+    }
+    auto indexloc = p+pkg.orig_prefix.length;
+    if(indexloc >= str.length || !IS_DIR_SEPARATOR(str[indexloc])) {
+        return false;
+    }
+    return true;
+}
+
 static void parse_line(Package *pkg, const string untrimmed, const string path, bool ignore_requires,
         bool ignore_private_libs, bool ignore_requires_private) {
     int p;
@@ -1084,9 +1099,7 @@ static void parse_line(Package *pkg, const string untrimmed, const string path, 
                 pkg.vars[tag] = prefix_;
                 goto cleanup;
             }
-        } else if(define_prefix && !pkg.orig_prefix.empty() &&
-                str[p..str.length] == pkg.orig_prefix &&
-                IS_DIR_SEPARATOR (str[p+pkg.orig_prefix.length])) {
+        } else if(startswithprefix(define_prefix, p, pkg, str)) {
             string oldstr = str;
 
             string tmp;
