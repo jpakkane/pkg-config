@@ -14,6 +14,7 @@
 
 module rpmvercomp;
 
+import std.string;
 import core.stdc.ctype;
 import core.stdc.string;
 
@@ -21,7 +22,7 @@ import core.stdc.string;
 /* return 1: a is newer than b */
 /*        0: a and b are the same version */
 /*       -1: b is newer than a */
-int rpmvercmp(const string a, const string b) {
+int rpmvercmp(const ref string a, const ref string b) {
     int str1, str2;
     int one=0, two=0;
     int rc;
@@ -86,8 +87,8 @@ int rpmvercmp(const string a, const string b) {
             while(b[two] == '0')
                 two++;
 
-            dig1 = a[one .. str1-one];
-            dig2 = b[two .. str2-two];
+            dig1 = a[one .. str1];
+            dig2 = b[two .. str2];
             /* whichever number has more digits wins */
             if(dig1.length > dig2.length)
                 return 1;
@@ -99,7 +100,7 @@ int rpmvercmp(const string a, const string b) {
         /* segments are alpha or if they are numeric.  don't return  */
         /* if they are equal because there might be more segments to */
         /* compare */
-        rc = strcmp(dig1.ptr, dig2.ptr);
+        rc = strcmp(toStringz(dig1), toStringz(dig2));
         if(rc)
             return (rc < 1 ? -1 : 1);
         /* restore character that was replaced by null above */
